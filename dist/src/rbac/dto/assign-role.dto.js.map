@@ -1,0 +1,1 @@
+{"version":3,"file":"assign-role.dto.js","sourceRoot":"","sources":["../../../../src/rbac/dto/assign-role.dto.ts"],"names":[],"mappings":";;;;;;;;;;;;AAAA,6CAA8C;AAC9C,qDAAyC;AAEzC,MAAa,aAAa;CAQzB;AARD,sCAQC;AALC;IAFC,IAAA,qBAAW,EAAC,EAAE,OAAO,EAAE,WAAW,EAAE,CAAC;IACrC,IAAA,wBAAM,GAAE;;6CACM;AAIf;IAFC,IAAA,qBAAW,EAAC,EAAE,OAAO,EAAE,WAAW,EAAE,CAAC;IACrC,IAAA,wBAAM,GAAE;;6CACM"}

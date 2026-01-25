@@ -1,0 +1,12 @@
+import { CourseStatus } from '@prisma/client';
+export declare class CreateCourseDto {
+    title: string;
+    titleAr?: string;
+    description?: string;
+    descriptionAr?: string;
+    teacherId?: string;
+    price: number;
+    duration?: number;
+    image?: string;
+    status?: CourseStatus;
+}

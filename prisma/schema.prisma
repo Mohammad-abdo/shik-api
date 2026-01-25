@@ -1,0 +1,892 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Attachment {
+  id         String   @id @default(uuid())
+  fileName   String
+  fileUrl    String
+  fileType   String
+  fileSize   Int
+  uploadedBy String
+  createdAt  DateTime @default(now())
+
+  @@map("attachments")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   String?  @db.LongText
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation("UserAuditLogs", fields: [userId], references: [id])
+
+  @@index([userId], map: "audit_logs_userId_fkey")
+  @@map("audit_logs")
+}
+
+model Booking {
+  id          String        @id @default(uuid())
+  studentId   String
+  teacherId   String
+  date        DateTime
+  startTime   String
+  duration    Int
+  status      BookingStatus @default(PENDING)
+  price       Float
+  discount    Float         @default(0)
+  totalPrice  Float
+  notes       String?
+  courseId    String?
+  cancelledAt DateTime?
+  cancelledBy String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  student User     @relation("StudentBookings", fields: [studentId], references: [id])
+  teacher Teacher  @relation("TeacherBookings", fields: [teacherId], references: [id])
+  course  Course?  @relation("CourseBookings", fields: [courseId], references: [id])
+  payment Payment?
+  session Session?
+  review  Review?
+
+  @@index([studentId], map: "bookings_studentId_fkey")
+  @@index([teacherId], map: "bookings_teacherId_fkey")
+  @@map("bookings")
+}
+
+model Content {
+  id              String        @id @default(uuid())
+  teacherId       String
+  title           String
+  description     String?
+  fileUrl         String
+  fileType        String
+  contentType     ContentType
+  status          ContentStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  teacher Teacher @relation("TeacherContent", fields: [teacherId], references: [id])
+
+  @@index([teacherId], map: "content_teacherId_fkey")
+  @@map("content")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      String?          @db.LongText
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  sentById  String?
+
+  user   User  @relation("UserNotifications", fields: [userId], references: [id])
+  sentBy User? @relation("SentNotifications", fields: [sentById], references: [id])
+
+  @@index([sentById], map: "notifications_sentById_fkey")
+  @@index([userId], map: "notifications_userId_fkey")
+  @@map("notifications")
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String?
+  phone     String?
+  code      String
+  type      String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, code])
+  @@index([phone, code])
+  @@map("otps")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  bookingId       String        @unique
+  amount          Float
+  currency        String        @default("USD")
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   String?
+  stripePaymentId String?       @unique
+  stripeIntentId  String?       @unique
+  receiptUrl      String?
+  refundedAt      DateTime?
+  refundAmount    Float?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("payments")
+}
+
+model PayoutRequest {
+  id              String       @id @default(uuid())
+  teacherId       String
+  walletId        String
+  amount          Float
+  status          PayoutStatus @default(PENDING)
+  requestedAt     DateTime     @default(now())
+  approvedAt      DateTime?
+  approvedBy      String?
+  processedAt     DateTime?
+  rejectionReason String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  wallet  TeacherWallet @relation("WalletPayouts", fields: [walletId], references: [id])
+  teacher Teacher       @relation("TeacherPayouts", fields: [teacherId], references: [id])
+
+  @@index([teacherId], map: "payout_requests_teacherId_fkey")
+  @@index([walletId], map: "payout_requests_walletId_fkey")
+  @@map("payout_requests")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  resource    String
+  action      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[] @relation("PermissionRoles")
+
+  @@map("permissions")
+}
+
+model PlatformRevenue {
+  id             String   @id @default(uuid())
+  bookingId      String   @unique
+  amount         Float
+  teacherEarning Float
+  createdAt      DateTime @default(now())
+
+  @@map("platform_revenue")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  bookingId String   @unique
+  studentId String
+  teacherId String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher Teacher @relation("TeacherReviews", fields: [teacherId], references: [id])
+  student User    @relation("StudentReviews", fields: [studentId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([studentId], map: "reviews_studentId_fkey")
+  @@index([teacherId], map: "reviews_teacherId_fkey")
+  @@map("reviews")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation("RolePermissions", fields: [roleId], references: [id])
+  permission Permission @relation("PermissionRoles", fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId], map: "role_permissions_permissionId_fkey")
+  @@map("role_permissions")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles   UserRole[]       @relation("RoleUsers")
+  permissions RolePermission[] @relation("RolePermissions")
+
+  @@map("roles")
+}
+
+model Schedule {
+  id        String   @id @default(uuid())
+  teacherId String
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher Teacher @relation("TeacherSchedules", fields: [teacherId], references: [id])
+
+  @@index([teacherId], map: "schedules_teacherId_fkey")
+  @@map("schedules")
+}
+
+model Session {
+  id           String      @id @default(uuid())
+  bookingId    String      @unique
+  type         SessionType @default(VIDEO)
+  roomId       String      @unique
+  agoraToken   String?
+  startedAt    DateTime?
+  endedAt      DateTime?
+  recordingUrl String?
+  duration     Int?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("sessions")
+}
+
+model TeacherWallet {
+  id             String   @id @default(uuid())
+  teacherId      String   @unique
+  balance        Float    @default(0)
+  pendingBalance Float    @default(0)
+  totalEarned    Float    @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  teacher        Teacher             @relation("TeacherWallet", fields: [teacherId], references: [id])
+  transactions   WalletTransaction[]
+  payoutRequests PayoutRequest[]     @relation("WalletPayouts")
+
+  @@map("teacher_wallets")
+}
+
+model Teacher {
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  bio                  String?
+  bioAr                String?
+  image                String?
+  experience           Int?
+  hourlyRate           Float     @default(0)
+  rating               Float     @default(0)
+  totalReviews         Int       @default(0)
+  isApproved           Boolean   @default(false)
+  approvedAt           DateTime?
+  approvedBy           String?
+  specialties          String?   @db.LongText
+  specialtiesAr        String?   @db.LongText
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  introVideoUrl        String?
+  canIssueCertificates Boolean?  @default(false)
+  readingType          String?
+  readingTypeAr        String?
+  certificates         String?   @db.LongText
+
+  user               User                  @relation("TeacherProfile", fields: [userId], references: [id])
+  bookings           Booking[]             @relation("TeacherBookings")
+  reviews            Review[]              @relation("TeacherReviews")
+  wallet             TeacherWallet?        @relation("TeacherWallet")
+  exams              Exam[]
+  schedules          Schedule[]            @relation("TeacherSchedules")
+  content            Content[]             @relation("TeacherContent")
+  issuedCertificates Certificate[]         @relation("TeacherCertificates")
+  payoutRequests     PayoutRequest[]       @relation("TeacherPayouts")
+  courses            Course[]              @relation("TeacherCourses")
+  subscriptions      TeacherSubscription[] @relation("TeacherSubscriptions")
+
+  @@map("teachers")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user User @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation("RoleUsers", fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId], map: "user_roles_roleId_fkey")
+  @@map("user_roles")
+}
+
+model User {
+  id                  String       @id @default(uuid())
+  email               String       @unique
+  phone               String?      @unique
+  password            String
+  firstName           String
+  firstNameAr         String?
+  lastName            String
+  lastNameAr          String?
+  avatar              String?
+  role                UserRoleEnum @default(STUDENT)
+  status              UserStatus   @default(ACTIVE)
+  language            String       @default("ar")
+  emailVerified       Boolean      @default(false)
+  phoneVerified       Boolean      @default(false)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  currentSurah        String?
+  currentSurahAr      String?
+  memorizationLevel   String?
+  memorizationLevelAr String?
+  totalMemorized      Int?         @default(0)
+  age                 Int?
+  gender              Gender?
+  memorized_parts     Int?         @default(0)
+  parent_phone        String?
+  student_phone       String?
+
+  teacherProfile         Teacher?              @relation("TeacherProfile")
+  studentBookings        Booking[]             @relation("StudentBookings")
+  userRoles              UserRole[]            @relation("UserRoles")
+  notifications          Notification[]        @relation("UserNotifications")
+  sentNotifications      Notification[]        @relation("SentNotifications")
+  studentReviews         Review[]              @relation("StudentReviews")
+  studentExamSubmissions ExamSubmission[]      @relation("StudentExamSubmissions")
+  certificates           Certificate[]         @relation("StudentCertificates")
+  courseEnrollments      CourseEnrollment[]    @relation("StudentCourseEnrollments")
+  studentSubscriptions   StudentSubscription[] @relation("StudentSubscriptions")
+  studentWallet          StudentWallet?        @relation("StudentWallet")
+  videoProgress          VideoProgress[]       @relation("UserVideoProgress")
+  auditLogs              AuditLog[]            @relation("UserAuditLogs")
+
+  @@map("users")
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  walletId    String
+  type        String
+  amount      Float
+  description String
+  bookingId   String?
+  paymentId   String?
+  createdAt   DateTime @default(now())
+
+  wallet TeacherWallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId], map: "wallet_transactions_walletId_fkey")
+  @@map("wallet_transactions")
+}
+
+model Exam {
+  id           String    @id @default(uuid())
+  teacherId    String
+  title        String
+  description  String?
+  duration     Int?
+  startDate    DateTime?
+  endDate      DateTime?
+  isPublished  Boolean   @default(false)
+  totalMarks   Int?      @default(0)
+  passingMarks Int?
+  status       String?   @default("DRAFT")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  teacher     Teacher          @relation(fields: [teacherId], references: [id])
+  questions   Question[]
+  submissions ExamSubmission[]
+
+  @@index([teacherId], map: "exams_teacherId_fkey")
+  @@map("exams")
+}
+
+model Course {
+  id                  String       @id @default(uuid())
+  title               String
+  titleAr             String?
+  description         String?      @db.LongText
+  descriptionAr       String?      @db.LongText
+  teacherId           String?
+  price               Float        @default(0)
+  duration            Int?
+  image               String?
+  status              CourseStatus @default(DRAFT)
+  createdBy           String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  category            String?
+  fullDescription     String?      @db.LongText
+  fullDescriptionAr   String?      @db.LongText
+  introVideoThumbnail String?
+  introVideoUrl       String?
+  isFeatured          Boolean      @default(false)
+  level               CourseLevel? @default(BEGINNER)
+  rating              Float        @default(0)
+  totalLessons        Int          @default(0)
+  totalReviews        Int          @default(0)
+  totalVideos         Int          @default(0)
+
+  teacher       Teacher?           @relation("TeacherCourses", fields: [teacherId], references: [id])
+  enrollments   CourseEnrollment[] @relation("CourseEnrollments")
+  lessons       Lesson[]           @relation("CourseLessons")
+  videoProgress VideoProgress[]    @relation("CourseVideoProgress")
+  bookings      Booking[]          @relation("CourseBookings")
+
+  @@index([teacherId], map: "courses_teacherId_fkey")
+  @@index([status])
+  @@map("courses")
+}
+
+model Lesson {
+  id              String   @id @default(uuid())
+  courseId        String
+  title           String
+  titleAr         String?
+  description     String?  @db.LongText
+  descriptionAr   String?  @db.LongText
+  order           Int      @default(0)
+  durationMinutes Int      @default(0)
+  isFree          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course        Course          @relation("CourseLessons", fields: [courseId], references: [id], onDelete: Cascade)
+  videos        Video[]         @relation("LessonVideos")
+  videoProgress VideoProgress[] @relation("LessonVideoProgress")
+
+  @@index([courseId])
+  @@map("lessons")
+}
+
+model Video {
+  id              String   @id @default(uuid())
+  lessonId        String
+  title           String
+  titleAr         String?
+  description     String?  @db.LongText
+  descriptionAr   String?  @db.LongText
+  videoUrl        String
+  thumbnailUrl    String?
+  durationSeconds Int      @default(0)
+  order           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lesson        Lesson          @relation("LessonVideos", fields: [lessonId], references: [id], onDelete: Cascade)
+  videoProgress VideoProgress[] @relation("VideoProgress")
+
+  @@index([lessonId])
+  @@map("videos")
+}
+
+model VideoProgress {
+  id                   String      @id @default(uuid())
+  userId               String
+  videoId              String
+  lessonId             String
+  courseId             String
+  status               VideoStatus @default(WATCHING)
+  watchProgress        Int         @default(0)
+  watchDurationSeconds Int         @default(0)
+  startedAt            DateTime?   @default(now())
+  completedAt          DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  user   User   @relation("UserVideoProgress", fields: [userId], references: [id], onDelete: Cascade)
+  video  Video  @relation("VideoProgress", fields: [videoId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation("LessonVideoProgress", fields: [lessonId], references: [id], onDelete: Cascade)
+  course Course @relation("CourseVideoProgress", fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, courseId])
+  @@map("video_progress")
+}
+
+model CourseEnrollment {
+  id          String           @id @default(uuid())
+  courseId    String
+  studentId   String
+  status      EnrollmentStatus @default(ACTIVE)
+  enrolledAt  DateTime         @default(now())
+  completedAt DateTime?
+  progress    Float            @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  course  Course @relation("CourseEnrollments", fields: [courseId], references: [id], onDelete: Cascade)
+  student User   @relation("StudentCourseEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, studentId])
+  @@index([courseId], map: "course_enrollments_courseId_fkey")
+  @@index([studentId], map: "course_enrollments_studentId_fkey")
+  @@map("course_enrollments")
+}
+
+model Question {
+  id            String   @id @default(uuid())
+  examId        String
+  type          String
+  question      String
+  questionText  String?
+  questionType  String?
+  options       String?  @db.LongText
+  correctAnswer String?
+  points        Int      @default(1)
+  marks         Int?
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  exam    Exam     @relation(fields: [examId], references: [id])
+  answers Answer[]
+
+  @@index([examId], map: "questions_examId_fkey")
+  @@map("questions")
+}
+
+model ExamSubmission {
+  id            String    @id @default(uuid())
+  examId        String
+  studentId     String
+  status        String    @default("PENDING")
+  score         Float?
+  totalPoints   Float?
+  obtainedMarks Float?
+  timeSpent     Int?
+  submittedAt   DateTime?
+  gradedAt      DateTime?
+  feedback      String?   @db.LongText
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  exam    Exam     @relation(fields: [examId], references: [id])
+  student User     @relation("StudentExamSubmissions", fields: [studentId], references: [id])
+  answers Answer[]
+
+  @@unique([examId, studentId])
+  @@index([examId], map: "exam_submissions_examId_fkey")
+  @@index([studentId], map: "exam_submissions_studentId_fkey")
+  @@map("exam_submissions")
+}
+
+model Answer {
+  id            String   @id @default(uuid())
+  submissionId  String
+  questionId    String
+  answerText    String?  @db.LongText
+  isCorrect     Boolean?
+  pointsAwarded Float?
+  marksObtained Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  submission ExamSubmission @relation(fields: [submissionId], references: [id])
+  question   Question       @relation(fields: [questionId], references: [id])
+
+  @@index([submissionId], map: "answers_submissionId_fkey")
+  @@index([questionId], map: "answers_questionId_fkey")
+  @@map("answers")
+}
+
+model Certificate {
+  id               String    @id @default(uuid())
+  studentId        String
+  teacherId        String
+  examId           String?
+  title            String
+  description      String?   @db.LongText
+  pdfUrl           String?
+  issuedAt         DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  status           String?   @default("ACTIVE")
+  type             String?
+  revocationReason String?   @db.LongText
+  revokedAt        DateTime?
+
+  student User    @relation("StudentCertificates", fields: [studentId], references: [id])
+  teacher Teacher @relation("TeacherCertificates", fields: [teacherId], references: [id])
+
+  @@index([studentId], map: "certificates_studentId_fkey")
+  @@index([teacherId], map: "certificates_teacherId_fkey")
+  @@map("certificates")
+}
+
+model SubscriptionPackage {
+  id            String   @id @default(uuid())
+  name          String
+  nameAr        String?
+  description   String?  @db.LongText
+  descriptionAr String?  @db.LongText
+  price         Float
+  duration      Int      @default(30)
+  features      String?  @db.LongText
+  featuresAr    String?  @db.LongText
+  maxStudents   Int?
+  maxCourses    Int?
+  isActive      Boolean  @default(true)
+  isPopular     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions TeacherSubscription[] @relation("PackageSubscriptions")
+
+  @@map("subscription_packages")
+}
+
+model TeacherSubscription {
+  id                   String             @id @default(uuid())
+  teacherId            String
+  packageId            String
+  status               SubscriptionStatus @default(ACTIVE)
+  startDate            DateTime
+  endDate              DateTime
+  autoRenew            Boolean            @default(false)
+  paymentId            String?
+  stripeSubscriptionId String?            @unique
+  cancelledAt          DateTime?
+  cancelledBy          String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  teacher Teacher             @relation("TeacherSubscriptions", fields: [teacherId], references: [id], onDelete: Cascade)
+  package SubscriptionPackage @relation("PackageSubscriptions", fields: [packageId], references: [id])
+
+  @@index([teacherId], map: "teacher_subscriptions_teacherId_fkey")
+  @@index([packageId], map: "teacher_subscriptions_packageId_fkey")
+  @@index([status])
+  @@map("teacher_subscriptions")
+}
+
+model StudentSubscriptionPackage {
+  id            String   @id @default(uuid())
+  name          String
+  nameAr        String?
+  description   String?  @db.LongText
+  descriptionAr String?  @db.LongText
+  price         Float
+  duration      Int      @default(30)
+  features      String?  @db.LongText
+  featuresAr    String?  @db.LongText
+  maxBookings   Int?
+  maxCourses    Int?
+  isActive      Boolean  @default(true)
+  isPopular     Boolean  @default(false)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions StudentSubscription[] @relation("StudentPackageSubscriptions")
+
+  @@map("student_subscription_packages")
+}
+
+model StudentSubscription {
+  id                   String             @id @default(uuid())
+  studentId            String
+  packageId            String
+  status               SubscriptionStatus @default(ACTIVE)
+  startDate            DateTime
+  endDate              DateTime
+  autoRenew            Boolean            @default(false)
+  paymentId            String?
+  stripeSubscriptionId String?            @unique
+  cancelledAt          DateTime?
+  cancelledBy          String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  student User                       @relation("StudentSubscriptions", fields: [studentId], references: [id], onDelete: Cascade)
+  package StudentSubscriptionPackage @relation("StudentPackageSubscriptions", fields: [packageId], references: [id])
+
+  @@index([studentId], map: "student_subscriptions_studentId_fkey")
+  @@index([packageId], map: "student_subscriptions_packageId_fkey")
+  @@index([status])
+  @@map("student_subscriptions")
+}
+
+model StudentWallet {
+  id             String   @id @default(uuid())
+  studentId      String   @unique
+  balance        Float    @default(0)
+  totalDeposited Float    @default(0)
+  totalSpent     Float    @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  student      User                       @relation("StudentWallet", fields: [studentId], references: [id], onDelete: Cascade)
+  transactions StudentWalletTransaction[] @relation("StudentWalletTransactions")
+
+  @@map("student_wallets")
+}
+
+model StudentWalletTransaction {
+  id             String   @id @default(uuid())
+  walletId       String
+  type           String
+  amount         Float
+  description    String
+  bookingId      String?
+  paymentId      String?
+  subscriptionId String?
+  processedBy    String?
+  createdAt      DateTime @default(now())
+
+  wallet StudentWallet @relation("StudentWalletTransactions", fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId], map: "student_wallet_transactions_walletId_fkey")
+  @@map("student_wallet_transactions")
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_REJECTED
+  BOOKING_REQUEST
+  SESSION_REMINDER
+  PAYMENT_RECEIVED
+  TEACHER_APPROVED
+  REVIEW_RECEIVED
+
+  @@map("notifications_type")
+}
+
+enum SessionType {
+  VIDEO
+  VOICE
+
+  @@map("sessions_type")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+
+  @@map("payments_status")
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELLED
+
+  @@map("payout_requests_status")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  REJECTED
+
+  @@map("bookings_status")
+}
+
+enum ContentType {
+  VIDEO
+  DOCUMENT
+  AUDIO
+  IMAGE
+
+  @@map("content_contentType")
+}
+
+enum ContentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("content_status")
+}
+
+enum UserRoleEnum {
+  STUDENT
+  TEACHER
+  ADMIN
+  SUPER_ADMIN
+  FINANCE_ADMIN
+  CONTENT_ADMIN
+  SUPPORT_ADMIN
+
+  @@map("users_role")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+
+  @@map("users_status")
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("course_status")
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  SUSPENDED
+
+  @@map("enrollment_status")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+  PENDING
+
+  @@map("subscription_status")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum VideoStatus {
+  WATCHING
+  COMPLETED
+}

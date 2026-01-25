@@ -1,0 +1,262 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateStudentPackageDto, UpdateStudentPackageDto, SubscribeStudentDto } from './dto';
+import { SubscriptionStatus } from '@prisma/client';
+export declare class StudentSubscriptionService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    createPackage(dto: CreateStudentPackageDto, adminId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        isActive: boolean;
+        duration: number;
+        price: number;
+        description: string | null;
+        nameAr: string | null;
+        descriptionAr: string | null;
+        features: string | null;
+        featuresAr: string | null;
+        maxCourses: number | null;
+        isPopular: boolean;
+        maxBookings: number | null;
+        createdBy: string | null;
+    }>;
+    getAllPackages(activeOnly?: boolean): Promise<{
+        features: any;
+        featuresAr: any;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        isActive: boolean;
+        duration: number;
+        price: number;
+        description: string | null;
+        nameAr: string | null;
+        descriptionAr: string | null;
+        maxCourses: number | null;
+        isPopular: boolean;
+        maxBookings: number | null;
+        createdBy: string | null;
+    }[]>;
+    getPackageById(id: string): Promise<{
+        _count: {
+            subscriptions: number;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        isActive: boolean;
+        duration: number;
+        price: number;
+        description: string | null;
+        nameAr: string | null;
+        descriptionAr: string | null;
+        features: string | null;
+        featuresAr: string | null;
+        maxCourses: number | null;
+        isPopular: boolean;
+        maxBookings: number | null;
+        createdBy: string | null;
+    }>;
+    updatePackage(id: string, dto: UpdateStudentPackageDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        isActive: boolean;
+        duration: number;
+        price: number;
+        description: string | null;
+        nameAr: string | null;
+        descriptionAr: string | null;
+        features: string | null;
+        featuresAr: string | null;
+        maxCourses: number | null;
+        isPopular: boolean;
+        maxBookings: number | null;
+        createdBy: string | null;
+    }>;
+    deletePackage(id: string): Promise<{
+        message: string;
+    }>;
+    subscribe(studentId: string, dto: SubscribeStudentDto): Promise<{
+        student: {
+            id: string;
+            email: string;
+            firstName: string;
+            firstNameAr: string;
+            lastName: string;
+            lastNameAr: string;
+        };
+        package: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            isActive: boolean;
+            duration: number;
+            price: number;
+            description: string | null;
+            nameAr: string | null;
+            descriptionAr: string | null;
+            features: string | null;
+            featuresAr: string | null;
+            maxCourses: number | null;
+            isPopular: boolean;
+            maxBookings: number | null;
+            createdBy: string | null;
+        };
+    } & {
+        id: string;
+        status: import(".prisma/client").$Enums.SubscriptionStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        studentId: string;
+        cancelledAt: Date | null;
+        cancelledBy: string | null;
+        startDate: Date;
+        endDate: Date;
+        autoRenew: boolean;
+        paymentId: string | null;
+        stripeSubscriptionId: string | null;
+        packageId: string;
+    }>;
+    getStudentSubscriptions(studentId: string): Promise<{
+        package: {
+            features: any;
+            featuresAr: any;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            isActive: boolean;
+            duration: number;
+            price: number;
+            description: string | null;
+            nameAr: string | null;
+            descriptionAr: string | null;
+            maxCourses: number | null;
+            isPopular: boolean;
+            maxBookings: number | null;
+            createdBy: string | null;
+        };
+        id: string;
+        status: import(".prisma/client").$Enums.SubscriptionStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        studentId: string;
+        cancelledAt: Date | null;
+        cancelledBy: string | null;
+        startDate: Date;
+        endDate: Date;
+        autoRenew: boolean;
+        paymentId: string | null;
+        stripeSubscriptionId: string | null;
+        packageId: string;
+    }[]>;
+    getActiveSubscription(studentId: string): Promise<{
+        package: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            isActive: boolean;
+            duration: number;
+            price: number;
+            description: string | null;
+            nameAr: string | null;
+            descriptionAr: string | null;
+            features: string | null;
+            featuresAr: string | null;
+            maxCourses: number | null;
+            isPopular: boolean;
+            maxBookings: number | null;
+            createdBy: string | null;
+        };
+    } & {
+        id: string;
+        status: import(".prisma/client").$Enums.SubscriptionStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        studentId: string;
+        cancelledAt: Date | null;
+        cancelledBy: string | null;
+        startDate: Date;
+        endDate: Date;
+        autoRenew: boolean;
+        paymentId: string | null;
+        stripeSubscriptionId: string | null;
+        packageId: string;
+    }>;
+    cancelSubscription(subscriptionId: string, studentId: string): Promise<{
+        id: string;
+        status: import(".prisma/client").$Enums.SubscriptionStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        studentId: string;
+        cancelledAt: Date | null;
+        cancelledBy: string | null;
+        startDate: Date;
+        endDate: Date;
+        autoRenew: boolean;
+        paymentId: string | null;
+        stripeSubscriptionId: string | null;
+        packageId: string;
+    }>;
+    getAllSubscriptions(page?: number, limit?: number, status?: SubscriptionStatus): Promise<{
+        subscriptions: {
+            package: {
+                features: any;
+                featuresAr: any;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                isActive: boolean;
+                duration: number;
+                price: number;
+                description: string | null;
+                nameAr: string | null;
+                descriptionAr: string | null;
+                maxCourses: number | null;
+                isPopular: boolean;
+                maxBookings: number | null;
+                createdBy: string | null;
+            };
+            student: {
+                id: string;
+                email: string;
+                firstName: string;
+                firstNameAr: string;
+                lastName: string;
+                lastNameAr: string;
+            };
+            id: string;
+            status: import(".prisma/client").$Enums.SubscriptionStatus;
+            createdAt: Date;
+            updatedAt: Date;
+            studentId: string;
+            cancelledAt: Date | null;
+            cancelledBy: string | null;
+            startDate: Date;
+            endDate: Date;
+            autoRenew: boolean;
+            paymentId: string | null;
+            stripeSubscriptionId: string | null;
+            packageId: string;
+        }[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+        };
+    }>;
+    checkExpiredSubscriptions(): Promise<{
+        updated: number;
+    }>;
+}

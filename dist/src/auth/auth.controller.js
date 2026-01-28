@@ -27,25 +27,7 @@ let AuthController = class AuthController {
         return this.authService.signUp(dto);
     }
     async login(dto) {
-        try {
-            return await this.authService.login(dto);
-        }
-        catch (error) {
-            console.error('Login error details:', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name,
-                response: error.response,
-            });
-            if (error.status || error.statusCode) {
-                throw error;
-            }
-            throw new common_1.BadRequestException({
-                statusCode: 500,
-                message: 'Internal server error during login',
-                error: error.message || 'Unknown error',
-            });
-        }
+        return this.authService.login(dto);
     }
     async verifyEmail(dto) {
         return this.authService.verifyEmailOtp(dto);

@@ -43,6 +43,32 @@ export class FileUploadController {
     const url = await this.fileUploadService.uploadFile(file, 'avatars');
     return { url };
   }
+
+  @Post('upload/video')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload a video file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Video uploaded successfully' })
+  async uploadVideo(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    const url = await this.fileUploadService.uploadFile(file, 'videos', true);
+    return { url };
+  }
+
+  @Post('upload/image')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload an image file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Image uploaded successfully' })
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    const url = await this.fileUploadService.uploadFile(file, 'images');
+    return { url };
+  }
 }
 
 

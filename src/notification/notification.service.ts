@@ -23,8 +23,8 @@ export class NotificationService {
           // Add other Firebase credentials if needed
         }),
       });
-    } catch (error) {
-      console.warn('Firebase not configured, push notifications disabled');
+    } catch {
+      this.logger.warn('Firebase not configured, push notifications disabled');
     }
 
     // Initialize email transporter
@@ -148,7 +148,7 @@ export class NotificationService {
       //   });
       // }
     } catch (error) {
-      console.error('Error sending push notification:', error);
+      this.logger.warn('Error sending push notification', error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -175,7 +175,7 @@ export class NotificationService {
         `,
       });
     } catch (error) {
-      console.error('Error sending email notification:', error);
+      this.logger.warn('Error sending email notification', error instanceof Error ? error.message : String(error));
     }
   }
 

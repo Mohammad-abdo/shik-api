@@ -73,21 +73,28 @@ export class AdminController {
   }
 
   @Get('bookings')
-  @ApiOperation({ summary: 'Get all bookings' })
+  @Permissions('bookings.manage')
+  @ApiOperation({ summary: 'Get all bookings (with optional filters)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'teacherId', required: false, type: String })
+  @ApiQuery({ name: 'studentId', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Bookings retrieved successfully' })
   async getAllBookings(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('status') status?: string,
+    @Query('teacherId') teacherId?: string,
+    @Query('studentId') studentId?: string,
   ) {
-    return this.adminService.getAllBookings(
-      page ? parseInt(page) : 1,
-      limit ? parseInt(limit) : 20,
+    return this.adminService.getAllBookingsWithFilters({
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 20,
       status,
-    );
+      teacherId,
+      studentId,
+    });
   }
 
   @Get('payments')
@@ -149,31 +156,6 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   async deleteUser(@Param('id') id: string) {
     return this.adminService.deleteUser(id);
-  }
-
-  @Get('bookings')
-  @Permissions('bookings.manage')
-  @ApiOperation({ summary: 'Get all bookings with filters' })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
-  @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'teacherId', required: false })
-  @ApiQuery({ name: 'studentId', required: false })
-  @ApiResponse({ status: 200, description: 'Bookings retrieved successfully' })
-  async getAllBookingsWithFilters(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('status') status?: string,
-    @Query('teacherId') teacherId?: string,
-    @Query('studentId') studentId?: string,
-  ) {
-    return this.adminService.getAllBookingsWithFilters({
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 20,
-      status,
-      teacherId,
-      studentId,
-    });
   }
 
   @Post('bookings/:id/force-cancel')

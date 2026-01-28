@@ -37,6 +37,7 @@ export declare class AdminController {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -50,7 +51,6 @@ export declare class AdminController {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -91,6 +91,7 @@ export declare class AdminController {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -104,7 +105,6 @@ export declare class AdminController {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -116,10 +116,10 @@ export declare class AdminController {
             status: import(".prisma/client").$Enums.CourseStatus;
             createdAt: Date;
             updatedAt: Date;
+            introVideoUrl: string | null;
             image: string | null;
             rating: number;
             totalReviews: number;
-            introVideoUrl: string | null;
             teacherId: string | null;
             duration: number | null;
             price: number;
@@ -151,6 +151,7 @@ export declare class AdminController {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -164,7 +165,6 @@ export declare class AdminController {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -254,6 +254,7 @@ export declare class AdminController {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -267,7 +268,6 @@ export declare class AdminController {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         })[];
@@ -278,16 +278,14 @@ export declare class AdminController {
             totalPages: number;
         };
     }>;
-    getAllBookings(page?: string, limit?: string, status?: string): Promise<{
+    getAllBookings(page?: string, limit?: string, status?: string, teacherId?: string, studentId?: string): Promise<{
         bookings: ({
             teacher: {
                 user: {
                     id: string;
                     email: string;
                     firstName: string;
-                    firstNameAr: string;
                     lastName: string;
-                    lastNameAr: string;
                 };
             } & {
                 id: string;
@@ -295,6 +293,7 @@ export declare class AdminController {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -308,7 +307,6 @@ export declare class AdminController {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -316,9 +314,7 @@ export declare class AdminController {
                 id: string;
                 email: string;
                 firstName: string;
-                firstNameAr: string;
                 lastName: string;
-                lastNameAr: string;
             };
             payment: {
                 id: string;
@@ -334,6 +330,19 @@ export declare class AdminController {
                 receiptUrl: string | null;
                 refundedAt: Date | null;
                 refundAmount: number | null;
+            };
+            session: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                duration: number | null;
+                type: import(".prisma/client").$Enums.SessionType;
+                bookingId: string;
+                startedAt: Date | null;
+                roomId: string;
+                agoraToken: string | null;
+                endedAt: Date | null;
+                recordingUrl: string | null;
             };
         } & {
             id: string;
@@ -377,6 +386,7 @@ export declare class AdminController {
                     updatedAt: Date;
                     certificates: string | null;
                     canIssueCertificates: boolean | null;
+                    introVideoUrl: string | null;
                     specialties: string | null;
                     specialtiesAr: string | null;
                     userId: string;
@@ -390,7 +400,6 @@ export declare class AdminController {
                     isApproved: boolean;
                     approvedAt: Date | null;
                     approvedBy: string | null;
-                    introVideoUrl: string | null;
                     readingType: string | null;
                     readingTypeAr: string | null;
                 };
@@ -558,96 +567,6 @@ export declare class AdminController {
         parent_phone: string | null;
         student_phone: string | null;
     }>;
-    getAllBookingsWithFilters(page?: string, limit?: string, status?: string, teacherId?: string, studentId?: string): Promise<{
-        bookings: ({
-            teacher: {
-                user: {
-                    id: string;
-                    email: string;
-                    firstName: string;
-                    lastName: string;
-                };
-            } & {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                certificates: string | null;
-                canIssueCertificates: boolean | null;
-                specialties: string | null;
-                specialtiesAr: string | null;
-                userId: string;
-                bio: string | null;
-                bioAr: string | null;
-                image: string | null;
-                experience: number | null;
-                hourlyRate: number;
-                rating: number;
-                totalReviews: number;
-                isApproved: boolean;
-                approvedAt: Date | null;
-                approvedBy: string | null;
-                introVideoUrl: string | null;
-                readingType: string | null;
-                readingTypeAr: string | null;
-            };
-            student: {
-                id: string;
-                email: string;
-                firstName: string;
-                lastName: string;
-            };
-            payment: {
-                id: string;
-                status: import(".prisma/client").$Enums.PaymentStatus;
-                createdAt: Date;
-                updatedAt: Date;
-                bookingId: string;
-                amount: number;
-                currency: string;
-                paymentMethod: string | null;
-                stripePaymentId: string | null;
-                stripeIntentId: string | null;
-                receiptUrl: string | null;
-                refundedAt: Date | null;
-                refundAmount: number | null;
-            };
-            session: {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                duration: number | null;
-                type: import(".prisma/client").$Enums.SessionType;
-                bookingId: string;
-                startedAt: Date | null;
-                roomId: string;
-                agoraToken: string | null;
-                endedAt: Date | null;
-                recordingUrl: string | null;
-            };
-        } & {
-            id: string;
-            status: import(".prisma/client").$Enums.BookingStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            teacherId: string;
-            studentId: string;
-            date: Date;
-            startTime: string;
-            duration: number;
-            price: number;
-            discount: number;
-            totalPrice: number;
-            notes: string | null;
-            cancelledAt: Date | null;
-            cancelledBy: string | null;
-        })[];
-        pagination: {
-            page: number;
-            limit: number;
-            total: number;
-            totalPages: number;
-        };
-    }>;
     forceCancelBooking(id: string, user: any): Promise<{
         id: string;
         status: import(".prisma/client").$Enums.BookingStatus;
@@ -748,6 +667,7 @@ export declare class AdminController {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -761,7 +681,6 @@ export declare class AdminController {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         })[];
@@ -791,6 +710,7 @@ export declare class AdminController {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -804,7 +724,6 @@ export declare class AdminController {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         })[];
@@ -1057,6 +976,7 @@ export declare class AdminController {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1070,7 +990,6 @@ export declare class AdminController {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -1189,6 +1108,7 @@ export declare class AdminController {
         updatedAt: Date;
         certificates: string | null;
         canIssueCertificates: boolean | null;
+        introVideoUrl: string | null;
         specialties: string | null;
         specialtiesAr: string | null;
         userId: string;
@@ -1202,7 +1122,6 @@ export declare class AdminController {
         isApproved: boolean;
         approvedAt: Date | null;
         approvedBy: string | null;
-        introVideoUrl: string | null;
         readingType: string | null;
         readingTypeAr: string | null;
     }>;
@@ -1330,6 +1249,7 @@ export declare class AdminController {
         updatedAt: Date;
         certificates: string | null;
         canIssueCertificates: boolean | null;
+        introVideoUrl: string | null;
         specialties: string | null;
         specialtiesAr: string | null;
         userId: string;
@@ -1343,7 +1263,6 @@ export declare class AdminController {
         isApproved: boolean;
         approvedAt: Date | null;
         approvedBy: string | null;
-        introVideoUrl: string | null;
         readingType: string | null;
         readingTypeAr: string | null;
     }>;
@@ -1364,6 +1283,7 @@ export declare class AdminController {
         updatedAt: Date;
         certificates: string | null;
         canIssueCertificates: boolean | null;
+        introVideoUrl: string | null;
         specialties: string | null;
         specialtiesAr: string | null;
         userId: string;
@@ -1377,7 +1297,6 @@ export declare class AdminController {
         isApproved: boolean;
         approvedAt: Date | null;
         approvedBy: string | null;
-        introVideoUrl: string | null;
         readingType: string | null;
         readingTypeAr: string | null;
     }>;
@@ -1414,6 +1333,7 @@ export declare class AdminController {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -1427,7 +1347,6 @@ export declare class AdminController {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -1495,6 +1414,7 @@ export declare class AdminController {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1508,7 +1428,6 @@ export declare class AdminController {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -1563,6 +1482,7 @@ export declare class AdminController {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1576,7 +1496,6 @@ export declare class AdminController {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -1608,6 +1527,7 @@ export declare class AdminController {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1621,7 +1541,6 @@ export declare class AdminController {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -1653,6 +1572,7 @@ export declare class AdminController {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1666,7 +1586,6 @@ export declare class AdminController {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };

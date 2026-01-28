@@ -65,6 +65,18 @@ __decorate([
     __metadata("design:type", String)
 ], CreateCourseDto.prototype, "image", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Intro video URL for the course' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateCourseDto.prototype, "introVideoUrl", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Intro video thumbnail URL' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateCourseDto.prototype, "introVideoThumbnail", void 0);
+__decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Course status', enum: client_1.CourseStatus, default: client_1.CourseStatus.DRAFT }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.CourseStatus),

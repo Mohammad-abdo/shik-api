@@ -4,6 +4,8 @@ const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const app_module_1 = require("./app.module");
+const response_transform_interceptor_1 = require("./common/interceptors/response-transform.interceptor");
+const http_exception_filter_1 = require("./common/filters/http-exception.filter");
 process.on('uncaughtException', (error) => {
     common_1.Logger.error('Uncaught Exception:', error);
 });
@@ -33,6 +35,8 @@ async function bootstrap() {
             },
         }));
         app.setGlobalPrefix('api');
+        app.useGlobalInterceptors(new response_transform_interceptor_1.ResponseTransformInterceptor());
+        app.useGlobalFilters(new http_exception_filter_1.AllExceptionsFilter());
         const config = new swagger_1.DocumentBuilder()
             .setTitle('Shaykhi API')
             .setDescription('Quran teaching and recitation booking platform API')

@@ -61,7 +61,7 @@ __decorate([
     __metadata("design:type", String)
 ], CreateTeacherDto.prototype, "bio", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'معلم قرآن ذو خبرة' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'شيخ قرآن ذو خبرة' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)

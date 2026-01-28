@@ -9,6 +9,7 @@ export declare class AdminService {
     private auditService;
     private notificationService;
     private walletService;
+    private readonly logger;
     constructor(prisma: PrismaService, auditService: AuditService, notificationService: NotificationService, walletService: WalletService);
     getDashboardStats(): Promise<{
         stats: {
@@ -42,6 +43,7 @@ export declare class AdminService {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -55,7 +57,6 @@ export declare class AdminService {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -96,6 +97,7 @@ export declare class AdminService {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -109,7 +111,6 @@ export declare class AdminService {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -121,10 +122,10 @@ export declare class AdminService {
             status: import(".prisma/client").$Enums.CourseStatus;
             createdAt: Date;
             updatedAt: Date;
+            introVideoUrl: string | null;
             image: string | null;
             rating: number;
             totalReviews: number;
-            introVideoUrl: string | null;
             teacherId: string | null;
             duration: number | null;
             price: number;
@@ -156,6 +157,7 @@ export declare class AdminService {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -169,7 +171,6 @@ export declare class AdminService {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -257,6 +258,7 @@ export declare class AdminService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -270,7 +272,6 @@ export declare class AdminService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         })[];
@@ -298,6 +299,7 @@ export declare class AdminService {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -311,7 +313,6 @@ export declare class AdminService {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -380,6 +381,7 @@ export declare class AdminService {
                     updatedAt: Date;
                     certificates: string | null;
                     canIssueCertificates: boolean | null;
+                    introVideoUrl: string | null;
                     specialties: string | null;
                     specialtiesAr: string | null;
                     userId: string;
@@ -393,7 +395,6 @@ export declare class AdminService {
                     isApproved: boolean;
                     approvedAt: Date | null;
                     approvedBy: string | null;
-                    introVideoUrl: string | null;
                     readingType: string | null;
                     readingTypeAr: string | null;
                 };
@@ -565,6 +566,7 @@ export declare class AdminService {
         updatedAt: Date;
         certificates: string | null;
         canIssueCertificates: boolean | null;
+        introVideoUrl: string | null;
         specialties: string | null;
         specialtiesAr: string | null;
         userId: string;
@@ -578,7 +580,6 @@ export declare class AdminService {
         isApproved: boolean;
         approvedAt: Date | null;
         approvedBy: string | null;
-        introVideoUrl: string | null;
         readingType: string | null;
         readingTypeAr: string | null;
     }>;
@@ -654,6 +655,7 @@ export declare class AdminService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -667,7 +669,6 @@ export declare class AdminService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -786,6 +787,7 @@ export declare class AdminService {
         updatedAt: Date;
         certificates: string | null;
         canIssueCertificates: boolean | null;
+        introVideoUrl: string | null;
         specialties: string | null;
         specialtiesAr: string | null;
         userId: string;
@@ -799,7 +801,6 @@ export declare class AdminService {
         isApproved: boolean;
         approvedAt: Date | null;
         approvedBy: string | null;
-        introVideoUrl: string | null;
         readingType: string | null;
         readingTypeAr: string | null;
     }>;
@@ -927,6 +928,7 @@ export declare class AdminService {
         updatedAt: Date;
         certificates: string | null;
         canIssueCertificates: boolean | null;
+        introVideoUrl: string | null;
         specialties: string | null;
         specialtiesAr: string | null;
         userId: string;
@@ -940,7 +942,6 @@ export declare class AdminService {
         isApproved: boolean;
         approvedAt: Date | null;
         approvedBy: string | null;
-        introVideoUrl: string | null;
         readingType: string | null;
         readingTypeAr: string | null;
     }>;
@@ -977,6 +978,7 @@ export declare class AdminService {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -990,7 +992,6 @@ export declare class AdminService {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -1058,6 +1059,7 @@ export declare class AdminService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1071,7 +1073,6 @@ export declare class AdminService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -1122,6 +1123,7 @@ export declare class AdminService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1135,7 +1137,6 @@ export declare class AdminService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -1167,6 +1168,7 @@ export declare class AdminService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1180,7 +1182,6 @@ export declare class AdminService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -1212,6 +1213,7 @@ export declare class AdminService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1225,7 +1227,6 @@ export declare class AdminService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -1351,6 +1352,7 @@ export declare class AdminService {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -1364,7 +1366,6 @@ export declare class AdminService {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -1530,6 +1531,7 @@ export declare class AdminService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1543,7 +1545,6 @@ export declare class AdminService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         })[];
@@ -1573,6 +1574,7 @@ export declare class AdminService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -1586,7 +1588,6 @@ export declare class AdminService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         })[];

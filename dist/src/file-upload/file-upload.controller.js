@@ -36,6 +36,20 @@ let FileUploadController = class FileUploadController {
         const url = await this.fileUploadService.uploadFile(file, 'avatars');
         return { url };
     }
+    async uploadVideo(file) {
+        if (!file) {
+            throw new common_1.BadRequestException('No file provided');
+        }
+        const url = await this.fileUploadService.uploadFile(file, 'videos', true);
+        return { url };
+    }
+    async uploadImage(file) {
+        if (!file) {
+            throw new common_1.BadRequestException('No file provided');
+        }
+        const url = await this.fileUploadService.uploadFile(file, 'images');
+        return { url };
+    }
 };
 exports.FileUploadController = FileUploadController;
 __decorate([
@@ -60,6 +74,28 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], FileUploadController.prototype, "uploadAvatar", null);
+__decorate([
+    (0, common_1.Post)('upload/video'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload a video file' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Video uploaded successfully' }),
+    __param(0, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], FileUploadController.prototype, "uploadVideo", null);
+__decorate([
+    (0, common_1.Post)('upload/image'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload an image file' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Image uploaded successfully' }),
+    __param(0, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], FileUploadController.prototype, "uploadImage", null);
 exports.FileUploadController = FileUploadController = __decorate([
     (0, swagger_1.ApiTags)('files'),
     (0, common_1.Controller)('files'),

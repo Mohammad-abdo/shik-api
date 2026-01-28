@@ -8,5 +8,7 @@ export declare class CreateCourseDto {
     price: number;
     duration?: number;
     image?: string;
+    introVideoUrl?: string;
+    introVideoThumbnail?: string;
     status?: CourseStatus;
 }

@@ -1,4 +1,5 @@
 # compiled output
+/dist
 /node_modules
 
 # Logs
@@ -34,10 +35,12 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 # Environment
+.env
+.env.local
+.env.*.local
 
-
-
-
+# Prisma
+prisma/migrations
 
 
 

@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AdminService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminService = void 0;
 const common_1 = require("@nestjs/common");
@@ -17,12 +18,13 @@ const notification_service_1 = require("../notification/notification.service");
 const wallet_service_1 = require("../finance/wallet.service");
 const client_1 = require("@prisma/client");
 const bcrypt = require("bcrypt");
-let AdminService = class AdminService {
+let AdminService = AdminService_1 = class AdminService {
     constructor(prisma, auditService, notificationService, walletService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.notificationService = notificationService;
         this.walletService = walletService;
+        this.logger = new common_1.Logger(AdminService_1.name);
     }
     async getDashboardStats() {
         const [totalUsers, totalTeachers, pendingTeachers, totalBookings, completedBookings, totalRevenue, recentBookings, totalCourses, publishedCourses, totalCourseEnrollments, totalTeacherSubscriptions, activeTeacherSubscriptions, totalStudentSubscriptions, activeStudentSubscriptions, totalStudentWallets, studentWalletsBalance, recentCourses, recentSubscriptions,] = await Promise.all([
@@ -207,7 +209,7 @@ let AdminService = class AdminService {
             };
         }
         catch (error) {
-            console.error('Error in getAllUsers:', error);
+            this.logger.error('Error in getAllUsers', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch users: ${error.message || 'Unknown error'}`);
         }
     }
@@ -266,7 +268,7 @@ let AdminService = class AdminService {
             };
         }
         catch (error) {
-            console.error('Error in getAllTeachers:', error);
+            this.logger.error('Error in getAllTeachers', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch teachers: ${error.message || 'Unknown error'}`);
         }
     }
@@ -326,7 +328,7 @@ let AdminService = class AdminService {
             };
         }
         catch (error) {
-            console.error('Error in getAllBookings:', error);
+            this.logger.error('Error in getAllBookings', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch bookings: ${error.message || 'Unknown error'}`);
         }
     }
@@ -389,7 +391,7 @@ let AdminService = class AdminService {
             };
         }
         catch (error) {
-            console.error('Error in getAllPayments:', error);
+            this.logger.error('Error in getAllPayments', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch payments: ${error.message || 'Unknown error'}`);
         }
     }
@@ -410,7 +412,7 @@ let AdminService = class AdminService {
             };
         }
         catch (error) {
-            console.error('Error in getPaymentStats:', error);
+            this.logger.error('Error in getPaymentStats', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch payment stats: ${error.message || 'Unknown error'}`);
         }
     }
@@ -659,10 +661,10 @@ let AdminService = class AdminService {
             return user;
         }
         catch (error) {
-            console.error('Error in getUserById:', error);
             if (error instanceof common_1.NotFoundException) {
                 throw error;
             }
+            this.logger.error('Error in getUserById', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch user: ${error.message || 'Unknown error'}`);
         }
     }
@@ -782,7 +784,7 @@ let AdminService = class AdminService {
             return updatedTeacher;
         }
         catch (error) {
-            console.error('Error updating teacher:', error);
+            this.logger.error('Error updating teacher', error instanceof Error ? error.stack : String(error));
             if (error instanceof common_1.NotFoundException) {
                 throw error;
             }
@@ -867,7 +869,7 @@ let AdminService = class AdminService {
                 }
             }
             catch (e) {
-                console.warn('Error parsing specialties:', e);
+                this.logger.warn('Error parsing specialties', e instanceof Error ? e.message : String(e));
                 teacher.specialties = null;
             }
             try {
@@ -876,16 +878,16 @@ let AdminService = class AdminService {
                 }
             }
             catch (e) {
-                console.warn('Error parsing specialtiesAr:', e);
+                this.logger.warn('Error parsing specialtiesAr', e instanceof Error ? e.message : String(e));
                 teacher.specialtiesAr = null;
             }
             return teacher;
         }
         catch (error) {
-            console.error('Error in getTeacherById:', error);
             if (error instanceof common_1.NotFoundException) {
                 throw error;
             }
+            this.logger.error('Error in getTeacherById', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch teacher: ${error.message || 'Unknown error'}`);
         }
     }
@@ -977,7 +979,7 @@ let AdminService = class AdminService {
             };
         }
         catch (error) {
-            console.error('Error fetching wallets:', error);
+            this.logger.error('Error fetching wallets', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch wallets: ${error.message || 'Unknown error'}`);
         }
     }
@@ -1014,7 +1016,7 @@ let AdminService = class AdminService {
                     syncedCount++;
                 }
                 catch (error) {
-                    console.error(`Error syncing payment ${payment.id}:`, error);
+                    this.logger.warn(`Error syncing payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`);
                     errorCount++;
                 }
             }
@@ -1025,8 +1027,8 @@ let AdminService = class AdminService {
             };
         }
         catch (error) {
-            console.error('Error syncing payments:', error);
-            throw new common_1.BadRequestException(`Failed to sync payments: ${error.message || 'Unknown error'}`);
+            this.logger.error('Error syncing payments', error instanceof Error ? error.stack : String(error));
+            throw new common_1.BadRequestException(`Failed to sync payments: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     async getTeacherWallet(teacherId) {
@@ -1293,7 +1295,7 @@ let AdminService = class AdminService {
             };
         }
         catch (error) {
-            console.error('Error in getAllUsersWithFilters:', error);
+            this.logger.error('Error in getAllUsersWithFilters', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException(`Failed to fetch users: ${error.message || 'Unknown error'}`);
         }
     }
@@ -2232,7 +2234,7 @@ let AdminService = class AdminService {
     }
 };
 exports.AdminService = AdminService;
-exports.AdminService = AdminService = __decorate([
+exports.AdminService = AdminService = AdminService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,

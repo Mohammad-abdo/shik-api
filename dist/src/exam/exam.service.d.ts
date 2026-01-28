@@ -76,6 +76,7 @@ export declare class ExamService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -89,7 +90,6 @@ export declare class ExamService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -134,6 +134,7 @@ export declare class ExamService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -147,7 +148,6 @@ export declare class ExamService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };
@@ -221,6 +221,7 @@ export declare class ExamService {
                 updatedAt: Date;
                 certificates: string | null;
                 canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
                 specialties: string | null;
                 specialtiesAr: string | null;
                 userId: string;
@@ -234,7 +235,6 @@ export declare class ExamService {
                 isApproved: boolean;
                 approvedAt: Date | null;
                 approvedBy: string | null;
-                introVideoUrl: string | null;
                 readingType: string | null;
                 readingTypeAr: string | null;
             };
@@ -336,6 +336,7 @@ export declare class ExamService {
             updatedAt: Date;
             certificates: string | null;
             canIssueCertificates: boolean | null;
+            introVideoUrl: string | null;
             specialties: string | null;
             specialtiesAr: string | null;
             userId: string;
@@ -349,7 +350,6 @@ export declare class ExamService {
             isApproved: boolean;
             approvedAt: Date | null;
             approvedBy: string | null;
-            introVideoUrl: string | null;
             readingType: string | null;
             readingTypeAr: string | null;
         };

@@ -8,4 +8,10 @@ export declare class FileUploadController {
     uploadAvatar(file: Express.Multer.File): Promise<{
         url: string;
     }>;
+    uploadVideo(file: Express.Multer.File): Promise<{
+        url: string;
+    }>;
+    uploadImage(file: Express.Multer.File): Promise<{
+        url: string;
+    }>;
 }

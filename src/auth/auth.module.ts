@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -19,8 +19,7 @@ import { FileUploadModule } from '../file-upload/file-upload.module';
       useFactory: (config: ConfigService) => {
         const jwtSecret = config.get<string>('JWT_SECRET');
         if (!jwtSecret) {
-          console.error('⚠️  WARNING: JWT_SECRET is not set in environment variables!');
-          console.error('⚠️  Please set JWT_SECRET in your .env file');
+          Logger.warn('JWT_SECRET is not set in environment variables. Please set JWT_SECRET in your .env file.');
           throw new Error('JWT_SECRET is required but not configured');
         }
         return {

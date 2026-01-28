@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error: Error) => {
@@ -46,6 +48,10 @@ async function bootstrap() {
 
     // API prefix
     app.setGlobalPrefix('api');
+
+    // Unified response format & exception handling
+    app.useGlobalInterceptors(new ResponseTransformInterceptor());
+    app.useGlobalFilters(new AllExceptionsFilter());
 
     // Swagger documentation
     const config = new DocumentBuilder()

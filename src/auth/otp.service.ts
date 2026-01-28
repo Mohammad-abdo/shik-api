@@ -81,8 +81,6 @@ export class OtpService {
     });
 
     // TODO: Integrate with SMS service (Twilio, etc.)
-    // For now, just log the OTP
-    console.log(`OTP for ${phone}: ${code}`);
   }
 
   async verifyOtp(emailOrPhone: string, code: string, type: string): Promise<boolean> {

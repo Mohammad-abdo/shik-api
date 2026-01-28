@@ -32,9 +32,8 @@ let MobileAuthController = class MobileAuthController {
             try {
                 profileImageUrl = await this.fileUploadService.uploadFile(profileImage, 'profiles');
             }
-            catch (error) {
-                console.error('File upload error:', error);
-                console.warn('Continuing registration without profile image due to upload failure');
+            catch {
+                profileImageUrl = undefined;
             }
         }
         return this.authService.mobileSignUp(dto, profileImageUrl);

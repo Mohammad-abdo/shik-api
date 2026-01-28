@@ -33,26 +33,16 @@ export declare class MobileCourseController {
         success: boolean;
         message: string;
         data: {
-            sheikhs: {
+            teachers: {
                 id: string;
                 name: string;
-                profile_image_url: string;
-                specialization: string;
+                profile_image: string;
                 bio: string;
                 rating: number;
-                total_reviews: number;
-                total_students: number;
-                total_courses: number;
-                is_available: boolean;
-                session_price: number;
-                created_at: Date;
+                students_count: number;
+                specialization: string;
             }[];
-            pagination: {
-                current_page: number;
-                total_pages: number;
-                total_sheikhs: number;
-                per_page: number;
-            };
+            total: number;
         };
     }>;
     getLessons(id: string, user: any): Promise<{

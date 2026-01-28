@@ -42,8 +42,14 @@ let AdminController = class AdminController {
     async getAllTeachers(page, limit, isApproved) {
         return this.adminService.getAllTeachers(page ? parseInt(page) : 1, limit ? parseInt(limit) : 20, isApproved === 'true' ? true : isApproved === 'false' ? false : undefined);
     }
-    async getAllBookings(page, limit, status) {
-        return this.adminService.getAllBookings(page ? parseInt(page) : 1, limit ? parseInt(limit) : 20, status);
+    async getAllBookings(page, limit, status, teacherId, studentId) {
+        return this.adminService.getAllBookingsWithFilters({
+            page: page ? parseInt(page) : 1,
+            limit: limit ? parseInt(limit) : 20,
+            status,
+            teacherId,
+            studentId,
+        });
     }
     async getAllPayments(page, limit, status) {
         return this.adminService.getAllPayments(page ? parseInt(page) : 1, limit ? parseInt(limit) : 20, status);
@@ -62,15 +68,6 @@ let AdminController = class AdminController {
     }
     async deleteUser(id) {
         return this.adminService.deleteUser(id);
-    }
-    async getAllBookingsWithFilters(page, limit, status, teacherId, studentId) {
-        return this.adminService.getAllBookingsWithFilters({
-            page: page ? parseInt(page) : 1,
-            limit: limit ? parseInt(limit) : 20,
-            status,
-            teacherId,
-            studentId,
-        });
     }
     async forceCancelBooking(id, user) {
         return this.adminService.forceCancelBooking(id, user.id);
@@ -246,16 +243,21 @@ __decorate([
 ], AdminController.prototype, "getAllTeachers", null);
 __decorate([
     (0, common_1.Get)('bookings'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all bookings' }),
+    (0, permissions_decorator_1.Permissions)('bookings.manage'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all bookings (with optional filters)' }),
     (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: 'status', required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: 'teacherId', required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: 'studentId', required: false, type: String }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Bookings retrieved successfully' }),
     __param(0, (0, common_1.Query)('page')),
     __param(1, (0, common_1.Query)('limit')),
     __param(2, (0, common_1.Query)('status')),
+    __param(3, (0, common_1.Query)('teacherId')),
+    __param(4, (0, common_1.Query)('studentId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getAllBookings", null);
 __decorate([
@@ -324,25 +326,6 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "deleteUser", null);
-__decorate([
-    (0, common_1.Get)('bookings'),
-    (0, permissions_decorator_1.Permissions)('bookings.manage'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all bookings with filters' }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'status', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'teacherId', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'studentId', required: false }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Bookings retrieved successfully' }),
-    __param(0, (0, common_1.Query)('page')),
-    __param(1, (0, common_1.Query)('limit')),
-    __param(2, (0, common_1.Query)('status')),
-    __param(3, (0, common_1.Query)('teacherId')),
-    __param(4, (0, common_1.Query)('studentId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "getAllBookingsWithFilters", null);
 __decorate([
     (0, common_1.Post)('bookings/:id/force-cancel'),
     (0, permissions_decorator_1.Permissions)('bookings.manage'),

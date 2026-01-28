@@ -17,6 +17,66 @@ let CourseService = class CourseService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    async createTeacherCourse(dto, userId) {
+        const teacher = await this.prisma.teacher.findUnique({
+            where: { userId },
+        });
+        if (!teacher) {
+            throw new common_1.NotFoundException('Teacher profile not found. Please create your teacher profile first.');
+        }
+        const course = await this.prisma.course.create({
+            data: {
+                title: dto.title,
+                titleAr: dto.titleAr,
+                description: dto.description,
+                descriptionAr: dto.descriptionAr,
+                teacherId: teacher.id,
+                price: dto.price,
+                duration: dto.duration,
+                image: dto.image,
+                introVideoUrl: dto.introVideoUrl,
+                introVideoThumbnail: dto.introVideoThumbnail,
+                status: dto.status || client_1.CourseStatus.DRAFT,
+                createdBy: userId,
+            },
+            include: {
+                teacher: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                firstNameAr: true,
+                                lastName: true,
+                                lastNameAr: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
+                enrollments: {
+                    include: {
+                        student: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                firstNameAr: true,
+                                lastName: true,
+                                lastNameAr: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
+                _count: {
+                    select: {
+                        enrollments: true,
+                    },
+                },
+            },
+        });
+        return course;
+    }
     async create(dto, adminId) {
         if (dto.teacherId) {
             const teacher = await this.prisma.teacher.findUnique({
@@ -36,6 +96,8 @@ let CourseService = class CourseService {
                 price: dto.price,
                 duration: dto.duration,
                 image: dto.image,
+                introVideoUrl: dto.introVideoUrl,
+                introVideoThumbnail: dto.introVideoThumbnail,
                 status: dto.status || client_1.CourseStatus.DRAFT,
                 createdBy: adminId,
             },
@@ -133,50 +195,66 @@ let CourseService = class CourseService {
         };
     }
     async findCourseSheikhs(courseId, page = 1, limit = 10) {
-        const skip = (page - 1) * limit;
         const course = await this.prisma.course.findUnique({
             where: { id: courseId },
             include: {
                 teacher: {
                     include: {
-                        user: true,
+                        user: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                firstNameAr: true,
+                                lastName: true,
+                                lastNameAr: true,
+                            },
+                        },
                         _count: {
                             select: {
                                 bookings: true,
                                 reviews: true,
                                 courses: true,
-                            }
-                        }
-                    }
-                }
-            }
+                            },
+                        },
+                    },
+                },
+            },
         });
-        if (!course || !course.teacher) {
-            return { sheikhs: [], pagination: { current_page: page, total_pages: 0, total_sheikhs: 0, per_page: limit } };
+        if (!course) {
+            throw new common_1.NotFoundException('Course not found');
         }
+        if (!course.teacher) {
+            return {
+                teachers: [],
+                total: 0,
+            };
+        }
+        const uniqueStudentsResult = await this.prisma.booking.groupBy({
+            by: ['studentId'],
+            where: {
+                teacherId: course.teacher.id,
+            },
+            _count: {
+                studentId: true,
+            },
+        });
+        const studentsCount = uniqueStudentsResult.length;
         const sheikh = course.teacher;
-        const formattedSheikh = {
+        const teacherName = sheikh.user.firstNameAr && sheikh.user.lastNameAr
+            ? `${sheikh.user.firstNameAr} ${sheikh.user.lastNameAr}`.trim()
+            : `${sheikh.user.firstName} ${sheikh.user.lastName}`.trim();
+        const formattedTeacher = {
             id: sheikh.id,
-            name: `${sheikh.user.firstName} ${sheikh.user.lastName}`.trim(),
-            profile_image_url: sheikh.image,
-            specialization: sheikh.specialtiesAr || sheikh.specialties,
-            bio: sheikh.bioAr || sheikh.bio,
-            rating: sheikh.rating,
-            total_reviews: sheikh.totalReviews,
-            total_students: 0,
-            total_courses: sheikh._count.courses,
-            is_available: true,
-            session_price: sheikh.hourlyRate,
-            created_at: sheikh.createdAt,
+            name: teacherName,
+            profile_image: sheikh.image || null,
+            bio: sheikh.bioAr || sheikh.bio || null,
+            rating: sheikh.rating || 0,
+            students_count: studentsCount,
+            specialization: sheikh.specialtiesAr || sheikh.specialties || null,
         };
         return {
-            sheikhs: [formattedSheikh],
-            pagination: {
-                current_page: page,
-                total_pages: 1,
-                total_sheikhs: 1,
-                per_page: limit,
-            },
+            teachers: [formattedTeacher],
+            total: 1,
         };
     }
     async findCourseLessons(courseId, userId) {
@@ -311,6 +389,8 @@ let CourseService = class CourseService {
                 ...(dto.price !== undefined && { price: dto.price }),
                 ...(dto.duration !== undefined && { duration: dto.duration }),
                 ...(dto.image !== undefined && { image: dto.image }),
+                ...(dto.introVideoUrl !== undefined && { introVideoUrl: dto.introVideoUrl }),
+                ...(dto.introVideoThumbnail !== undefined && { introVideoThumbnail: dto.introVideoThumbnail }),
                 ...(dto.status && { status: dto.status }),
             },
             include: {

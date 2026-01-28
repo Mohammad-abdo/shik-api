@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
@@ -17,12 +18,13 @@ const bcrypt = require("bcrypt");
 const prisma_service_1 = require("../prisma/prisma.service");
 const otp_service_1 = require("./otp.service");
 const client_1 = require("@prisma/client");
-let AuthService = class AuthService {
+let AuthService = AuthService_1 = class AuthService {
     constructor(prisma, jwtService, config, otpService) {
         this.prisma = prisma;
         this.jwtService = jwtService;
         this.config = config;
         this.otpService = otpService;
+        this.logger = new common_1.Logger(AuthService_1.name);
         this.MAX_LOGIN_ATTEMPTS = 5;
         this.LOCKOUT_DURATION = 15 * 60 * 1000;
     }
@@ -81,18 +83,14 @@ let AuthService = class AuthService {
     async login(dto) {
         try {
             const normalizedEmail = dto.email.trim().toLowerCase();
-            console.log(`🔐 Login attempt for email: ${dto.email} (original: ${dto.email} )`);
             const user = await this.prisma.user.findUnique({
                 where: { email: normalizedEmail },
             });
             if (!user) {
-                console.log('❌ User not found:', normalizedEmail);
                 throw new common_1.UnauthorizedException('Invalid credentials');
             }
-            console.log(`✅ User found: ${user.email} Status: ${user.status}`);
             await this.checkLoginAttempts(user.id);
             const isValid = await bcrypt.compare(dto.password, user.password);
-            console.log(`Password validation: ${isValid ? '✅ Valid' : '❌ Invalid'}`);
             if (!isValid) {
                 await this.recordFailedAttempt(user.id);
                 throw new common_1.UnauthorizedException('Invalid credentials');
@@ -108,11 +106,11 @@ let AuthService = class AuthService {
             };
         }
         catch (error) {
-            console.error('Login error details:', error);
             if (error instanceof common_1.UnauthorizedException || error instanceof common_1.BadRequestException) {
                 throw error;
             }
-            throw new common_1.BadRequestException(`Login failed: ${error.message || 'Unknown error'}`);
+            this.logger.warn(`Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new common_1.BadRequestException(`Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     async mobileSignUp(dto, profileImageUrl) {
@@ -469,7 +467,7 @@ let AuthService = class AuthService {
             };
         }
         catch (error) {
-            console.error('Error generating tokens:', error);
+            this.logger.error('Error generating tokens', error instanceof Error ? error.stack : String(error));
             throw new common_1.BadRequestException('Failed to generate authentication tokens');
         }
     }
@@ -547,7 +545,7 @@ let AuthService = class AuthService {
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         jwt_1.JwtService,

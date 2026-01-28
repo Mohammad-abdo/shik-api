@@ -31,8 +31,7 @@ exports.AuthModule = AuthModule = __decorate([
                 useFactory: (config) => {
                     const jwtSecret = config.get('JWT_SECRET');
                     if (!jwtSecret) {
-                        console.error('⚠️  WARNING: JWT_SECRET is not set in environment variables!');
-                        console.error('⚠️  Please set JWT_SECRET in your .env file');
+                        common_1.Logger.warn('JWT_SECRET is not set in environment variables. Please set JWT_SECRET in your .env file.');
                         throw new Error('JWT_SECRET is required but not configured');
                     }
                     return {

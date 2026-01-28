@@ -23,9 +23,65 @@ async function main() {
       emailVerified: true,
       phoneVerified: true,
       phone: '+201000000000',
+      avatar:
+        'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop',
     },
   });
   console.log('✅ Admin user created:', admin.email);
+
+  // Real images and videos URLs (defined early so we can use them below)
+  const teacherImages = [
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop',
+  ];
+
+  const courseImages = [
+    'https://images.unsplash.com/photo-1604147706283-d7119b5b822c?w=800&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1516321497487-e288fb197fca?w=800&h=600&fit=crop',
+  ];
+
+  const videoThumbnails = [
+    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1280&h=720&fit=crop',
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1280&h=720&fit=crop',
+    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1280&h=720&fit=crop',
+    'https://images.unsplash.com/photo-1516321497487-e288fb197fca?w=1280&h=720&fit=crop',
+    'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1280&h=720&fit=crop',
+  ];
+
+  // Real YouTube video URLs (Quran recitation and teaching videos)
+  // These are actual Quran teaching and recitation videos
+  const videoUrls = [
+    'https://www.youtube.com/embed/5fZqk8vO1vE', // Quran recitation - Al-Fatiha
+    'https://www.youtube.com/embed/2QKhE9ZrI2k', // Tajweed lesson
+    'https://www.youtube.com/embed/7xRp6sKqKqE', // Quran memorization tips
+    'https://www.youtube.com/embed/8HB-tW0n4QU', // Quran recitation - Al-Baqarah
+    'https://www.youtube.com/embed/9P6rdqiybaw', // Tajweed rules explanation
+    'https://www.youtube.com/embed/5fZqk8vO1vE', // Quran teaching
+    'https://www.youtube.com/embed/2QKhE9ZrI2k', // Recitation practice
+    'https://www.youtube.com/embed/7xRp6sKqKqE', // Memorization techniques
+    'https://www.youtube.com/embed/8HB-tW0n4QU', // Advanced tajweed
+    'https://www.youtube.com/embed/9P6rdqiybaw', // Quran study
+  ];
+
+  const introVideoUrls = [
+    'https://www.youtube.com/embed/5fZqk8vO1vE', // Course introduction video
+    'https://www.youtube.com/embed/2QKhE9ZrI2k', // Teacher introduction
+    'https://www.youtube.com/embed/7xRp6sKqKqE', // Welcome video
+  ];
+
+  const userAvatars = [
+    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop',
+  ];
 
   // Create student wallets helper
   const createStudentWallet = async (studentId: string) => {
@@ -139,6 +195,7 @@ async function main() {
           status: 'ACTIVE',
           emailVerified: true,
           phoneVerified: !!phoneToUse,
+          avatar: userAvatars[createdStudents.length % userAvatars.length],
         },
         create: {
           ...studentData,
@@ -148,6 +205,7 @@ async function main() {
           status: 'ACTIVE',
           emailVerified: true,
           phoneVerified: !!phoneToUse,
+          avatar: userAvatars[createdStudents.length % userAvatars.length],
         },
       });
       createdStudents.push(student);
@@ -173,7 +231,7 @@ async function main() {
       lastNameAr: 'الأنصاري',
       phone: '+201234567895',
       bio: 'Experienced Quran teacher with 10 years of experience in tajweed and memorization',
-      bioAr: 'معلم قرآن ذو خبرة 10 سنوات في التجويد والحفظ',
+      bioAr: 'شيخ قرآن ذو خبرة 10 سنوات في التجويد والحفظ',
       experience: 10,
       hourlyRate: 50,
       specialties: ['tajweed', 'memorization', 'recitation'],
@@ -183,6 +241,8 @@ async function main() {
       isApproved: true,
       rating: 4.8,
       totalReviews: 25,
+      image: teacherImages[0],
+      introVideoUrl: introVideoUrls[0],
     },
     {
       email: 'teacher2@shaykhi.com',
@@ -202,6 +262,8 @@ async function main() {
       isApproved: true,
       rating: 4.5,
       totalReviews: 15,
+      image: teacherImages[1],
+      introVideoUrl: introVideoUrls[1],
     },
     {
       email: 'teacher3@shaykhi.com',
@@ -222,6 +284,8 @@ async function main() {
       rating: 4.9,
       totalReviews: 40,
       canIssueCertificates: true,
+      image: teacherImages[2],
+      introVideoUrl: introVideoUrls[2],
     },
     {
       email: 'teacher4@shaykhi.com',
@@ -231,7 +295,7 @@ async function main() {
       lastNameAr: 'الحافظ',
       phone: '+201234567898',
       bio: 'Quran teacher specializing in advanced memorization techniques',
-      bioAr: 'معلم قرآن متخصص في تقنيات الحفظ المتقدمة',
+      bioAr: 'شيخ قرآن متخصص في تقنيات الحفظ المتقدمة',
       experience: 8,
       hourlyRate: 45,
       specialties: ['memorization', 'recitation'],
@@ -241,6 +305,7 @@ async function main() {
       isApproved: false,
       rating: 0,
       totalReviews: 0,
+      image: teacherImages[3],
     },
     {
       email: 'teacher5@shaykhi.com',
@@ -250,7 +315,7 @@ async function main() {
       lastNameAr: 'بنت عبدالله',
       phone: '+201234567899',
       bio: 'Female Quran teacher for women and children',
-      bioAr: 'معلمة قرآن للنساء والأطفال',
+      bioAr: 'شيخة قرآن للنساء والأطفال',
       experience: 6,
       hourlyRate: 35,
       specialties: ['tajweed', 'recitation'],
@@ -260,6 +325,8 @@ async function main() {
       isApproved: true,
       rating: 4.7,
       totalReviews: 20,
+      image: teacherImages[4],
+      introVideoUrl: introVideoUrls[0],
     },
   ];
 
@@ -328,6 +395,8 @@ async function main() {
           rating: teacherData.rating,
           totalReviews: teacherData.totalReviews,
           canIssueCertificates: teacherData.canIssueCertificates || false,
+          image: teacherData.image || null,
+          introVideoUrl: teacherData.introVideoUrl || null,
         },
       });
 
@@ -613,7 +682,7 @@ async function main() {
       name: 'Basic Plan',
       nameAr: 'الخطة الأساسية',
       description: 'Basic subscription for new teachers',
-      descriptionAr: 'اشتراك أساسي للمعلمين الجدد',
+      descriptionAr: 'اشتراك أساسي للشيخين الجدد',
       price: 29.99,
       duration: 30,
       features: JSON.stringify(['Up to 10 students', 'Basic analytics', 'Email support']),
@@ -627,7 +696,7 @@ async function main() {
       name: 'Professional Plan',
       nameAr: 'الخطة الاحترافية',
       description: 'Professional subscription for experienced teachers',
-      descriptionAr: 'اشتراك احترافي للمعلمين ذوي الخبرة',
+      descriptionAr: 'اشتراك احترافي للشيخين ذوي الخبرة',
       price: 59.99,
       duration: 30,
       features: JSON.stringify(['Up to 50 students', 'Advanced analytics', 'Priority support', 'Certificate issuance']),
@@ -776,6 +845,9 @@ async function main() {
         rating: 4.0 + Math.random(),
         totalReviews: Math.floor(Math.random() * 50),
         isFeatured: i < 2,
+        image: courseImages[i % courseImages.length],
+        introVideoUrl: introVideoUrls[i % introVideoUrls.length],
+        introVideoThumbnail: videoThumbnails[i % videoThumbnails.length],
       },
     });
     courses.push(course);
@@ -799,6 +871,7 @@ async function main() {
 
       // Create videos for each lesson
       for (let k = 0; k < 3; k++) {
+        const videoIndex = (i * 5 + j * 3 + k) % videoUrls.length;
         await prisma.video.create({
           data: {
             lessonId: lesson.id,
@@ -806,8 +879,8 @@ async function main() {
             titleAr: `الفيديو ${k + 1}`,
             description: `Video ${k + 1} description`,
             descriptionAr: `وصف الفيديو ${k + 1}`,
-            videoUrl: `https://example.com/video-${course.id}-${lesson.id}-${k + 1}.mp4`,
-            thumbnailUrl: `https://example.com/thumb-${course.id}-${lesson.id}-${k + 1}.jpg`,
+            videoUrl: videoUrls[videoIndex],
+            thumbnailUrl: videoThumbnails[videoIndex % videoThumbnails.length],
             durationSeconds: [300, 600, 900][k],
             order: k + 1,
           },

@@ -12,6 +12,72 @@ import { CourseStatus } from '@prisma/client';
 export class CourseService {
   constructor(private prisma: PrismaService) { }
 
+  async createTeacherCourse(dto: CreateCourseDto, userId: string) {
+    // Find teacher by userId
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { userId },
+    });
+
+    if (!teacher) {
+      throw new NotFoundException('Teacher profile not found. Please create your teacher profile first.');
+    }
+
+    // Create course automatically linked to this teacher
+    const course = await this.prisma.course.create({
+      data: {
+        title: dto.title,
+        titleAr: dto.titleAr,
+        description: dto.description,
+        descriptionAr: dto.descriptionAr,
+        teacherId: teacher.id, // Automatically link to the teacher
+        price: dto.price,
+        duration: dto.duration,
+        image: dto.image,
+        introVideoUrl: dto.introVideoUrl,
+        introVideoThumbnail: dto.introVideoThumbnail,
+        status: dto.status || CourseStatus.DRAFT,
+        createdBy: userId,
+      },
+      include: {
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                firstNameAr: true,
+                lastName: true,
+                lastNameAr: true,
+                email: true,
+              },
+            },
+          },
+        },
+        enrollments: {
+          include: {
+            student: {
+              select: {
+                id: true,
+                firstName: true,
+                firstNameAr: true,
+                lastName: true,
+                lastNameAr: true,
+                email: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    return course;
+  }
+
   async create(dto: CreateCourseDto, adminId: string) {
     // Validate teacher if provided
     if (dto.teacherId) {
@@ -33,6 +99,8 @@ export class CourseService {
         price: dto.price,
         duration: dto.duration,
         image: dto.image,
+        introVideoUrl: dto.introVideoUrl,
+        introVideoThumbnail: dto.introVideoThumbnail,
         status: dto.status || CourseStatus.DRAFT,
         createdBy: adminId,
       },
@@ -144,56 +212,74 @@ export class CourseService {
   }
 
   async findCourseSheikhs(courseId: string, page: number = 1, limit: number = 10) {
-    const skip = (page - 1) * limit;
-    // For now, courses have one teacher in the schema. 
-    // If it's many-to-many, we'd query the junction table.
-    // Assuming 1:N for now as per schema: teacher     Teacher? @relation("TeacherCourses", fields: [teacherId], references: [id])
+    // Check if course exists
     const course = await this.prisma.course.findUnique({
       where: { id: courseId },
       include: {
         teacher: {
           include: {
-            user: true,
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                firstNameAr: true,
+                lastName: true,
+                lastNameAr: true,
+              },
+            },
             _count: {
               select: {
                 bookings: true,
                 reviews: true,
                 courses: true,
-              }
-            }
-          }
-        }
-      }
+              },
+            },
+          },
+        },
+      },
     });
 
-    if (!course || !course.teacher) {
-      return { sheikhs: [], pagination: { current_page: page, total_pages: 0, total_sheikhs: 0, per_page: limit } };
+    if (!course) {
+      throw new NotFoundException('Course not found');
     }
 
+    if (!course.teacher) {
+      return {
+        teachers: [],
+        total: 0,
+      };
+    }
+
+    // Count unique students from bookings for this teacher
+    const uniqueStudentsResult = await this.prisma.booking.groupBy({
+      by: ['studentId'],
+      where: {
+        teacherId: course.teacher.id,
+      },
+      _count: {
+        studentId: true,
+      },
+    });
+    const studentsCount = uniqueStudentsResult.length;
+
     const sheikh = course.teacher;
-    const formattedSheikh = {
+    const teacherName = sheikh.user.firstNameAr && sheikh.user.lastNameAr
+      ? `${sheikh.user.firstNameAr} ${sheikh.user.lastNameAr}`.trim()
+      : `${sheikh.user.firstName} ${sheikh.user.lastName}`.trim();
+
+    const formattedTeacher = {
       id: sheikh.id,
-      name: `${sheikh.user.firstName} ${sheikh.user.lastName}`.trim(),
-      profile_image_url: sheikh.image,
-      specialization: sheikh.specialtiesAr || sheikh.specialties,
-      bio: sheikh.bioAr || sheikh.bio,
-      rating: sheikh.rating,
-      total_reviews: sheikh.totalReviews,
-      total_students: 0, // Need to implement student count
-      total_courses: sheikh._count.courses,
-      is_available: true,
-      session_price: sheikh.hourlyRate,
-      created_at: sheikh.createdAt,
+      name: teacherName,
+      profile_image: sheikh.image || null,
+      bio: sheikh.bioAr || sheikh.bio || null,
+      rating: sheikh.rating || 0,
+      students_count: studentsCount,
+      specialization: sheikh.specialtiesAr || sheikh.specialties || null,
     };
 
     return {
-      sheikhs: [formattedSheikh],
-      pagination: {
-        current_page: page,
-        total_pages: 1,
-        total_sheikhs: 1,
-        per_page: limit,
-      },
+      teachers: [formattedTeacher],
+      total: 1,
     };
   }
 
@@ -342,6 +428,8 @@ export class CourseService {
         ...(dto.price !== undefined && { price: dto.price }),
         ...(dto.duration !== undefined && { duration: dto.duration }),
         ...(dto.image !== undefined && { image: dto.image }),
+        ...(dto.introVideoUrl !== undefined && { introVideoUrl: dto.introVideoUrl }),
+        ...(dto.introVideoThumbnail !== undefined && { introVideoThumbnail: dto.introVideoThumbnail }),
         ...(dto.status && { status: dto.status }),
       },
       include: {

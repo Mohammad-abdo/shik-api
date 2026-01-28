@@ -29,8 +29,8 @@ let NotificationService = NotificationService_1 = class NotificationService {
                 }),
             });
         }
-        catch (error) {
-            console.warn('Firebase not configured, push notifications disabled');
+        catch {
+            this.logger.warn('Firebase not configured, push notifications disabled');
         }
         this.emailTransporter = nodemailer.createTransport({
             host: this.config.get('SMTP_HOST'),
@@ -121,7 +121,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
         try {
         }
         catch (error) {
-            console.error('Error sending push notification:', error);
+            this.logger.warn('Error sending push notification', error instanceof Error ? error.message : String(error));
         }
     }
     async sendEmailNotification(userId, subject, message) {
@@ -146,7 +146,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
             });
         }
         catch (error) {
-            console.error('Error sending email notification:', error);
+            this.logger.warn('Error sending email notification', error instanceof Error ? error.message : String(error));
         }
     }
     async sendNotification(dto, sentById) {

@@ -14,9 +14,11 @@ import { CourseService } from './course.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { Permissions } from '../common/decorators/permissions.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CreateCourseDto, UpdateCourseDto } from './dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { CourseStatus } from '@prisma/client';
+import { CourseStatus, UserRoleEnum } from '@prisma/client';
 
 @ApiTags('courses')
 @Controller('courses')
@@ -72,6 +74,23 @@ export class CourseController {
     );
   }
 
+  @Get(':id/sheikhs')
+  @ApiOperation({ summary: 'Get sheikhs (teachers) for a course' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Sheikhs retrieved successfully' })
+  async getCourseSheikhs(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.courseService.findCourseSheikhs(
+      id,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 10,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get course by ID' })
   @ApiResponse({ status: 200, description: 'Course retrieved successfully' })
@@ -106,6 +125,16 @@ export class CourseController {
   @ApiResponse({ status: 201, description: 'Student enrolled successfully' })
   async enroll(@Param('id') courseId: string, @CurrentUser() user: any) {
     return this.courseService.enrollStudent(courseId, user.id);
+  }
+
+  @Post('teacher/create')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoleEnum.TEACHER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a course (Teacher only - creates course for themselves)' })
+  @ApiResponse({ status: 201, description: 'Course created successfully' })
+  async createTeacherCourse(@Body() dto: CreateCourseDto, @CurrentUser() user: any) {
+    return this.courseService.createTeacherCourse(dto, user.id);
   }
 }
 

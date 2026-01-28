@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -25,6 +26,7 @@ import { UserRoleEnum as UserRole, Gender } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly MAX_LOGIN_ATTEMPTS = 5;
   private readonly LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 
@@ -102,24 +104,16 @@ export class AuthService {
   async login(dto: LoginDto) {
     try {
       const normalizedEmail = dto.email.trim().toLowerCase();
-
-      console.log(`🔐 Login attempt for email: ${dto.email} (original: ${dto.email} )`);
-
       const user = await this.prisma.user.findUnique({
         where: { email: normalizedEmail },
       });
 
       if (!user) {
-        console.log('❌ User not found:', normalizedEmail);
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      console.log(`✅ User found: ${user.email} Status: ${user.status}`);
-
       await this.checkLoginAttempts(user.id);
       const isValid = await bcrypt.compare(dto.password, user.password);
-
-      console.log(`Password validation: ${isValid ? '✅ Valid' : '❌ Invalid'}`);
 
       if (!isValid) {
         await this.recordFailedAttempt(user.id);
@@ -131,7 +125,6 @@ export class AuthService {
       }
 
       await this.resetFailedAttempts(user.id);
-
       const tokens = await this.generateTokens(user.id, user.email, user.role);
 
       return {
@@ -139,13 +132,11 @@ export class AuthService {
         ...tokens,
       };
     } catch (error) {
-      console.error('Login error details:', error);
-      // If it's already an HTTP exception, re-throw it
       if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
         throw error;
       }
-      // Otherwise, wrap it in a generic error
-      throw new BadRequestException(`Login failed: ${error.message || 'Unknown error'}`);
+      this.logger.warn(`Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new BadRequestException(`Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -577,7 +568,7 @@ export class AuthService {
         refreshToken,
       };
     } catch (error) {
-      console.error('Error generating tokens:', error);
+      this.logger.error('Error generating tokens', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException('Failed to generate authentication tokens');
     }
   }

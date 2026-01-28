@@ -43,6 +43,16 @@ export class CreateCourseDto {
   @IsString()
   image?: string;
 
+  @ApiPropertyOptional({ description: 'Intro video URL for the course' })
+  @IsOptional()
+  @IsString()
+  introVideoUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Intro video thumbnail URL' })
+  @IsOptional()
+  @IsString()
+  introVideoThumbnail?: string;
+
   @ApiPropertyOptional({ description: 'Course status', enum: CourseStatus, default: CourseStatus.DRAFT })
   @IsOptional()
   @IsEnum(CourseStatus)

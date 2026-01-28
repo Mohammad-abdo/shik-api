@@ -8,6 +8,7 @@ export declare class AuthService {
     private jwtService;
     private config;
     private otpService;
+    private readonly logger;
     private readonly MAX_LOGIN_ATTEMPTS;
     private readonly LOCKOUT_DURATION;
     constructor(prisma: PrismaService, jwtService: JwtService, config: ConfigService, otpService: OtpService);

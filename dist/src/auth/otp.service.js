@@ -72,7 +72,6 @@ let OtpService = class OtpService {
                 expiresAt: new Date(Date.now() + expiresIn * 1000),
             },
         });
-        console.log(`OTP for ${phone}: ${code}`);
     }
     async verifyOtp(emailOrPhone, code, type) {
         const otp = await this.prisma.otp.findFirst({

@@ -42,29 +42,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async login(@Body() dto: LoginDto) {
-    try {
-      return await this.authService.login(dto);
-    } catch (error) {
-      // Log the full error for debugging
-      console.error('Login error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        response: error.response,
-      });
-      
-      // If it's already an HTTP exception, re-throw it
-      if (error.status || error.statusCode) {
-        throw error;
-      }
-      
-      // Otherwise, wrap it in a 500 error with more details
-      throw new BadRequestException({
-        statusCode: 500,
-        message: 'Internal server error during login',
-        error: error.message || 'Unknown error',
-      });
-    }
+    return this.authService.login(dto);
   }
 
   @Post('verify-email')

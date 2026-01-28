@@ -24,18 +24,22 @@ let FileUploadService = class FileUploadService {
         });
         this.bucket = this.config.get('AWS_S3_BUCKET') || 'shaykhi-uploads';
     }
-    async uploadFile(file, folder = 'uploads') {
+    async uploadFile(file, folder = 'uploads', allowVideo = false) {
         if (!file) {
             throw new common_1.BadRequestException('No file provided');
         }
-        const maxSize = parseInt(this.config.get('MAX_FILE_SIZE') || '5242880');
+        const maxSize = allowVideo
+            ? parseInt(this.config.get('MAX_VIDEO_SIZE') || '104857600')
+            : parseInt(this.config.get('MAX_FILE_SIZE') || '5242880');
         if (file.size > maxSize) {
-            throw new common_1.BadRequestException('File size exceeds maximum allowed size');
+            throw new common_1.BadRequestException(`File size exceeds maximum allowed size (${Math.round(maxSize / 1024 / 1024)}MB)`);
         }
-        const allowedTypes = (this.config.get('ALLOWED_FILE_TYPES') || 'jpg,jpeg,png,pdf').split(',');
+        const allowedTypes = allowVideo
+            ? (this.config.get('ALLOWED_VIDEO_TYPES') || 'mp4,webm,mov,avi').split(',')
+            : (this.config.get('ALLOWED_FILE_TYPES') || 'jpg,jpeg,png,pdf').split(',');
         const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
         if (!fileExtension || !allowedTypes.includes(fileExtension)) {
-            throw new common_1.BadRequestException('File type not allowed');
+            throw new common_1.BadRequestException(`File type not allowed. Allowed types: ${allowedTypes.join(', ')}`);
         }
         const fileName = `${folder}/${(0, uuid_1.v4)()}-${Date.now()}.${fileExtension}`;
         const params = {
@@ -47,15 +51,13 @@ let FileUploadService = class FileUploadService {
         };
         try {
             if (!this.config.get('AWS_ACCESS_KEY_ID') || !this.config.get('AWS_SECRET_ACCESS_KEY')) {
-                console.warn('AWS credentials not configured. File upload will fail.');
                 throw new Error('AWS credentials not configured');
             }
             const result = await this.s3.upload(params).promise();
             return result.Location;
         }
         catch (error) {
-            console.error('S3 upload error:', error);
-            const errorMessage = error.message || 'Failed to upload file';
+            const errorMessage = error instanceof Error ? error.message : 'Failed to upload file';
             if (errorMessage.includes('credentials') || errorMessage.includes('Access Denied')) {
                 throw new common_1.BadRequestException('AWS credentials not configured or invalid. Please check your AWS configuration.');
             }
@@ -72,8 +74,7 @@ let FileUploadService = class FileUploadService {
             const key = fileUrl.split('.com/')[1];
             await this.s3.deleteObject({ Bucket: this.bucket, Key: key }).promise();
         }
-        catch (error) {
-            console.error('Error deleting file:', error);
+        catch {
         }
     }
 };

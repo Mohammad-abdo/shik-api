@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -15,6 +16,8 @@ import { DepositToWalletDto, WithdrawFromWalletDto, ProcessPaymentDto } from './
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
@@ -236,7 +239,7 @@ export class AdminService {
         },
       };
     } catch (error) {
-      console.error('Error in getAllUsers:', error);
+      this.logger.error('Error in getAllUsers', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(`Failed to fetch users: ${error.message || 'Unknown error'}`);
     }
   }
@@ -298,7 +301,7 @@ export class AdminService {
         },
       };
     } catch (error) {
-      console.error('Error in getAllTeachers:', error);
+      this.logger.error('Error in getAllTeachers', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(
         `Failed to fetch teachers: ${error.message || 'Unknown error'}`,
       );
@@ -363,7 +366,7 @@ export class AdminService {
         },
       };
     } catch (error) {
-      console.error('Error in getAllBookings:', error);
+      this.logger.error('Error in getAllBookings', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(
         `Failed to fetch bookings: ${error.message || 'Unknown error'}`,
       );
@@ -431,7 +434,7 @@ export class AdminService {
         },
       };
     } catch (error) {
-      console.error('Error in getAllPayments:', error);
+      this.logger.error('Error in getAllPayments', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(
         `Failed to fetch payments: ${error.message || 'Unknown error'}`,
       );
@@ -455,7 +458,7 @@ export class AdminService {
         completedPayments,
       };
     } catch (error) {
-      console.error('Error in getPaymentStats:', error);
+      this.logger.error('Error in getPaymentStats', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(
         `Failed to fetch payment stats: ${error.message || 'Unknown error'}`,
       );
@@ -762,10 +765,11 @@ export class AdminService {
 
       return user;
     } catch (error) {
-      console.error('Error in getUserById:', error);
+      // NotFoundException is an expected 404 case, don't log as error
       if (error instanceof NotFoundException) {
         throw error;
       }
+      this.logger.error('Error in getUserById', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(`Failed to fetch user: ${error.message || 'Unknown error'}`);
     }
   }
@@ -907,7 +911,7 @@ export class AdminService {
 
       return updatedTeacher;
     } catch (error) {
-      console.error('Error updating teacher:', error);
+      this.logger.error('Error updating teacher', error instanceof Error ? error.stack : String(error));
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -997,7 +1001,7 @@ export class AdminService {
           teacher.specialties = JSON.parse(teacher.specialties);
         }
       } catch (e) {
-        console.warn('Error parsing specialties:', e);
+        this.logger.warn('Error parsing specialties', e instanceof Error ? e.message : String(e));
         teacher.specialties = null;
       }
 
@@ -1006,16 +1010,17 @@ export class AdminService {
           teacher.specialtiesAr = JSON.parse(teacher.specialtiesAr);
         }
       } catch (e) {
-        console.warn('Error parsing specialtiesAr:', e);
+        this.logger.warn('Error parsing specialtiesAr', e instanceof Error ? e.message : String(e));
         teacher.specialtiesAr = null;
       }
 
       return teacher;
     } catch (error) {
-      console.error('Error in getTeacherById:', error);
+      // NotFoundException is an expected 404 case, don't log as error
       if (error instanceof NotFoundException) {
         throw error;
       }
+      this.logger.error('Error in getTeacherById', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(`Failed to fetch teacher: ${error.message || 'Unknown error'}`);
     }
   }
@@ -1122,7 +1127,7 @@ export class AdminService {
         },
       };
     } catch (error) {
-      console.error('Error fetching wallets:', error);
+      this.logger.error('Error fetching wallets', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(`Failed to fetch wallets: ${error.message || 'Unknown error'}`);
     }
   }
@@ -1174,7 +1179,7 @@ export class AdminService {
 
           syncedCount++;
         } catch (error) {
-          console.error(`Error syncing payment ${payment.id}:`, error);
+          this.logger.warn(`Error syncing payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`);
           errorCount++;
         }
       }
@@ -1185,8 +1190,8 @@ export class AdminService {
         total: completedPayments.length,
       };
     } catch (error) {
-      console.error('Error syncing payments:', error);
-      throw new BadRequestException(`Failed to sync payments: ${error.message || 'Unknown error'}`);
+      this.logger.error('Error syncing payments', error instanceof Error ? error.stack : String(error));
+      throw new BadRequestException(`Failed to sync payments: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -1515,7 +1520,7 @@ export class AdminService {
         },
       };
     } catch (error) {
-      console.error('Error in getAllUsersWithFilters:', error);
+      this.logger.error('Error in getAllUsersWithFilters', error instanceof Error ? error.stack : String(error));
       throw new BadRequestException(`Failed to fetch users: ${error.message || 'Unknown error'}`);
     }
   }

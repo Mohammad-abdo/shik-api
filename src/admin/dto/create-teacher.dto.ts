@@ -62,7 +62,7 @@ export class CreateTeacherDto {
   @IsString()
   bio?: string;
 
-  @ApiPropertyOptional({ example: 'معلم قرآن ذو خبرة' })
+  @ApiPropertyOptional({ example: 'شيخ قرآن ذو خبرة' })
   @IsOptional()
   @IsString()
   bioAr?: string;

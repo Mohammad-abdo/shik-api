@@ -99,7 +99,7 @@ export class PaymentService {
         await this.handlePaymentFailure(event.data.object as Stripe.PaymentIntent);
         break;
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        break;
     }
 
     return { received: true };

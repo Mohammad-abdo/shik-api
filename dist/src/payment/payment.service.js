@@ -91,7 +91,7 @@ let PaymentService = class PaymentService {
                 await this.handlePaymentFailure(event.data.object);
                 break;
             default:
-                console.log(`Unhandled event type ${event.type}`);
+                break;
         }
         return { received: true };
     }

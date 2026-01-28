@@ -38,12 +38,8 @@ export class MobileAuthController {
         if (profileImage) {
             try {
                 profileImageUrl = await this.fileUploadService.uploadFile(profileImage, 'profiles');
-            } catch (error) {
-                console.error('File upload error:', error);
-                // Continue registration without profile image if upload fails
-                // You can either throw the error or continue without the image
-                // For now, we'll continue without the image
-                console.warn('Continuing registration without profile image due to upload failure');
+            } catch {
+                profileImageUrl = undefined;
             }
         }
         return this.authService.mobileSignUp(dto, profileImageUrl);

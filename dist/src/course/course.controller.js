@@ -19,6 +19,8 @@ const course_service_1 = require("./course.service");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
 const permissions_guard_1 = require("../common/guards/permissions.guard");
 const permissions_decorator_1 = require("../common/decorators/permissions.decorator");
+const roles_guard_1 = require("../common/guards/roles.guard");
+const roles_decorator_1 = require("../common/decorators/roles.decorator");
 const dto_1 = require("./dto");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const client_1 = require("@prisma/client");
@@ -35,6 +37,9 @@ let CourseController = class CourseController {
     async getFeatured(page, limit) {
         return this.courseService.findAll(page ? parseInt(page) : 1, limit ? parseInt(limit) : 5, 'PUBLISHED', undefined, true);
     }
+    async getCourseSheikhs(id, page, limit) {
+        return this.courseService.findCourseSheikhs(id, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 10);
+    }
     async findOne(id) {
         return this.courseService.findOne(id);
     }
@@ -46,6 +51,9 @@ let CourseController = class CourseController {
     }
     async enroll(courseId, user) {
         return this.courseService.enrollStudent(courseId, user.id);
+    }
+    async createTeacherCourse(dto, user) {
+        return this.courseService.createTeacherCourse(dto, user.id);
     }
 };
 exports.CourseController = CourseController;
@@ -90,6 +98,19 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], CourseController.prototype, "getFeatured", null);
+__decorate([
+    (0, common_1.Get)(':id/sheikhs'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get sheikhs (teachers) for a course' }),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Sheikhs retrieved successfully' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], CourseController.prototype, "getCourseSheikhs", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Get course by ID' }),
@@ -136,6 +157,19 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], CourseController.prototype, "enroll", null);
+__decorate([
+    (0, common_1.Post)('teacher/create'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(client_1.UserRoleEnum.TEACHER),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a course (Teacher only - creates course for themselves)' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Course created successfully' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [dto_1.CreateCourseDto, Object]),
+    __metadata("design:returntype", Promise)
+], CourseController.prototype, "createTeacherCourse", null);
 exports.CourseController = CourseController = __decorate([
     (0, swagger_1.ApiTags)('courses'),
     (0, common_1.Controller)('courses'),

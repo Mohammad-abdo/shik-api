@@ -46,6 +46,13 @@ __decorate([
     __metadata("design:type", String)
 ], CreateCourseDto.prototype, "teacherId", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'List of teacher IDs for the course', type: [String] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CreateCourseDto.prototype, "teacherIds", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({ description: 'Course price', default: 0 }),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0),

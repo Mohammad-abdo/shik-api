@@ -87,6 +87,46 @@ export declare class CourseService {
         totalVideos: number;
     }>;
     create(dto: CreateCourseDto, adminId: string): Promise<{
+        courseTeachers: ({
+            teacher: {
+                user: {
+                    id: string;
+                    email: string;
+                    firstName: string;
+                    firstNameAr: string;
+                    lastName: string;
+                    lastNameAr: string;
+                    avatar: string;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                certificates: string | null;
+                canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
+                specialties: string | null;
+                specialtiesAr: string | null;
+                userId: string;
+                bio: string | null;
+                bioAr: string | null;
+                image: string | null;
+                experience: number | null;
+                hourlyRate: number;
+                rating: number;
+                totalReviews: number;
+                isApproved: boolean;
+                approvedAt: Date | null;
+                approvedBy: string | null;
+                readingType: string | null;
+                readingTypeAr: string | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            teacherId: string;
+            courseId: string;
+        })[];
         teacher: {
             user: {
                 id: string;
@@ -284,6 +324,46 @@ export declare class CourseService {
         course_progress: number;
     }>;
     findOne(id: string): Promise<{
+        courseTeachers: ({
+            teacher: {
+                user: {
+                    id: string;
+                    email: string;
+                    firstName: string;
+                    firstNameAr: string;
+                    lastName: string;
+                    lastNameAr: string;
+                    avatar: string;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                certificates: string | null;
+                canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
+                specialties: string | null;
+                specialtiesAr: string | null;
+                userId: string;
+                bio: string | null;
+                bioAr: string | null;
+                image: string | null;
+                experience: number | null;
+                hourlyRate: number;
+                rating: number;
+                totalReviews: number;
+                isApproved: boolean;
+                approvedAt: Date | null;
+                approvedBy: string | null;
+                readingType: string | null;
+                readingTypeAr: string | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            teacherId: string;
+            courseId: string;
+        })[];
         teacher: {
             user: {
                 id: string;
@@ -319,6 +399,7 @@ export declare class CourseService {
         };
         _count: {
             enrollments: number;
+            lessons: number;
         };
         enrollments: ({
             student: {
@@ -340,6 +421,34 @@ export declare class CourseService {
             enrolledAt: Date;
             completedAt: Date | null;
             progress: number;
+        })[];
+        lessons: ({
+            videos: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                description: string | null;
+                descriptionAr: string | null;
+                title: string;
+                titleAr: string | null;
+                order: number;
+                videoUrl: string;
+                thumbnailUrl: string | null;
+                durationSeconds: number;
+                lessonId: string;
+            }[];
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            courseId: string;
+            description: string | null;
+            descriptionAr: string | null;
+            title: string;
+            titleAr: string | null;
+            order: number;
+            durationMinutes: number;
+            isFree: boolean;
         })[];
     } & {
         id: string;
@@ -368,6 +477,46 @@ export declare class CourseService {
         totalVideos: number;
     }>;
     update(id: string, dto: UpdateCourseDto): Promise<{
+        courseTeachers: ({
+            teacher: {
+                user: {
+                    id: string;
+                    email: string;
+                    firstName: string;
+                    firstNameAr: string;
+                    lastName: string;
+                    lastNameAr: string;
+                    avatar: string;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                certificates: string | null;
+                canIssueCertificates: boolean | null;
+                introVideoUrl: string | null;
+                specialties: string | null;
+                specialtiesAr: string | null;
+                userId: string;
+                bio: string | null;
+                bioAr: string | null;
+                image: string | null;
+                experience: number | null;
+                hourlyRate: number;
+                rating: number;
+                totalReviews: number;
+                isApproved: boolean;
+                approvedAt: Date | null;
+                approvedBy: string | null;
+                readingType: string | null;
+                readingTypeAr: string | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            teacherId: string;
+            courseId: string;
+        })[];
         teacher: {
             user: {
                 id: string;

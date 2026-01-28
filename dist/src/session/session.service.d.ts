@@ -117,6 +117,7 @@ export declare class SessionService {
             discount: number;
             totalPrice: number;
             notes: string | null;
+            courseId: string | null;
             cancelledAt: Date | null;
             cancelledBy: string | null;
         };

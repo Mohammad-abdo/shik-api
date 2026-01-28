@@ -78,6 +78,7 @@ export declare class PaymentController {
             discount: number;
             totalPrice: number;
             notes: string | null;
+            courseId: string | null;
             cancelledAt: Date | null;
             cancelledBy: string | null;
         };

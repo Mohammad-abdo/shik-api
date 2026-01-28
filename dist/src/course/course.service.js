@@ -86,6 +86,14 @@ let CourseService = class CourseService {
                 throw new common_1.NotFoundException('Teacher not found');
             }
         }
+        if (dto.teacherIds && dto.teacherIds.length > 0) {
+            const teachers = await this.prisma.teacher.findMany({
+                where: { id: { in: dto.teacherIds } },
+            });
+            if (teachers.length !== dto.teacherIds.length) {
+                throw new common_1.NotFoundException('One or more teachers not found');
+            }
+        }
         const course = await this.prisma.course.create({
             data: {
                 title: dto.title,
@@ -100,6 +108,11 @@ let CourseService = class CourseService {
                 introVideoThumbnail: dto.introVideoThumbnail,
                 status: dto.status || client_1.CourseStatus.DRAFT,
                 createdBy: adminId,
+                courseTeachers: dto.teacherIds && dto.teacherIds.length > 0 ? {
+                    create: dto.teacherIds.map(teacherId => ({
+                        teacherId,
+                    })),
+                } : undefined,
             },
             include: {
                 teacher: {
@@ -112,6 +125,25 @@ let CourseService = class CourseService {
                                 lastName: true,
                                 lastNameAr: true,
                                 email: true,
+                            },
+                        },
+                    },
+                },
+                courseTeachers: {
+                    include: {
+                        teacher: {
+                            include: {
+                                user: {
+                                    select: {
+                                        id: true,
+                                        firstName: true,
+                                        firstNameAr: true,
+                                        lastName: true,
+                                        lastNameAr: true,
+                                        email: true,
+                                        avatar: true,
+                                    },
+                                },
                             },
                         },
                     },
@@ -333,6 +365,25 @@ let CourseService = class CourseService {
                         },
                     },
                 },
+                courseTeachers: {
+                    include: {
+                        teacher: {
+                            include: {
+                                user: {
+                                    select: {
+                                        id: true,
+                                        firstName: true,
+                                        firstNameAr: true,
+                                        lastName: true,
+                                        lastNameAr: true,
+                                        email: true,
+                                        avatar: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
                 enrollments: {
                     include: {
                         student: {
@@ -354,6 +405,15 @@ let CourseService = class CourseService {
                 _count: {
                     select: {
                         enrollments: true,
+                        lessons: true,
+                    },
+                },
+                lessons: {
+                    orderBy: { order: 'asc' },
+                    include: {
+                        videos: {
+                            orderBy: { order: 'asc' },
+                        },
                     },
                 },
             },
@@ -378,6 +438,27 @@ let CourseService = class CourseService {
                 throw new common_1.NotFoundException('Teacher not found');
             }
         }
+        if (dto.teacherIds && dto.teacherIds.length > 0) {
+            const teachers = await this.prisma.teacher.findMany({
+                where: { id: { in: dto.teacherIds } },
+            });
+            if (teachers.length !== dto.teacherIds.length) {
+                throw new common_1.NotFoundException('One or more teachers not found');
+            }
+        }
+        if (dto.teacherIds !== undefined) {
+            await this.prisma.courseTeacher.deleteMany({
+                where: { courseId: id },
+            });
+            if (dto.teacherIds.length > 0) {
+                await this.prisma.courseTeacher.createMany({
+                    data: dto.teacherIds.map(teacherId => ({
+                        courseId: id,
+                        teacherId,
+                    })),
+                });
+            }
+        }
         const updated = await this.prisma.course.update({
             where: { id },
             data: {
@@ -385,7 +466,7 @@ let CourseService = class CourseService {
                 ...(dto.titleAr !== undefined && { titleAr: dto.titleAr }),
                 ...(dto.description !== undefined && { description: dto.description }),
                 ...(dto.descriptionAr !== undefined && { descriptionAr: dto.descriptionAr }),
-                ...(dto.teacherId !== undefined && { teacherId: dto.teacherId }),
+                ...(dto.teacherId !== undefined && { teacherId: dto.teacherId || null }),
                 ...(dto.price !== undefined && { price: dto.price }),
                 ...(dto.duration !== undefined && { duration: dto.duration }),
                 ...(dto.image !== undefined && { image: dto.image }),
@@ -404,6 +485,25 @@ let CourseService = class CourseService {
                                 lastName: true,
                                 lastNameAr: true,
                                 email: true,
+                            },
+                        },
+                    },
+                },
+                courseTeachers: {
+                    include: {
+                        teacher: {
+                            include: {
+                                user: {
+                                    select: {
+                                        id: true,
+                                        firstName: true,
+                                        firstNameAr: true,
+                                        lastName: true,
+                                        lastNameAr: true,
+                                        email: true,
+                                        avatar: true,
+                                    },
+                                },
                             },
                         },
                     },

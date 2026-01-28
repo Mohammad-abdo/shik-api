@@ -5,6 +5,7 @@ export declare class CreateCourseDto {
     description?: string;
     descriptionAr?: string;
     teacherId?: string;
+    teacherIds?: string[];
     price: number;
     duration?: number;
     image?: string;

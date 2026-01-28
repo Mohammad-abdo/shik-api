@@ -319,6 +319,7 @@ model Teacher {
   payoutRequests     PayoutRequest[]       @relation("TeacherPayouts")
   courses            Course[]              @relation("TeacherCourses")
   subscriptions      TeacherSubscription[] @relation("TeacherSubscriptions")
+  courseTeachers     CourseTeacher[]       @relation("CourseTeachersRelation")
 
   @@map("teachers")
 }
@@ -447,15 +448,31 @@ model Course {
   totalReviews        Int          @default(0)
   totalVideos         Int          @default(0)
 
-  teacher       Teacher?           @relation("TeacherCourses", fields: [teacherId], references: [id])
-  enrollments   CourseEnrollment[] @relation("CourseEnrollments")
-  lessons       Lesson[]           @relation("CourseLessons")
-  videoProgress VideoProgress[]    @relation("CourseVideoProgress")
-  bookings      Booking[]          @relation("CourseBookings")
+  teacher        Teacher?           @relation("TeacherCourses", fields: [teacherId], references: [id])
+  enrollments    CourseEnrollment[] @relation("CourseEnrollments")
+  lessons        Lesson[]           @relation("CourseLessons")
+  videoProgress  VideoProgress[]    @relation("CourseVideoProgress")
+  bookings       Booking[]          @relation("CourseBookings")
+  courseTeachers CourseTeacher[]    @relation("CourseTeachers")
 
   @@index([teacherId], map: "courses_teacherId_fkey")
   @@index([status])
   @@map("courses")
+}
+
+model CourseTeacher {
+  id        String   @id @default(uuid())
+  courseId  String
+  teacherId String
+  createdAt DateTime @default(now())
+
+  course  Course  @relation("CourseTeachers", fields: [courseId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation("CourseTeachersRelation", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, teacherId])
+  @@index([courseId])
+  @@index([teacherId])
+  @@map("course_teachers")
 }
 
 model Lesson {

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsEnum, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsEnum, Min, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CourseStatus } from '@prisma/client';
 
@@ -26,6 +26,12 @@ export class CreateCourseDto {
   @IsOptional()
   @IsString()
   teacherId?: string;
+
+  @ApiPropertyOptional({ description: 'List of teacher IDs for the course', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  teacherIds?: string[];
 
   @ApiProperty({ description: 'Course price', default: 0 })
   @IsNumber()

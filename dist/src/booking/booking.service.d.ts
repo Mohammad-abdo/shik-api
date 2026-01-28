@@ -59,6 +59,7 @@ export declare class BookingService {
         discount: number;
         totalPrice: number;
         notes: string | null;
+        courseId: string | null;
         cancelledAt: Date | null;
         cancelledBy: string | null;
     }>;
@@ -155,6 +156,7 @@ export declare class BookingService {
         discount: number;
         totalPrice: number;
         notes: string | null;
+        courseId: string | null;
         cancelledAt: Date | null;
         cancelledBy: string | null;
     }>;
@@ -231,6 +233,7 @@ export declare class BookingService {
         discount: number;
         totalPrice: number;
         notes: string | null;
+        courseId: string | null;
         cancelledAt: Date | null;
         cancelledBy: string | null;
     })[]>;
@@ -284,6 +287,7 @@ export declare class BookingService {
         discount: number;
         totalPrice: number;
         notes: string | null;
+        courseId: string | null;
         cancelledAt: Date | null;
         cancelledBy: string | null;
     })[]>;
@@ -382,6 +386,7 @@ export declare class BookingService {
         discount: number;
         totalPrice: number;
         notes: string | null;
+        courseId: string | null;
         cancelledAt: Date | null;
         cancelledBy: string | null;
     }>;
@@ -480,6 +485,7 @@ export declare class BookingService {
         discount: number;
         totalPrice: number;
         notes: string | null;
+        courseId: string | null;
         cancelledAt: Date | null;
         cancelledBy: string | null;
     }>;
@@ -578,6 +584,7 @@ export declare class BookingService {
         discount: number;
         totalPrice: number;
         notes: string | null;
+        courseId: string | null;
         cancelledAt: Date | null;
         cancelledBy: string | null;
     }>;

@@ -79,13 +79,23 @@ export class CourseService {
   }
 
   async create(dto: CreateCourseDto, adminId: string) {
-    // Validate teacher if provided
+    // Validate teachers if provided
     if (dto.teacherId) {
       const teacher = await this.prisma.teacher.findUnique({
         where: { id: dto.teacherId },
       });
       if (!teacher) {
         throw new NotFoundException('Teacher not found');
+      }
+    }
+
+    // Validate additional teachers if provided
+    if (dto.teacherIds && dto.teacherIds.length > 0) {
+      const teachers = await this.prisma.teacher.findMany({
+        where: { id: { in: dto.teacherIds } },
+      });
+      if (teachers.length !== dto.teacherIds.length) {
+        throw new NotFoundException('One or more teachers not found');
       }
     }
 
@@ -103,6 +113,12 @@ export class CourseService {
         introVideoThumbnail: dto.introVideoThumbnail,
         status: dto.status || CourseStatus.DRAFT,
         createdBy: adminId,
+        // Create courseTeachers relationships
+        courseTeachers: dto.teacherIds && dto.teacherIds.length > 0 ? {
+          create: dto.teacherIds.map(teacherId => ({
+            teacherId,
+          })),
+        } : undefined,
       },
       include: {
         teacher: {
@@ -115,6 +131,25 @@ export class CourseService {
                 lastName: true,
                 lastNameAr: true,
                 email: true,
+              },
+            },
+          },
+        },
+        courseTeachers: {
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    firstNameAr: true,
+                    lastName: true,
+                    lastNameAr: true,
+                    email: true,
+                    avatar: true,
+                  },
+                },
               },
             },
           },
@@ -365,6 +400,25 @@ export class CourseService {
             },
           },
         },
+        courseTeachers: {
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    firstNameAr: true,
+                    lastName: true,
+                    lastNameAr: true,
+                    email: true,
+                    avatar: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         enrollments: {
           include: {
             student: {
@@ -386,6 +440,15 @@ export class CourseService {
         _count: {
           select: {
             enrollments: true,
+            lessons: true,
+          },
+        },
+        lessons: {
+          orderBy: { order: 'asc' },
+          include: {
+            videos: {
+              orderBy: { order: 'asc' },
+            },
           },
         },
       },
@@ -417,6 +480,34 @@ export class CourseService {
       }
     }
 
+    // Validate additional teachers if provided
+    if (dto.teacherIds && dto.teacherIds.length > 0) {
+      const teachers = await this.prisma.teacher.findMany({
+        where: { id: { in: dto.teacherIds } },
+      });
+      if (teachers.length !== dto.teacherIds.length) {
+        throw new NotFoundException('One or more teachers not found');
+      }
+    }
+
+    // If teacherIds provided, update courseTeachers relationships
+    if (dto.teacherIds !== undefined) {
+      // Delete existing courseTeachers
+      await this.prisma.courseTeacher.deleteMany({
+        where: { courseId: id },
+      });
+
+      // Create new courseTeachers if array is not empty
+      if (dto.teacherIds.length > 0) {
+        await this.prisma.courseTeacher.createMany({
+          data: dto.teacherIds.map(teacherId => ({
+            courseId: id,
+            teacherId,
+          })),
+        });
+      }
+    }
+
     const updated = await this.prisma.course.update({
       where: { id },
       data: {
@@ -424,7 +515,7 @@ export class CourseService {
         ...(dto.titleAr !== undefined && { titleAr: dto.titleAr }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.descriptionAr !== undefined && { descriptionAr: dto.descriptionAr }),
-        ...(dto.teacherId !== undefined && { teacherId: dto.teacherId }),
+        ...(dto.teacherId !== undefined && { teacherId: dto.teacherId || null }),
         ...(dto.price !== undefined && { price: dto.price }),
         ...(dto.duration !== undefined && { duration: dto.duration }),
         ...(dto.image !== undefined && { image: dto.image }),
@@ -443,6 +534,25 @@ export class CourseService {
                 lastName: true,
                 lastNameAr: true,
                 email: true,
+              },
+            },
+          },
+        },
+        courseTeachers: {
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    firstNameAr: true,
+                    lastName: true,
+                    lastNameAr: true,
+                    email: true,
+                    avatar: true,
+                  },
+                },
               },
             },
           },

@@ -242,7 +242,7 @@ model Schedule {
   endTime   String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime  @updatedAt
 
   teacher Teacher @relation("TeacherSchedules", fields: [teacherId], references: [id])
 
@@ -310,7 +310,7 @@ model Teacher {
 
   user               User                  @relation("TeacherProfile", fields: [userId], references: [id])
   bookings           Booking[]             @relation("TeacherBookings")
-  reviews            Review[]              @relation("TeacherReviews")
+  reviews            Review[]             @relation("TeacherReviews")
   wallet             TeacherWallet?        @relation("TeacherWallet")
   exams              Exam[]
   schedules          Schedule[]            @relation("TeacherSchedules")
@@ -319,7 +319,8 @@ model Teacher {
   payoutRequests     PayoutRequest[]       @relation("TeacherPayouts")
   courses            Course[]              @relation("TeacherCourses")
   subscriptions      TeacherSubscription[] @relation("TeacherSubscriptions")
-  courseTeachers     CourseTeacher[]       @relation("CourseTeachersRelation")
+  courseTeachers     CourseTeacher[]        @relation("CourseTeachersRelation")
+  videos             Video[]                @relation("TeacherVideos")
 
   @@map("teachers")
 }
@@ -367,18 +368,18 @@ model User {
   student_phone       String?
 
   teacherProfile         Teacher?              @relation("TeacherProfile")
-  studentBookings        Booking[]             @relation("StudentBookings")
-  userRoles              UserRole[]            @relation("UserRoles")
-  notifications          Notification[]        @relation("UserNotifications")
-  sentNotifications      Notification[]        @relation("SentNotifications")
-  studentReviews         Review[]              @relation("StudentReviews")
+  studentBookings        Booking[]            @relation("StudentBookings")
+  userRoles              UserRole[]           @relation("UserRoles")
+  notifications          Notification[]       @relation("UserNotifications")
+  sentNotifications      Notification[]       @relation("SentNotifications")
+  studentReviews         Review[]             @relation("StudentReviews")
   studentExamSubmissions ExamSubmission[]      @relation("StudentExamSubmissions")
-  certificates           Certificate[]         @relation("StudentCertificates")
-  courseEnrollments      CourseEnrollment[]    @relation("StudentCourseEnrollments")
+  certificates           Certificate[]        @relation("StudentCertificates")
+  courseEnrollments      CourseEnrollment[]   @relation("StudentCourseEnrollments")
   studentSubscriptions   StudentSubscription[] @relation("StudentSubscriptions")
-  studentWallet          StudentWallet?        @relation("StudentWallet")
-  videoProgress          VideoProgress[]       @relation("UserVideoProgress")
-  auditLogs              AuditLog[]            @relation("UserAuditLogs")
+  studentWallet          StudentWallet?       @relation("StudentWallet")
+  videoProgress          VideoProgress[]      @relation("UserVideoProgress")
+  auditLogs              AuditLog[]          @relation("UserAuditLogs")
 
   @@map("users")
 }
@@ -450,10 +451,10 @@ model Course {
 
   teacher        Teacher?           @relation("TeacherCourses", fields: [teacherId], references: [id])
   enrollments    CourseEnrollment[] @relation("CourseEnrollments")
-  lessons        Lesson[]           @relation("CourseLessons")
-  videoProgress  VideoProgress[]    @relation("CourseVideoProgress")
-  bookings       Booking[]          @relation("CourseBookings")
-  courseTeachers CourseTeacher[]    @relation("CourseTeachers")
+  lessons        Lesson[]          @relation("CourseLessons")
+  videoProgress  VideoProgress[]   @relation("CourseVideoProgress")
+  bookings       Booking[]         @relation("CourseBookings")
+  courseTeachers CourseTeacher[]   @relation("CourseTeachers")
 
   @@index([teacherId], map: "courses_teacherId_fkey")
   @@index([status])
@@ -499,6 +500,7 @@ model Lesson {
 model Video {
   id              String   @id @default(uuid())
   lessonId        String
+  teacherId       String?
   title           String
   titleAr         String?
   description     String?  @db.LongText
@@ -511,9 +513,11 @@ model Video {
   updatedAt       DateTime @updatedAt
 
   lesson        Lesson          @relation("LessonVideos", fields: [lessonId], references: [id], onDelete: Cascade)
+  teacher       Teacher?        @relation("TeacherVideos", fields: [teacherId], references: [id], onDelete: SetNull)
   videoProgress VideoProgress[] @relation("VideoProgress")
 
   @@index([lessonId])
+  @@index([teacherId])
   @@map("videos")
 }
 

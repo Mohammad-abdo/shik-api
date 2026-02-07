@@ -1,0 +1,211 @@
+{
+  "info": {
+    "name": "شيخي - Quran Sheikhs API (Mo5)",
+    "description": "مجموعة طلبات Postman لـ API مشايخ القرآن - تطبيق شيخي.\n\n**للطالب (Student):** قائمة المشايخ، تفاصيل الشيخ، حجز، تعليقات، جلساتي، تقرير الجلسة، دوراتي، تفاصيل الدورة، تقاريري.\n**للمشايخ (Sheikh):** نفس endpoints قائمة المشايخ والبروفايل والتعليقات (لا يوجد endpoints منفصلة للمشايخ).\n\n**Global Headers:**\n- `Authorization`: Bearer <ACTION_TOKEN>\n- `Accept-Language`: ar | en",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3001/api/v1" },
+    { "key": "token", "value": "YOUR_JWT_TOKEN" },
+    { "key": "sheikh_id", "value": "" },
+    { "key": "session_id", "value": "" },
+    { "key": "course_id", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "1. Quran Sheikhs (مشايخ القرآن)",
+      "description": "جلب قائمة المشايخ، تفاصيل الشيخ، التعليقات. يستخدمها الطالب والمشايخ.",
+      "item": [
+        {
+          "name": "Get All Quran Sheikhs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept-Language", "value": "ar", "type": "text" }],
+            "url": {
+              "raw": "{{base_url}}/quran-sheikhs?page=1&limit=10&search=",
+              "host": ["{{base_url}}"],
+              "path": ["quran-sheikhs"],
+              "query": [
+                { "key": "page", "value": "1", "description": "رقم الصفحة (Default: 1)" },
+                { "key": "limit", "value": "10", "description": "عدد العناصر (Default: 10)" },
+                { "key": "search", "value": "", "description": "بحث بالاسم (اختياري)" }
+              ]
+            },
+            "description": "GET /api/v1/quran-sheikhs - جلب قائمة مشايخ القرآن مع Pagination."
+          }
+        },
+        {
+          "name": "Get Sheikh Profile Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept-Language", "value": "ar", "type": "text" }],
+            "url": {
+              "raw": "{{base_url}}/quran-sheikhs/{{sheikh_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["quran-sheikhs", "{{sheikh_id}}"]
+            },
+            "description": "GET /api/v1/quran-sheikhs/:id - تفاصيل الشيخ (مع is_subscribed إذا مُرسل Authorization)."
+          }
+        },
+        {
+          "name": "Get Sheikh Reviews",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept-Language", "value": "ar", "type": "text" }],
+            "url": {
+              "raw": "{{base_url}}/quran-sheikhs/{{sheikh_id}}/reviews?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["quran-sheikhs", "{{sheikh_id}}", "reviews"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "GET /api/v1/quran-sheikhs/:id/reviews - جلب تعليقات الشيخ."
+          }
+        },
+        {
+          "name": "Add Review (Subscribed Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept-Language", "value": "ar", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"تجربة ممتازة وانصح به بشدة\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/quran-sheikhs/{{sheikh_id}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["quran-sheikhs", "{{sheikh_id}}", "reviews"]
+            },
+            "description": "POST /api/v1/quran-sheikhs/:id/reviews - إضافة تعليق (للطالب المشترك فقط). يتطلب Authorization."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Bookings (حجوزات - طالب)",
+      "description": "حجز باقة مع الشيخ. يتطلب Authorization (طالب).",
+      "item": [
+        {
+          "name": "Book Sheikh",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept-Language", "value": "ar", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sheikh_id\": \"{{sheikh_id}}\",\n  \"package_id\": \"pkg_1\",\n  \"payment_type\": \"monthly\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": ["{{base_url}}"],
+              "path": ["bookings"]
+            },
+            "description": "POST /api/v1/bookings - حجز باقة مع الشيخ. payment_type: monthly | per_session | quarterly. يتطلب Authorization."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Student - Sessions (جلساتي)",
+      "description": "جدول جلسات الطالب وتقرير الجلسة. يتطلب Authorization.",
+      "item": [
+        {
+          "name": "Get My Sessions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept-Language", "value": "ar", "type": "text" }],
+            "url": {
+              "raw": "{{base_url}}/student/sessions?month=2&year=2024",
+              "host": ["{{base_url}}"],
+              "path": ["student", "sessions"],
+              "query": [
+                { "key": "month", "value": "2", "description": "الشهر (1-12)" },
+                { "key": "year", "value": "2024", "description": "السنة" }
+              ]
+            },
+            "description": "GET /api/v1/student/sessions - جدول جلسات الطالب للشهر. يتطلب Authorization."
+          }
+        },
+        {
+          "name": "Get Session Report",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept-Language", "value": "ar", "type": "text" }],
+            "url": {
+              "raw": "{{base_url}}/student/sessions/{{session_id}}/report",
+              "host": ["{{base_url}}"],
+              "path": ["student", "sessions", "{{session_id}}", "report"]
+            },
+            "description": "GET /api/v1/student/sessions/:id/report - تقرير الجلسة (لجلسة منتهية). يتطلب Authorization."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Student - Courses (دوراتي)",
+      "description": "دورات الطالب وتفاصيل الدورة. يتطلب Authorization.",
+      "item": [
+        {
+          "name": "Get My Courses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept-Language", "value": "ar", "type": "text" }],
+            "url": {
+              "raw": "{{base_url}}/student/courses",
+              "host": ["{{base_url}}"],
+              "path": ["student", "courses"]
+            },
+            "description": "GET /api/v1/student/courses - قائمة الدورات التي اشترك فيها الطالب. يتطلب Authorization."
+          }
+        },
+        {
+          "name": "Get Course Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept-Language", "value": "ar", "type": "text" }],
+            "url": {
+              "raw": "{{base_url}}/student/courses/{{course_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "courses", "{{course_id}}"]
+            },
+            "description": "GET /api/v1/student/courses/:id - تفاصيل الدورة ونسبة التقدم والمشايخ. يتطلب Authorization."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Student - Reports (التقارير بتاعتي)",
+      "description": "قائمة تقارير جلسات الطالب السابقة. يتطلب Authorization.",
+      "item": [
+        {
+          "name": "Get My Reports",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept-Language", "value": "ar", "type": "text" }],
+            "url": {
+              "raw": "{{base_url}}/student/reports?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["student", "reports"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "GET /api/v1/student/reports - قائمة تقارير جلسات الطالب. يتطلب Authorization."
+          }
+        }
+      ]
+    }
+  ]
+}

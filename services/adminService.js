@@ -437,7 +437,24 @@ async function createTeacher(dto, adminId) {
     },
     include: { user: { select: { id: true, email: true, firstName: true, firstNameAr: true, lastName: true, lastNameAr: true, phone: true, avatar: true } } },
   });
+  
+  // إنشاء محفظة الشيخ
   await prisma.teacherWallet.create({ data: { teacherId: teacher.id, balance: 0, pendingBalance: 0, totalEarned: 0 } });
+  
+  // إضافة مواعيد العمل (للمشايخ الكاملين فقط)
+  if (teacherType === 'FULL_TEACHER' && dto.schedules && Array.isArray(dto.schedules) && dto.schedules.length > 0) {
+    const scheduleData = dto.schedules.map(schedule => ({
+      teacherId: teacher.id,
+      dayOfWeek: parseInt(schedule.dayOfWeek),
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      isActive: true
+    }));
+    
+    await prisma.schedule.createMany({
+      data: scheduleData
+    });
+  }
   await auditService.log(adminId, 'CREATE_TEACHER', 'Teacher', teacher.id, { email: user.email, isApproved: teacher.isApproved });
   return teacher;
 }

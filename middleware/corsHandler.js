@@ -2,41 +2,29 @@
  * Enhanced CORS middleware for handling all CORS-related headers
  */
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  'http://localhost:5176',
-  'http://localhost:5177',
-  'http://localhost:5178',
-  'https://tartel-jet.vercel.app',
-  'https://tarteel-platform.vercel.app',
-  // Add any additional domains here
-];
+const allowedOrigins = "*"
 
 /**
  * Custom CORS handler that ensures proper headers for all requests
  */
 function corsHandler(req, res, next) {
-  const origin = req.headers.origin;
-  
-  // Check if origin is in allowed list or if it's undefined (for same-origin requests)
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-  }
+  // Allow all origins - simple and effective for mobile + web apps
+  res.header('Access-Control-Allow-Origin', '*');
   
   // Set essential CORS headers
-  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Credentials', 'false'); // Can't use credentials with '*'
   res.header(
     'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma'
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-App-Version, X-Platform'
   );
   res.header(
     'Access-Control-Allow-Methods',
     'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD'
   );
   res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // Additional headers for mobile apps
+  res.header('Access-Control-Expose-Headers', 'Content-Length, X-Request-Id, X-Response-Time');
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -51,13 +39,9 @@ function corsHandler(req, res, next) {
  * Middleware to add CORS headers to all responses
  */
 function addCorsHeaders(req, res, next) {
-  const origin = req.headers.origin;
-  
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  }
-  
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // Allow all origins - simple and effective
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'false');
   res.setHeader('Vary', 'Origin');
   
   next();

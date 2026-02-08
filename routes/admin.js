@@ -39,7 +39,8 @@ router.get('/teachers', async (req, res, next) => {
     const page = req.query.page ? parseInt(req.query.page) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit) : 20;
     const isApproved = req.query.isApproved === 'true' ? true : req.query.isApproved === 'false' ? false : undefined;
-    const result = await adminService.getAllTeachers(page, limit, isApproved);
+    const teacherType = req.query.teacherType; // FULL_TEACHER | COURSE_SHEIKH
+    const result = await adminService.getAllTeachers(page, limit, isApproved, teacherType);
     res.json(result);
   } catch (e) {
     next(e);

@@ -44,6 +44,8 @@ const introVideoUrls = [
   'https://www.youtube.com/embed/5fZqk8vO1vE',
   'https://www.youtube.com/embed/2QKhE9ZrI2k',
   'https://www.youtube.com/embed/7xRp6sKqKqE',
+  'https://www.youtube.com/embed/8HB-tW0n4QU',
+  'https://www.youtube.com/embed/9P6rdqiybaw',
 ];
 
 const userAvatars = [
@@ -132,12 +134,14 @@ async function main() {
   }
 
   const teacherPassword = await bcrypt.hash('teacher123', 10);
+  // مشايخ عادية (FULL_TEACHER): حجوزات، جداول، محفظة
+  // مشايخ دورات فقط (COURSE_SHEIKH): اسم، صورة، فيديو تعريفي، محفظة، يُربطون بالدورات فقط — بدون حجوزات ولا جداول
   const teachersData = [
-    { email: 'teacher1@shaykhi.com', firstName: 'Khalid', firstNameAr: '\u062E\u0627\u0644\u062F', lastName: 'Al-Ansari', lastNameAr: '\u0627\u0644\u0623\u0646\u0635\u0627\u0631\u064A', phone: '+201234567895', bio: 'Experienced Quran teacher', bioAr: '\u0634\u064A\u062E \u0642\u0631\u0622\u0646 \u0630\u0648 \u062E\u0628\u0631\u0629', experience: 10, hourlyRate: 50, specialties: ['tajweed', 'memorization', 'recitation'], specialtiesAr: ['\u062A\u062C\u0648\u064A\u062F', '\u062D\u0641\u0638', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.8, totalReviews: 25, image: teacherImages[0], introVideoUrl: introVideoUrls[0] },
-    { email: 'teacher2@shaykhi.com', firstName: 'Omar', firstNameAr: '\u0639\u0645\u0631', lastName: 'Ibrahim', lastNameAr: '\u0625\u0628\u0631\u0627\u0647\u064A\u0645', phone: '+201234567896', bio: 'Specialized in Quran recitation', bioAr: '\u0645\u062A\u062E\u0635\u0635 \u0641\u064A \u062A\u0644\u0627\u0648\u0629 \u0627\u0644\u0642\u0631\u0622\u0646', experience: 5, hourlyRate: 40, specialties: ['recitation', 'tajweed'], specialtiesAr: ['\u062A\u0644\u0627\u0648\u0629', '\u062A\u062C\u0648\u064A\u062F'], readingType: 'WARSH', readingTypeAr: '\u0648\u0631\u0634', isApproved: true, rating: 4.5, totalReviews: 15, image: teacherImages[1], introVideoUrl: introVideoUrls[1] },
-    { email: 'teacher3@shaykhi.com', firstName: 'Fatima', firstNameAr: '\u0641\u0627\u0637\u0645\u0629', lastName: 'Al-Zahra', lastNameAr: '\u0627\u0644\u0632\u0647\u0631\u0627\u0621', phone: '+201234567897', bio: 'Expert in memorization', bioAr: '\u062E\u0628\u064A\u0631\u0629 \u0641\u064A \u0627\u0644\u062D\u0641\u0638', experience: 15, hourlyRate: 60, specialties: ['memorization', 'ijaza'], specialtiesAr: ['\u062D\u0641\u0638', '\u0625\u062C\u0627\u0632\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.9, totalReviews: 40, canIssueCertificates: true, image: teacherImages[2], introVideoUrl: introVideoUrls[2] },
-    { email: 'teacher4@shaykhi.com', firstName: 'Mohamed', firstNameAr: '\u0645\u062D\u0645\u062F', lastName: 'Al-Hafiz', lastNameAr: '\u0627\u0644\u062D\u0627\u0641\u0638', phone: '+201234567898', bio: 'Quran teacher', bioAr: '\u0634\u064A\u062E \u0642\u0631\u0622\u0646', experience: 8, hourlyRate: 45, specialties: ['memorization', 'recitation'], specialtiesAr: ['\u062D\u0641\u0638', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: false, rating: 0, totalReviews: 0, image: teacherImages[3] },
-    { email: 'teacher5@shaykhi.com', firstName: 'Aisha', firstNameAr: '\u0639\u0627\u0626\u0634\u0629', lastName: 'Bint-Abdullah', lastNameAr: '\u0628\u0646\u062A \u0639\u0628\u062F\u0627\u0644\u0644\u0647', phone: '+201234567899', bio: 'Female Quran teacher', bioAr: '\u0634\u064A\u062E\u0629 \u0642\u0631\u0622\u0646', experience: 6, hourlyRate: 35, specialties: ['tajweed', 'recitation'], specialtiesAr: ['\u062A\u062C\u0648\u064A\u062F', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.7, totalReviews: 20, image: teacherImages[4], introVideoUrl: introVideoUrls[0] },
+    { email: 'teacher1@shaykhi.com', firstName: 'Khalid', firstNameAr: '\u062E\u0627\u0644\u062F', lastName: 'Al-Ansari', lastNameAr: '\u0627\u0644\u0623\u0646\u0635\u0627\u0631\u064A', phone: '+201234567895', bio: 'Experienced Quran teacher', bioAr: '\u0634\u064A\u062E \u0642\u0631\u0622\u0646 \u0630\u0648 \u062E\u0628\u0631\u0629', experience: 10, hourlyRate: 50, specialties: ['tajweed', 'memorization', 'recitation'], specialtiesAr: ['\u062A\u062C\u0648\u064A\u062F', '\u062D\u0641\u0638', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.8, totalReviews: 25, image: teacherImages[0], introVideoUrl: introVideoUrls[0], teacherType: 'FULL_TEACHER' },
+    { email: 'teacher2@shaykhi.com', firstName: 'Omar', firstNameAr: '\u0639\u0645\u0631', lastName: 'Ibrahim', lastNameAr: '\u0625\u0628\u0631\u0627\u0647\u064A\u0645', phone: '+201234567896', bio: 'Specialized in Quran recitation', bioAr: '\u0645\u062A\u062E\u0635\u0635 \u0641\u064A \u062A\u0644\u0627\u0648\u0629 \u0627\u0644\u0642\u0631\u0622\u0646', experience: 5, hourlyRate: 40, specialties: ['recitation', 'tajweed'], specialtiesAr: ['\u062A\u0644\u0627\u0648\u0629', '\u062A\u062C\u0648\u064A\u062F'], readingType: 'WARSH', readingTypeAr: '\u0648\u0631\u0634', isApproved: true, rating: 4.5, totalReviews: 15, image: teacherImages[1], introVideoUrl: introVideoUrls[1], teacherType: 'FULL_TEACHER' },
+    { email: 'teacher3@shaykhi.com', firstName: 'Fatima', firstNameAr: '\u0641\u0627\u0637\u0645\u0629', lastName: 'Al-Zahra', lastNameAr: '\u0627\u0644\u0632\u0647\u0631\u0627\u0621', phone: '+201234567897', bio: 'Expert in memorization', bioAr: '\u062E\u0628\u064A\u0631\u0629 \u0641\u064A \u0627\u0644\u062D\u0641\u0638', experience: 15, hourlyRate: 60, specialties: ['memorization', 'ijaza'], specialtiesAr: ['\u062D\u0641\u0638', '\u0625\u062C\u0627\u0632\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.9, totalReviews: 40, canIssueCertificates: true, image: teacherImages[2], introVideoUrl: introVideoUrls[2], teacherType: 'FULL_TEACHER' },
+    { email: 'teacher4@shaykhi.com', firstName: 'Mohamed', firstNameAr: '\u0645\u062D\u0645\u062F', lastName: 'Al-Hafiz', lastNameAr: '\u0627\u0644\u062D\u0627\u0641\u0638', phone: '+201234567898', bio: 'Sheikh for courses only', bioAr: '\u0634\u064A\u062E \u062F\u0648\u0631\u0627\u062A \u0641\u0642\u0637', experience: 8, hourlyRate: 0, specialties: ['memorization', 'recitation'], specialtiesAr: ['\u062D\u0641\u0638', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 0, totalReviews: 0, image: teacherImages[3], introVideoUrl: introVideoUrls[3], teacherType: 'COURSE_SHEIKH' },
+    { email: 'teacher5@shaykhi.com', firstName: 'Aisha', firstNameAr: '\u0639\u0627\u0626\u0634\u0629', lastName: 'Bint-Abdullah', lastNameAr: '\u0628\u0646\u062A \u0639\u0628\u062F\u0627\u0644\u0644\u0647', phone: '+201234567899', bio: 'Course sheikh (no bookings)', bioAr: '\u0634\u064A\u062E\u0629 \u062F\u0648\u0631\u0627\u062A \u0641\u0642\u0637', experience: 6, hourlyRate: 0, specialties: ['tajweed', 'recitation'], specialtiesAr: ['\u062A\u062C\u0648\u064A\u062F', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 0, totalReviews: 0, image: teacherImages[4], introVideoUrl: introVideoUrls[0], teacherType: 'COURSE_SHEIKH' },
   ];
 
   const createdTeachers = [];
@@ -150,7 +154,7 @@ async function main() {
     }
     const teacherUser = await prisma.user.upsert({
       where: { email: d.email },
-      update: { password: teacherPassword, firstName: d.firstName, firstNameAr: d.firstNameAr, lastName: d.lastName, lastNameAr: d.lastNameAr, role: 'TEACHER', status: 'ACTIVE', emailVerified: true, phoneVerified: !!phoneToUse },
+      update: { password: teacherPassword, firstName: d.firstName, firstNameAr: d.firstNameAr, lastName: d.lastName, lastNameAr: d.lastNameAr, role: 'TEACHER', status: 'ACTIVE', emailVerified: true, phoneVerified: !!phoneToUse, avatar: d.image },
       create: {
         email: d.email,
         password: teacherPassword,
@@ -159,21 +163,24 @@ async function main() {
         lastName: d.lastName,
         lastNameAr: d.lastNameAr,
         phone: phoneToUse,
+        avatar: d.image,
         role: 'TEACHER',
         status: 'ACTIVE',
         emailVerified: true,
         phoneVerified: !!phoneToUse,
       },
     });
+    const teacherType = d.teacherType === 'COURSE_SHEIKH' ? 'COURSE_SHEIKH' : 'FULL_TEACHER';
     const teacher = await prisma.teacher.upsert({
       where: { userId: teacherUser.id },
-      update: {},
+      update: { teacherType },
       create: {
         userId: teacherUser.id,
+        teacherType,
         bio: d.bio,
         bioAr: d.bioAr,
         experience: d.experience,
-        hourlyRate: d.hourlyRate,
+        hourlyRate: d.hourlyRate ?? 0,
         specialties: JSON.stringify(d.specialties),
         specialtiesAr: JSON.stringify(d.specialtiesAr),
         readingType: d.readingType,
@@ -202,16 +209,17 @@ async function main() {
     console.log('Teacher created:', teacherUser.email);
   }
 
+  const fullTeachers = createdTeachers.filter((t) => t.teacher.teacherType !== 'COURSE_SHEIKH');
   const schedules = [];
-  if (createdTeachers.length >= 5) {
-    for (let t = 0; t < 5; t++) {
-      const tid = createdTeachers[t].teacher.id;
-      const slots = t === 0 ? [1, 2, 3, 4, 5] : t === 1 ? [1, 2, 3] : t === 2 ? [0, 1, 2, 3, 4] : t === 3 ? [1, 2, 3] : [0, 1, 2, 3];
-      const [start, end] = t === 0 ? ['09:00', '17:00'] : t === 1 ? ['10:00', '18:00'] : t === 2 ? ['08:00', '16:00'] : t === 3 ? ['14:00', '20:00'] : ['09:00', '15:00'];
+  if (fullTeachers.length >= 3) {
+    for (let t = 0; t < Math.min(3, fullTeachers.length); t++) {
+      const tid = fullTeachers[t].teacher.id;
+      const slots = t === 0 ? [1, 2, 3, 4, 5] : t === 1 ? [1, 2, 3] : [0, 1, 2, 3, 4];
+      const [start, end] = t === 0 ? ['09:00', '17:00'] : t === 1 ? ['10:00', '18:00'] : ['08:00', '16:00'];
       slots.forEach((day) => schedules.push({ teacherId: tid, dayOfWeek: day, startTime: start, endTime: end }));
     }
     await prisma.schedule.createMany({ data: schedules, skipDuplicates: true });
-    console.log('Schedules created');
+    console.log('Schedules created (full teachers only)');
   }
 
   const today = new Date();
@@ -219,7 +227,7 @@ async function main() {
   for (let i = 0; i < 20; i++) {
     const bookingDate = new Date(today);
     bookingDate.setDate(today.getDate() + i);
-    const teacher = createdTeachers[i % createdTeachers.length];
+    const teacher = fullTeachers.length ? fullTeachers[i % fullTeachers.length] : createdTeachers[i % createdTeachers.length];
     const student = createdStudents[i % createdStudents.length];
     if (!teacher || !student) continue;
     const statuses = ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];

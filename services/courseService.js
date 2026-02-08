@@ -36,17 +36,69 @@ async function findOne(id) {
   return course;
 }
 
+function formatSheikh(teacher) {
+  if (!teacher || !teacher.user) return null;
+  const u = teacher.user;
+  const name = (u.firstNameAr && u.lastNameAr) ? `${u.firstNameAr} ${u.lastNameAr}`.trim() : `${u.firstName || ''} ${u.lastName || ''}`.trim();
+  return {
+    id: teacher.id,
+    name: name || u.email,
+    profile_image: teacher.image || u.avatar || null,
+    bio: teacher.bioAr || teacher.bio || null,
+    rating: teacher.rating ?? 0,
+    specialization: teacher.specialtiesAr || teacher.specialties || null,
+    email: u.email,
+    introVideoUrl: teacher.introVideoUrl || null,
+    teacherType: teacher.teacherType || 'FULL_TEACHER',
+  };
+}
+
 async function findCourseSheikhs(courseId, page = 1, limit = 10) {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: { teacher: { include: { user: true } } },
+    include: {
+      teacher: { include: { user: { select: { id: true, firstName: true, firstNameAr: true, lastName: true, lastNameAr: true, email: true, avatar: true } } } },
+      courseTeachers: { include: { teacher: { include: { user: { select: { id: true, firstName: true, firstNameAr: true, lastName: true, lastNameAr: true, email: true, avatar: true } } } } } },
+    },
   });
   if (!course) throw Object.assign(new Error('Course not found'), { statusCode: 404 });
-  if (!course.teacher) return { teachers: [], total: 0 };
-  const sheikh = course.teacher;
-  const teacherName = (sheikh.user.firstNameAr && sheikh.user.lastNameAr) ? `${sheikh.user.firstNameAr} ${sheikh.user.lastNameAr}`.trim() : `${sheikh.user.firstName} ${sheikh.user.lastName}`.trim();
-  const formatted = { id: sheikh.id, name: teacherName, profile_image: sheikh.image || null, bio: sheikh.bioAr || sheikh.bio || null, rating: sheikh.rating || 0, specialization: sheikh.specialtiesAr || sheikh.specialties || null };
-  return { teachers: [formatted], total: 1 };
+
+  const seen = new Set();
+  const list = [];
+
+  if (course.teacher) {
+    const main = formatSheikh(course.teacher);
+    if (main) {
+      seen.add(course.teacher.id);
+      list.push(main);
+    }
+  }
+
+  if (course.courseTeachers && course.courseTeachers.length > 0) {
+    for (const ct of course.courseTeachers) {
+      if (ct.teacher && !seen.has(ct.teacher.id)) {
+        const formatted = formatSheikh(ct.teacher);
+        if (formatted) {
+          seen.add(ct.teacher.id);
+          list.push(formatted);
+        }
+      }
+    }
+  }
+
+  const total = list.length;
+  const skip = (page - 1) * limit;
+  const teachers = list.slice(skip, skip + limit);
+
+  return {
+    teachers,
+    total,
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total_pages: limit > 0 ? Math.ceil(total / limit) : 0,
+    },
+  };
 }
 
 async function getCourseLessonsForPlayback(courseId, options = {}) {

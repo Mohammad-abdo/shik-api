@@ -307,6 +307,7 @@ model Teacher {
   readingType          String?
   readingTypeAr        String?
   certificates         String?   @db.LongText
+  teacherType          TeacherType @default(FULL_TEACHER)
 
   user               User                  @relation("TeacherProfile", fields: [userId], references: [id])
   bookings           Booking[]             @relation("TeacherBookings")
@@ -899,6 +900,12 @@ enum SubscriptionStatus {
 enum Gender {
   MALE
   FEMALE
+}
+
+enum TeacherType {
+  FULL_TEACHER   // معلم كامل: حجوزات، جداول، إلخ
+  COURSE_SHEIKH  // شيخ دورة فقط: اسم، صورة، فيديو تعريفي، محفظة، يُربط بالدورات فقط
+  @@map("teacher_type")
 }
 
 enum CourseLevel {

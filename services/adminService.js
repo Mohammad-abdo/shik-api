@@ -131,9 +131,10 @@ async function getAllUsersWithFilters(filters = {}) {
   return { users, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 }
 
-async function getAllTeachers(page = 1, limit = 20, isApproved) {
+async function getAllTeachers(page = 1, limit = 20, isApproved, teacherType) {
   const where = {};
   if (isApproved !== undefined) where.isApproved = isApproved;
+  if (teacherType === 'COURSE_SHEIKH' || teacherType === 'FULL_TEACHER') where.teacherType = teacherType;
   const skip = (page - 1) * limit;
   const [teachers, total] = await Promise.all([
     prisma.teacher.findMany({
@@ -329,6 +330,7 @@ async function createUser(dto, adminId) {
       firstNameAr: dto.firstNameAr,
       lastName: dto.lastName,
       lastNameAr: dto.lastNameAr,
+      avatar: dto.avatar,
       role: dto.role,
       status: dto.status || 'ACTIVE',
       emailVerified: true,
@@ -374,6 +376,7 @@ async function updateUser(userId, dto, adminId) {
       ...(dto.firstNameAr !== undefined && { firstNameAr: dto.firstNameAr }),
       ...(dto.lastName && { lastName: dto.lastName }),
       ...(dto.lastNameAr !== undefined && { lastNameAr: dto.lastNameAr }),
+      ...(dto.avatar !== undefined && { avatar: dto.avatar }),
       ...(dto.phone && { phone: dto.phone }),
       ...(dto.role && { role: dto.role }),
       ...(dto.status && { status: dto.status }),
@@ -411,9 +414,11 @@ async function createTeacher(dto, adminId) {
       phoneVerified: !!dto.phone,
     },
   });
+  const teacherType = dto.teacherType === 'COURSE_SHEIKH' ? 'COURSE_SHEIKH' : 'FULL_TEACHER';
   const teacher = await prisma.teacher.create({
     data: {
       userId: user.id,
+      teacherType,
       bio: dto.bio,
       bioAr: dto.bioAr,
       image: dto.image,
@@ -454,6 +459,7 @@ async function updateTeacher(teacherId, dto, adminId) {
   if (dto.certificates !== undefined) updateData.certificates = Array.isArray(dto.certificates) ? JSON.stringify(dto.certificates) : dto.certificates;
   if (dto.canIssueCertificates !== undefined) updateData.canIssueCertificates = Boolean(dto.canIssueCertificates);
   if (dto.isApproved !== undefined) updateData.isApproved = Boolean(dto.isApproved);
+  if (dto.teacherType !== undefined && (dto.teacherType === 'COURSE_SHEIKH' || dto.teacherType === 'FULL_TEACHER')) updateData.teacherType = dto.teacherType;
   const updated = await prisma.teacher.update({
     where: { id: teacherId },
     data: updateData,

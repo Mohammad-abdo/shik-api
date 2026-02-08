@@ -8,6 +8,11 @@ if (!JWT_SECRET) {
 
 async function jwtAuth(req, res, next) {
   try {
+    // Skip authentication for CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      return next();
+    }
+    
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       const err = new Error('Unauthorized');

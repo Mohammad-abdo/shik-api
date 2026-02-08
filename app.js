@@ -30,7 +30,8 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// خدمة الملفات المرفوعة من داخل المشروع فقط (backend-js/uploads)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use(responseTransform);
 

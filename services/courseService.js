@@ -39,7 +39,7 @@ async function findOne(id) {
 async function findCourseSheikhs(courseId, page = 1, limit = 10) {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: { teacher: { include: { user: true }, _count: { select: { bookings: true, reviews: true, courses: true } } } },
+    include: { teacher: { include: { user: true } } },
   });
   if (!course) throw Object.assign(new Error('Course not found'), { statusCode: 404 });
   if (!course.teacher) return { teachers: [], total: 0 };
@@ -207,6 +207,48 @@ async function update(id, dto) {
   if (dto.introVideoUrl !== undefined) updateData.introVideoUrl = dto.introVideoUrl;
   if (dto.introVideoThumbnail !== undefined) updateData.introVideoThumbnail = dto.introVideoThumbnail;
   if (dto.status) updateData.status = dto.status;
+
+  // حفظ الدروس وفيديوهات الدورة عند التعديل (نفس منطق الإنشاء)
+  if (dto.lessons !== undefined && Array.isArray(dto.lessons)) {
+    await prisma.lesson.deleteMany({ where: { courseId: id } });
+    let totalVideosCount = 0;
+    if (dto.lessons.length > 0) {
+      for (let i = 0; i < dto.lessons.length; i++) {
+        const lessonDto = dto.lessons[i];
+        const lesson = await prisma.lesson.create({
+          data: {
+            courseId: id,
+            title: lessonDto.title || `Lesson ${i + 1}`,
+            titleAr: lessonDto.titleAr,
+            order: lessonDto.order ?? i,
+            durationMinutes: lessonDto.durationMinutes ?? 0,
+            isFree: lessonDto.isFree ?? false,
+          },
+        });
+        if (lessonDto.videos && lessonDto.videos.length > 0) {
+          for (let j = 0; j < lessonDto.videos.length; j++) {
+            const v = lessonDto.videos[j];
+            await prisma.video.create({
+              data: {
+                lessonId: lesson.id,
+                title: v.title || `Video ${j + 1}`,
+                titleAr: v.titleAr,
+                videoUrl: v.videoUrl,
+                thumbnailUrl: v.thumbnailUrl,
+                durationSeconds: v.durationSeconds ?? 0,
+                order: v.order ?? j,
+                teacherId: v.teacherId || undefined,
+              },
+            });
+            totalVideosCount += 1;
+          }
+        }
+      }
+    }
+    updateData.totalLessons = dto.lessons.length;
+    updateData.totalVideos = totalVideosCount;
+  }
+
   return prisma.course.update({ where: { id }, data: updateData, include: { teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } }, _count: { select: { enrollments: true } } } });
 }
 

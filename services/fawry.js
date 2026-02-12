@@ -17,8 +17,8 @@ const CHARGE_PATH = '/ECommerceWeb/Fawry/payments/charge';
 function buildSignature(merchantCode, merchantRefNum, customerProfileId, returnUrl, chargeItems, secureKey) {
   const profilePart = customerProfileId != null && String(customerProfileId).trim() !== '' ? String(customerProfileId).trim() : '';
   const sorted = [...chargeItems].sort((a, b) => {
-    const idA = (a.itemId || '').toUpperCase();
-    const idB = (b.itemId || '').toUpperCase();
+    const idA = (a.itemId || '');
+    const idB = (b.itemId || '');
     return idA === idB ? 0 : idA > idB ? 1 : -1;
   });
   let itemsPart = '';
@@ -29,6 +29,7 @@ function buildSignature(merchantCode, merchantRefNum, customerProfileId, returnU
     itemsPart += String(item.itemId || '') + String(qty) + priceStr;
   }
   const toHash = String(merchantCode).trim() + String(merchantRefNum).trim() + profilePart + String(returnUrl).trim() + itemsPart + String(secureKey).trim();
+  console.log('Fawry Signature Source:', toHash);
   return crypto.createHash('sha256').update(toHash, 'utf8').digest('hex');
 }
 
@@ -47,7 +48,8 @@ function buildChargeRequest(options) {
 
   const chargeItems = (options.chargeItems || []).map((item) => {
     const rawPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price);
-    const price = Number.isFinite(rawPrice) ? Math.round(rawPrice * 100) / 100 : 0;
+    const priceVal = Number.isFinite(rawPrice) ? rawPrice : 0;
+    const price = priceVal.toFixed(2); // Fawry expects string "10.00"
     const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
     const itemId = String(item.itemId || '').trim().replace(/[^a-zA-Z0-9]/g, '') || 'item1';
     return {
@@ -57,6 +59,19 @@ function buildChargeRequest(options) {
       quantity,
     };
   });
+
+  // Sort items by itemId to ensure signature matches payload order
+  // Sort items by itemId to ensure signature matches payload order
+  chargeItems.sort((a, b) => {
+    const idA = (a.itemId || '');
+    const idB = (b.itemId || '');
+    return idA === idB ? 0 : idA > idB ? 1 : -1;
+  });
+
+  // Determine Payment Method FIRST so it can be signed
+  const paymentMethod = options.paymentMethod && ['CashOnDelivery', 'PayAtFawry', 'MWALLET', 'CARD', 'VALU'].includes(options.paymentMethod)
+    ? options.paymentMethod
+    : 'CARD';
 
   const signature = buildSignature(merchantCode, merchantRefNum, customerProfileIdForSignature, returnUrl, chargeItems, secureKey);
 
@@ -69,16 +84,12 @@ function buildChargeRequest(options) {
   if (options.customerEmail) request.customerEmail = String(options.customerEmail || '').trim();
   if (options.customerName) request.customerName = String(options.customerName || '').trim();
   if (customerProfileIdRaw !== '') {
-    const asNum = parseInt(customerProfileIdRaw, 10);
-    request.customerProfileId = Number.isFinite(asNum) ? asNum : customerProfileIdRaw;
+    request.customerProfileId = customerProfileIdRaw;
   }
   if (options.paymentExpiry != null && options.paymentExpiry !== '') request.paymentExpiry = String(options.paymentExpiry);
   request.language = options.language === 'en-gb' ? 'en-gb' : 'ar-eg';
   request.chargeItems = chargeItems;
-  // مطلوب من فوري (10045): القيم المسموحة: CashOnDelivery, PayAtFawry, MWALLET, CARD, VALU
-  request.paymentMethod = options.paymentMethod && ['CashOnDelivery', 'PayAtFawry', 'MWALLET', 'CARD', 'VALU'].includes(options.paymentMethod)
-    ? options.paymentMethod
-    : 'CARD';
+  request.paymentMethod = paymentMethod;
   request.returnUrl = returnUrl;
   if (options.orderWebHookUrl) request.orderWebHookUrl = String(options.orderWebHookUrl).trim();
   request.authCaptureModePayment = false;
@@ -133,6 +144,7 @@ async function createCharge(chargeRequest) {
     const e = new Error(data.statusDescription || data.message || 'No payment URL in response');
     // If we have a response from Fawry but it's an error (e.g. 9929, 9901), it's a Bad Request (400), not Bad Gateway (502)
     e.statusCode = 400;
+    console.error('Fawry Detail Error:', JSON.stringify(data, null, 2)); // Log full error details
     e.fawryResponse = data;
     throw e;
   }

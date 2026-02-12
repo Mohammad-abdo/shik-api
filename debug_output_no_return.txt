@@ -1,17 +1,16 @@
 --- Starting Fawry Debug Test ---
-Merchant Ref: TEST-1770895211941
+Merchant Ref: TEST-1770897829585
 
 1. Building Request (Look for Signature Source below)...
-Fawry Signature Source: 770000022076TEST-177089521194112345http://localhost:5173/paymentsA100150.00B200220.002e63ad3591b9414d810c62234768e443
+Fawry Signature Source: 770000022076TEST-1770897829585A100150.002e63ad3591b9414d810c62234768e443
 
 2. Generated Request Payload:
 {
   "merchantCode": "770000022076",
-  "merchantRefNum": "TEST-1770895211941",
+  "merchantRefNum": "TEST-1770897829585",
   "customerMobile": "01000000000",
   "customerEmail": "test@example.com",
   "customerName": "Test User",
-  "customerProfileId": 12345,
   "language": "ar-eg",
   "chargeItems": [
     {
@@ -19,29 +18,22 @@ Fawry Signature Source: 770000022076TEST-177089521194112345http://localhost:5173
       "description": "Item A",
       "price": "50.00",
       "quantity": 1
-    },
-    {
-      "itemId": "B200",
-      "description": "Item B",
-      "price": "20.00",
-      "quantity": 2
     }
   ],
   "paymentMethod": "CARD",
-  "returnUrl": "http://localhost:5173/payments",
+  "returnUrl": "",
   "authCaptureModePayment": false,
-  "signature": "f1f48da606a0e694c90259e079a130a843ccc4b8d6bac6560f682bcc2a0e022d"
+  "signature": "b57db1391c7cf61f2699587ce1264f530260367fb0689269d72c4c9320d57602"
 }
 
 3. Sending to Fawry...
 Sending to Fawry: https://atfawry.fawrystaging.com/ECommerceWeb/Fawry/payments/charge
 Payload: {
   "merchantCode": "770000022076",
-  "merchantRefNum": "TEST-1770895211941",
+  "merchantRefNum": "TEST-1770897829585",
   "customerMobile": "01000000000",
   "customerEmail": "test@example.com",
   "customerName": "Test User",
-  "customerProfileId": 12345,
   "language": "ar-eg",
   "chargeItems": [
     {
@@ -49,28 +41,22 @@ Payload: {
       "description": "Item A",
       "price": "50.00",
       "quantity": 1
-    },
-    {
-      "itemId": "B200",
-      "description": "Item B",
-      "price": "20.00",
-      "quantity": 2
     }
   ],
   "paymentMethod": "CARD",
-  "returnUrl": "http://localhost:5173/payments",
+  "returnUrl": "",
   "authCaptureModePayment": false,
-  "signature": "f1f48da606a0e694c90259e079a130a843ccc4b8d6bac6560f682bcc2a0e022d"
+  "signature": "b57db1391c7cf61f2699587ce1264f530260367fb0689269d72c4c9320d57602"
 }
 Fawry Response Status: 200
-Fawry Response Body: {"type":"ChargeResponse","requestUID":"428449837b23441e8e85a080402d5e06","statusCode":9929,"statusDescription":"قيمة التذكرة غير صالحة","basketPayment":false,"recaptchaEnabled":false}
+Fawry Response Body: {"type":"ChargeResponse","requestUID":"571ab57d57de4bd9a257f677cb68b759","statusCode":9929,"statusDescription":"قيمة التذكرة غير صالحة","basketPayment":false,"recaptchaEnabled":false}
 
 ❌ FAILED!
 Status Code: 400
 Error Message: قيمة التذكرة غير صالحة
 Fawry Response: {
   "type": "ChargeResponse",
-  "requestUID": "428449837b23441e8e85a080402d5e06",
+  "requestUID": "571ab57d57de4bd9a257f677cb68b759",
   "statusCode": 9929,
   "statusDescription": "قيمة التذكرة غير صالحة",
   "basketPayment": false,

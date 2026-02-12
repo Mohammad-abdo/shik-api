@@ -212,7 +212,7 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
       ];
 
     const paymentExpiry = String(Date.now() + 60 * 60 * 1000);
-    const orderWebHookUrl = BASE_URL ? `${BASE_URL.replace(/\/$/, '')}/api/payments/fawry/webhook` : undefined;
+    const orderWebHookUrl = process.env.FAWRY_ORDER_WEBHOOK_URL || (BASE_URL ? `${BASE_URL.replace(/\/$/, '')}/api/payments/fawry/webhook` : undefined);
     const chargeRequest = fawryService.buildChargeRequest({
       merchantCode: FAWRY_MERCHANT_CODE,
       merchantRefNum: String(finalMerchantRefNum),

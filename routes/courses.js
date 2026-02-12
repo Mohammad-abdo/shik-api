@@ -106,6 +106,15 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
+router.patch('/:id/featured', jwtAuth, permissions(['courses.write']), async (req, res, next) => {
+  try {
+    const course = await courseService.toggleFeatured(req.params.id, req.body.isFeatured);
+    res.json(course);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.put('/:id', jwtAuth, permissions(['courses.write']), async (req, res, next) => {
   try {
     const course = await courseService.update(req.params.id, req.body);

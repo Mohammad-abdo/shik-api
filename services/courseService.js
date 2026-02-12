@@ -323,4 +323,10 @@ async function enrollStudent(courseId, studentId) {
   });
 }
 
-module.exports = { findAll, findOne, findCourseSheikhs, getCourseLessonsForPlayback, create, createTeacherCourse, update, deleteCourse, enrollStudent };
+async function toggleFeatured(id, isFeatured) {
+  const course = await prisma.course.findUnique({ where: { id } });
+  if (!course) throw Object.assign(new Error('Course not found'), { statusCode: 404 });
+  return prisma.course.update({ where: { id }, data: { isFeatured: !!isFeatured } });
+}
+
+module.exports = { findAll, findOne, findCourseSheikhs, getCourseLessonsForPlayback, create, createTeacherCourse, update, deleteCourse, enrollStudent, toggleFeatured };

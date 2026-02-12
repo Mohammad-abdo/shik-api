@@ -51,6 +51,7 @@ model Booking {
   courseId    String?
   cancelledAt DateTime?
   cancelledBy String?
+  isFeatured  Boolean       @default(false)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -244,7 +245,7 @@ model Schedule {
   endTime   String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime  @updatedAt
+  updatedAt DateTime @updatedAt
 
   teacher Teacher @relation("TeacherSchedules", fields: [teacherId], references: [id])
 
@@ -288,32 +289,32 @@ model TeacherWallet {
 }
 
 model Teacher {
-  id                   String    @id @default(uuid())
-  userId               String    @unique
+  id                   String      @id @default(uuid())
+  userId               String      @unique
   bio                  String?
   bioAr                String?
   image                String?
   experience           Int?
-  hourlyRate           Float     @default(0)
-  rating               Float     @default(0)
-  totalReviews         Int       @default(0)
-  isApproved           Boolean   @default(false)
+  hourlyRate           Float       @default(0)
+  rating               Float       @default(0)
+  totalReviews         Int         @default(0)
+  isApproved           Boolean     @default(false)
   approvedAt           DateTime?
   approvedBy           String?
-  specialties          String?   @db.LongText
-  specialtiesAr        String?   @db.LongText
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  specialties          String?     @db.LongText
+  specialtiesAr        String?     @db.LongText
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
   introVideoUrl        String?
-  canIssueCertificates Boolean?  @default(false)
+  canIssueCertificates Boolean?    @default(false)
   readingType          String?
   readingTypeAr        String?
-  certificates         String?   @db.LongText
+  certificates         String?     @db.LongText
   teacherType          TeacherType @default(FULL_TEACHER)
 
   user               User                  @relation("TeacherProfile", fields: [userId], references: [id])
   bookings           Booking[]             @relation("TeacherBookings")
-  reviews            Review[]             @relation("TeacherReviews")
+  reviews            Review[]              @relation("TeacherReviews")
   wallet             TeacherWallet?        @relation("TeacherWallet")
   exams              Exam[]
   schedules          Schedule[]            @relation("TeacherSchedules")
@@ -322,8 +323,8 @@ model Teacher {
   payoutRequests     PayoutRequest[]       @relation("TeacherPayouts")
   courses            Course[]              @relation("TeacherCourses")
   subscriptions      TeacherSubscription[] @relation("TeacherSubscriptions")
-  courseTeachers     CourseTeacher[]        @relation("CourseTeachersRelation")
-  videos             Video[]                @relation("TeacherVideos")
+  courseTeachers     CourseTeacher[]       @relation("CourseTeachersRelation")
+  videos             Video[]               @relation("TeacherVideos")
 
   @@map("teachers")
 }
@@ -371,18 +372,18 @@ model User {
   student_phone       String?
 
   teacherProfile         Teacher?              @relation("TeacherProfile")
-  studentBookings        Booking[]            @relation("StudentBookings")
-  userRoles              UserRole[]           @relation("UserRoles")
-  notifications          Notification[]       @relation("UserNotifications")
-  sentNotifications      Notification[]       @relation("SentNotifications")
-  studentReviews         Review[]             @relation("StudentReviews")
+  studentBookings        Booking[]             @relation("StudentBookings")
+  userRoles              UserRole[]            @relation("UserRoles")
+  notifications          Notification[]        @relation("UserNotifications")
+  sentNotifications      Notification[]        @relation("SentNotifications")
+  studentReviews         Review[]              @relation("StudentReviews")
   studentExamSubmissions ExamSubmission[]      @relation("StudentExamSubmissions")
-  certificates           Certificate[]        @relation("StudentCertificates")
-  courseEnrollments      CourseEnrollment[]   @relation("StudentCourseEnrollments")
+  certificates           Certificate[]         @relation("StudentCertificates")
+  courseEnrollments      CourseEnrollment[]    @relation("StudentCourseEnrollments")
   studentSubscriptions   StudentSubscription[] @relation("StudentSubscriptions")
-  studentWallet          StudentWallet?       @relation("StudentWallet")
-  videoProgress          VideoProgress[]      @relation("UserVideoProgress")
-  auditLogs              AuditLog[]          @relation("UserAuditLogs")
+  studentWallet          StudentWallet?        @relation("StudentWallet")
+  videoProgress          VideoProgress[]       @relation("UserVideoProgress")
+  auditLogs              AuditLog[]            @relation("UserAuditLogs")
 
   @@map("users")
 }
@@ -454,10 +455,10 @@ model Course {
 
   teacher        Teacher?           @relation("TeacherCourses", fields: [teacherId], references: [id])
   enrollments    CourseEnrollment[] @relation("CourseEnrollments")
-  lessons        Lesson[]          @relation("CourseLessons")
-  videoProgress  VideoProgress[]   @relation("CourseVideoProgress")
-  bookings       Booking[]         @relation("CourseBookings")
-  courseTeachers CourseTeacher[]   @relation("CourseTeachers")
+  lessons        Lesson[]           @relation("CourseLessons")
+  videoProgress  VideoProgress[]    @relation("CourseVideoProgress")
+  bookings       Booking[]          @relation("CourseBookings")
+  courseTeachers CourseTeacher[]    @relation("CourseTeachers")
 
   @@index([teacherId], map: "courses_teacherId_fkey")
   @@index([status])
@@ -905,8 +906,9 @@ enum Gender {
 }
 
 enum TeacherType {
-  FULL_TEACHER   // معلم كامل: حجوزات، جداول، إلخ
-  COURSE_SHEIKH  // شيخ دورة فقط: اسم، صورة، فيديو تعريفي، محفظة، يُربط بالدورات فقط
+  FULL_TEACHER // معلم كامل: حجوزات، جداول، إلخ
+  COURSE_SHEIKH // شيخ دورة فقط: اسم، صورة، فيديو تعريفي، محفظة، يُربط بالدورات فقط
+
   @@map("teacher_type")
 }
 

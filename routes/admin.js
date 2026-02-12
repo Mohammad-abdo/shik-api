@@ -208,6 +208,52 @@ router.post('/bookings/:id/force-confirm', permissions(['bookings.manage']), asy
   }
 });
 
+router.patch('/bookings/:id/featured', permissions(['bookings.manage']), async (req, res, next) => {
+  try {
+    const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+    if (!booking) {
+      const err = new Error('Booking not found');
+      err.statusCode = 404;
+      return next(err);
+    }
+    const updated = await prisma.booking.update({
+      where: { id: req.params.id },
+      data: { isFeatured: !!req.body.isFeatured },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true, email: true } },
+        teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
+      },
+    });
+    res.json(updated);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/bookings/featured', permissions(['bookings.manage']), async (req, res, next) => {
+  try {
+    const page = req.query.page ? parseInt(req.query.page) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 20;
+    const skip = (page - 1) * limit;
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where: { isFeatured: true },
+        skip,
+        take: limit,
+        include: {
+          student: { select: { id: true, firstName: true, lastName: true, email: true } },
+          teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.booking.count({ where: { isFeatured: true } }),
+    ]);
+    res.json({ bookings, pagination: { current_page: page, per_page: limit, total, total_pages: Math.ceil(total / limit) } });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/notifications/global', permissions(['notifications.send']), async (req, res, next) => {
   try {
     const { title, message } = req.body;

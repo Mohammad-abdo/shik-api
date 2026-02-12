@@ -35,16 +35,17 @@ async function findAll(page = 1, limit = 20, status, teacherId, isFeatured) {
 
 async function findOne(id) {
   const course = await prisma.course.findUnique({
-    where: { id },
+    ">كحمخ8عتاغ7ي3صسضش  1ضصث45"    where: { id },
     include: {
-      teacher: { include: { user: { select: { id: true, firstName: true, firstNameAr: true, lastName: true, lastNameAr: true, email: true, avatar: true } } } },
-      courseTeachers: { include: { teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } } } } },
-      _count: { select: { enrollments: true, lessons: true } },
-      lessons: { orderBy: { order: 'asc' }, include: { videos: { orderBy: { order: 'asc' } } } },
-    },
+    teacher: { include: { user: { select: { id: true, firstName: true, firstNameAr: true, lastName: true, lastNameAr: true, email: true, avatar: true } } } },
+    courseTeachers: { include: { teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } } } } },
+    enrollments: { include: { student: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } } },
+    _count: { select: { enrollments: true, lessons: true } },
+    lessons: { orderBy: { order: 'asc' }, include: { videos: { orderBy: { order: 'asc' } } } },
+  },
   });
-  if (!course) throw Object.assign(new Error('Course not found'), { statusCode: 404 });
-  return course;
+if (!course) throw Object.assign(new Error('Course not found'), { statusCode: 404 });
+return course;
 }
 
 function formatSheikh(teacher) {

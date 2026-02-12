@@ -142,6 +142,21 @@ router.post('/:id/enroll', jwtAuth, async (req, res, next) => {
   }
 });
 
+router.post('/:id/enroll-student', jwtAuth, permissions(['courses.write']), async (req, res, next) => {
+  try {
+    const { studentId } = req.body;
+    if (!studentId) {
+      const err = new Error('studentId is required');
+      err.statusCode = 400;
+      throw err;
+    }
+    const enrollment = await courseService.adminEnrollStudent(req.params.id, studentId);
+    res.status(201).json(enrollment);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/teacher/create', jwtAuth, roles('TEACHER'), async (req, res, next) => {
   try {
     const course = await courseService.createTeacherCourse(req.body, req.user.id);

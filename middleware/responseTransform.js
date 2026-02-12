@@ -7,6 +7,9 @@ function responseTransform(req, res, next) {
     if (payload && typeof payload === 'object' && (payload.success === true || payload.status === true)) {
       return originalJson(payload);
     }
+    if (payload && typeof payload === 'object' && payload.success === false) {
+      return originalJson(payload);
+    }
     const method = req.method;
     const messages = {
       GET: 'Request completed successfully',

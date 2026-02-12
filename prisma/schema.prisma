@@ -131,6 +131,8 @@ model Payment {
   paymentMethod   String?
   stripePaymentId String?       @unique
   stripeIntentId  String?       @unique
+  fawryRefNumber  String?       @unique
+  merchantRefNum  String?       @unique
   receiptUrl      String?
   refundedAt      DateTime?
   refundAmount    Float?

@@ -286,6 +286,7 @@ CREATE TABLE `teachers` (
     `readingType` VARCHAR(191) NULL,
     `readingTypeAr` VARCHAR(191) NULL,
     `certificates` LONGTEXT NULL,
+    `teacherType` ENUM('FULL_TEACHER', 'COURSE_SHEIKH') NOT NULL DEFAULT 'FULL_TEACHER',
 
     UNIQUE INDEX `teachers_userId_key`(`userId`),
     PRIMARY KEY (`id`)
@@ -439,6 +440,7 @@ CREATE TABLE `lessons` (
 CREATE TABLE `videos` (
     `id` VARCHAR(191) NOT NULL,
     `lessonId` VARCHAR(191) NOT NULL,
+    `teacherId` VARCHAR(191) NULL,
     `title` VARCHAR(191) NOT NULL,
     `titleAr` VARCHAR(191) NULL,
     `description` LONGTEXT NULL,
@@ -451,6 +453,7 @@ CREATE TABLE `videos` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `videos_lessonId_idx`(`lessonId`),
+    INDEX `videos_teacherId_idx`(`teacherId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -777,6 +780,9 @@ ALTER TABLE `lessons` ADD CONSTRAINT `lessons_courseId_fkey` FOREIGN KEY (`cours
 
 -- AddForeignKey
 ALTER TABLE `videos` ADD CONSTRAINT `videos_lessonId_fkey` FOREIGN KEY (`lessonId`) REFERENCES `lessons`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `videos` ADD CONSTRAINT `videos_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `teachers`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `video_progress` ADD CONSTRAINT `video_progress_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

@@ -13,7 +13,7 @@ async function findAll(page = 1, limit = 20, status, teacherId, isFeatured) {
       take: limit,
       include: {
         teacher: { include: { user: { select: { id: true, firstName: true, firstNameAr: true, lastName: true, lastNameAr: true, email: true } } } },
-        _count: { select: { enrollments: true, lessons: true } },
+        _count: { select: { enrollments: true, lessons: true, courseTeachers: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),

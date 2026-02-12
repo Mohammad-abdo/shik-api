@@ -328,7 +328,7 @@ async function main() {
           update: {},
           create: { roleId: financeAdminRole.id, permissionId: p.id },
         });
-      } catch (e) {}
+      } catch (e) { }
     }
   }
   if (contentAdminRole) {
@@ -339,7 +339,7 @@ async function main() {
           update: {},
           create: { roleId: contentAdminRole.id, permissionId: p.id },
         });
-      } catch (e) {}
+      } catch (e) { }
     }
   }
   if (supportAdminRole) {
@@ -350,7 +350,7 @@ async function main() {
           update: {},
           create: { roleId: supportAdminRole.id, permissionId: p.id },
         });
-      } catch (e) {}
+      } catch (e) { }
     }
   }
   console.log('Role permissions assigned');
@@ -361,7 +361,7 @@ async function main() {
       update: {},
       create: { userId: admin.id, roleId: superAdminRole.id },
     });
-  } catch (e) {}
+  } catch (e) { }
   console.log('Admin role assigned');
 
   const teacherPackagesData = [
@@ -393,7 +393,7 @@ async function main() {
           autoRenew: true,
         },
       });
-    } catch (e) {}
+    } catch (e) { }
   }
   console.log('Teacher subscriptions created');
 
@@ -425,7 +425,7 @@ async function main() {
           autoRenew: true,
         },
       });
-    } catch (e) {}
+    } catch (e) { }
   }
   console.log('Student subscriptions created');
 
@@ -505,7 +505,7 @@ async function main() {
         update: {},
         create: e,
       });
-    } catch (err) {}
+    } catch (err) { }
   }
   console.log('Course enrollments created');
 
@@ -555,7 +555,7 @@ async function main() {
             issuedAt: new Date(),
           },
         });
-      } catch (e) {}
+      } catch (e) { }
     }
     console.log('Certificates created');
   }

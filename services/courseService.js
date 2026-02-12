@@ -13,13 +13,24 @@ async function findAll(page = 1, limit = 20, status, teacherId, isFeatured) {
       take: limit,
       include: {
         teacher: { include: { user: { select: { id: true, firstName: true, firstNameAr: true, lastName: true, lastNameAr: true, email: true } } } },
-        _count: { select: { enrollments: true, lessons: true, courseTeachers: true } },
+        courseTeachers: { select: { teacherId: true } },
+        _count: { select: { enrollments: true, lessons: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.course.count({ where }),
   ]);
-  return { courses, pagination: { current_page: page, per_page: limit, total_courses: total, total_pages: Math.ceil(total / limit) } };
+
+  const coursesWithSheikhCount = courses.map(course => {
+    const teachers = new Set();
+    if (course.teacherId) teachers.add(course.teacherId);
+    if (course.courseTeachers) {
+      course.courseTeachers.forEach(ct => teachers.add(ct.teacherId));
+    }
+    return { ...course, sheikhCount: teachers.size };
+  });
+
+  return { courses: coursesWithSheikhCount, pagination: { current_page: page, per_page: limit, total_courses: total, total_pages: Math.ceil(total / limit) } };
 }
 
 async function findOne(id) {

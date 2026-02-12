@@ -334,10 +334,23 @@ async function enrollStudent(courseId, studentId) {
   });
 }
 
+async function adminEnrollStudent(courseId, studentId) {
+  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  if (!course) throw Object.assign(new Error('Course not found'), { statusCode: 404 });
+
+  const existing = await prisma.courseEnrollment.findUnique({ where: { courseId_studentId: { courseId, studentId } } });
+  if (existing) throw Object.assign(new Error('Student is already enrolled in this course'), { statusCode: 400 });
+
+  return prisma.courseEnrollment.create({
+    data: { courseId, studentId, status: 'ACTIVE', progress: 0 },
+    include: { course: true, student: { select: { id: true, firstName: true, lastName: true, email: true } } },
+  });
+}
+
 async function toggleFeatured(id, isFeatured) {
   const course = await prisma.course.findUnique({ where: { id } });
   if (!course) throw Object.assign(new Error('Course not found'), { statusCode: 404 });
   return prisma.course.update({ where: { id }, data: { isFeatured: !!isFeatured } });
 }
 
-module.exports = { findAll, findOne, findCourseSheikhs, getCourseLessonsForPlayback, create, createTeacherCourse, update, deleteCourse, enrollStudent, toggleFeatured };
+module.exports = { findAll, findOne, findCourseSheikhs, getCourseLessonsForPlayback, create, createTeacherCourse, update, deleteCourse, enrollStudent, adminEnrollStudent, toggleFeatured };

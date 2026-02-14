@@ -15,6 +15,10 @@ async function createPackage(dto, adminId) {
       descriptionAr: dto.descriptionAr,
       price: dto.price,
       duration: dto.duration || 30,
+      durationMonths: dto.durationMonths,
+      monthlyPrice: dto.monthlyPrice,
+      yearlyPrice: dto.yearlyPrice,
+      maxTeachers: dto.maxTeachers,
       features: dto.features ? JSON.stringify(dto.features) : null,
       featuresAr: dto.featuresAr ? JSON.stringify(dto.featuresAr) : null,
       maxBookings: dto.maxBookings,
@@ -49,6 +53,10 @@ async function updatePackage(id, dto) {
   if (dto.descriptionAr !== undefined) data.descriptionAr = dto.descriptionAr;
   if (dto.price !== undefined) data.price = dto.price;
   if (dto.duration !== undefined) data.duration = dto.duration;
+  if (dto.durationMonths !== undefined) data.durationMonths = dto.durationMonths;
+  if (dto.monthlyPrice !== undefined) data.monthlyPrice = dto.monthlyPrice;
+  if (dto.yearlyPrice !== undefined) data.yearlyPrice = dto.yearlyPrice;
+  if (dto.maxTeachers !== undefined) data.maxTeachers = dto.maxTeachers;
   if (dto.features !== undefined) data.features = JSON.stringify(dto.features);
   if (dto.featuresAr !== undefined) data.featuresAr = JSON.stringify(dto.featuresAr);
   if (dto.maxBookings !== undefined) data.maxBookings = dto.maxBookings;

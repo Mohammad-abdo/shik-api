@@ -706,22 +706,26 @@ model TeacherSubscription {
 }
 
 model StudentSubscriptionPackage {
-  id            String   @id @default(uuid())
-  name          String
-  nameAr        String?
-  description   String?  @db.LongText
-  descriptionAr String?  @db.LongText
-  price         Float
-  duration      Int      @default(30)
-  features      String?  @db.LongText
-  featuresAr    String?  @db.LongText
-  maxBookings   Int?
-  maxCourses    Int?
-  isActive      Boolean  @default(true)
-  isPopular     Boolean  @default(false)
-  createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(uuid())
+  name           String
+  nameAr         String?
+  description    String?  @db.LongText
+  descriptionAr  String?  @db.LongText
+  price          Float
+  duration       Int      @default(30)
+  durationMonths Int?
+  monthlyPrice   Float?
+  yearlyPrice    Float?
+  maxTeachers    Int?
+  features       String?  @db.LongText
+  featuresAr     String?  @db.LongText
+  maxBookings    Int?
+  maxCourses     Int?
+  isActive       Boolean  @default(true)
+  isPopular      Boolean  @default(false)
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   subscriptions StudentSubscription[] @relation("StudentPackageSubscriptions")
 

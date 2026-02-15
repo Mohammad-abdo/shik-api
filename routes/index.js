@@ -22,6 +22,7 @@ const rbacRoutes = require('./rbac');
 const auditRoutes = require('./audit');
 const videoRoutes = require('./video');
 const v1Routes = require('./v1');
+const mobileRoutes = require('./mobile');
 
 const router = express.Router();
 
@@ -48,5 +49,6 @@ router.use('/rbac', rbacRoutes);
 router.use('/audit', auditRoutes);
 router.use('/video', videoRoutes);
 router.use('/v1', v1Routes);
+router.use('/mobile', mobileRoutes);
 
 module.exports = router;

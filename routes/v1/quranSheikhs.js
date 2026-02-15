@@ -22,6 +22,20 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+/** المشايخ الذين ليسوا داخل أي دورة والذين يمكن الحجز معهم */
+router.get('/bookable', async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search;
+    const lang = getLang(req);
+    const data = await quranSheikhsService.getBookableSheikhsNotInCourses(page, limit, search, lang);
+    res.json({ status: true, message: 'Bookable sheikhs (not in courses) retrieved successfully', data });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/:id', optionalJwtAuth, async (req, res, next) => {
   try {
     const studentId = req.user?.id;

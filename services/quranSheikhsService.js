@@ -14,6 +14,7 @@ function teacherToSheikhListItem(teacher, lang) {
       [teacher.user?.firstName, teacher.user?.lastName].filter(Boolean).join(' ').trim()
     : [teacher.user?.firstName, teacher.user?.lastName].filter(Boolean).join(' ').trim();
   const title = lang === 'ar' ? (teacher.specialtiesAr || teacher.specialties || 'مقرئ ومحفظ قرآن كريم') : (teacher.specialties || 'Quran reciter and memorization');
+  const specialization = lang === 'ar' ? (teacher.specialtiesAr || teacher.specialties || '—') : (teacher.specialties || teacher.specialtiesAr || '—');
   const recitation_style = lang === 'ar' ? (teacher.readingTypeAr || teacher.readingType || 'حفص') : (teacher.readingType || 'Hafs');
   const teaching_type = lang === 'ar' ? 'بنين وبنات' : 'Male & Female'; // placeholder - can add to Teacher later
   const rate = teacher.hourlyRate || 0;
@@ -23,11 +24,13 @@ function teacherToSheikhListItem(teacher, lang) {
     id: teacher.id,
     name: name || '—',
     title,
+    specialization,
     image: teacher.image || teacher.user?.avatar || null,
     rating: teacher.rating ?? 0,
     recitation_style,
     teaching_type,
     starting_price,
+    intro_video_url: teacher.introVideoUrl || null,
   };
 }
 
@@ -77,6 +80,52 @@ async function isStudentSubscribedToTeacher(studentId, teacherId) {
 async function getSheikhs(page = 1, limit = 10, search, lang = 'en') {
   const skip = (page - 1) * limit;
   const where = { isApproved: true };
+  if (search) {
+    where.user = {
+      OR: [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { firstNameAr: { contains: search } },
+        { lastNameAr: { contains: search } },
+      ],
+    };
+  }
+  const [teachers, total] = await Promise.all([
+    prisma.teacher.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, avatar: true } },
+      },
+      orderBy: { rating: 'desc' },
+    }),
+    prisma.teacher.count({ where }),
+  ]);
+
+  const sheikhs = teachers.map((t) => teacherToSheikhListItem(t, lang));
+  return {
+    sheikhs,
+    pagination: {
+      current_page: page,
+      total_pages: Math.ceil(total / limit) || 1,
+      total_items: total,
+    },
+  };
+}
+
+/**
+ * جلب المشايخ الذين ليسوا داخل أي دورة (لا معلم رئيسي ولا معلم مساعد) والذين يمكن الحجز معهم (FULL_TEACHER).
+ * Returns sheikhs who are NOT in any course and who can be booked with.
+ */
+async function getBookableSheikhsNotInCourses(page = 1, limit = 10, search, lang = 'en') {
+  const skip = (page - 1) * limit;
+  const where = {
+    isApproved: true,
+    teacherType: 'FULL_TEACHER',
+    courses: { none: {} },
+    courseTeachers: { none: {} },
+  };
   if (search) {
     where.user = {
       OR: [
@@ -228,6 +277,7 @@ async function addSheikhReview(teacherId, studentId, body) {
 
 module.exports = {
   getSheikhs,
+  getBookableSheikhsNotInCourses,
   getSheikhById,
   getSheikhReviews,
   addSheikhReview,

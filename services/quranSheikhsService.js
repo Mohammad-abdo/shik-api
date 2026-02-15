@@ -115,16 +115,14 @@ async function getSheikhs(page = 1, limit = 10, search, lang = 'en') {
 }
 
 /**
- * جلب المشايخ الذين ليسوا داخل أي دورة (لا معلم رئيسي ولا معلم مساعد) والذين يمكن الحجز معهم (FULL_TEACHER).
- * Returns sheikhs who are NOT in any course and who can be booked with.
+ * جلب المشايخ العاديين الذين يمكن الحجز معهم (FULL_TEACHER) — استبعاد مشايخ الدورات فقط (COURSE_SHEIKH).
+ * Returns bookable sheikhs (ordinary teachers), excluding course-only sheikhs.
  */
 async function getBookableSheikhsNotInCourses(page = 1, limit = 10, search, lang = 'en') {
   const skip = (page - 1) * limit;
   const where = {
     isApproved: true,
     teacherType: 'FULL_TEACHER',
-    courses: { none: {} },
-    courseTeachers: { none: {} },
   };
   if (search) {
     where.user = {

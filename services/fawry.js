@@ -1,18 +1,19 @@
 const crypto = require('crypto');
+const logger = require('../utils/logger');
 
 /**
- * فوري - مطابق لـ https://developer.fawrystaging.com/docs/express-checkout/self-hosted-checkout
- * نفس صيغة طلب الشحن والتوقيع تُستخدم لـ Checkout Link (السيرفر يرسل الطلب ويستقبل paymentUrl).
+ * Fawry Checkout Link API
+ * Endpoint: /fawrypay-api/api/payments/init
  */
 
-const CHARGE_PATH = '/ECommerceWeb/Fawry/payments/charge';
+const FawryPay_Express_Checkout_Link_API = process.env.FawryPay_Express_Checkout_Link_API;
 
 /**
- * التوقيع حسب الوثيقة:
- * merchantCode + merchantRefNum + customerProfileId (إذا وُجد وإلا "") + returnUrl
- * + [كل عنصر مرتّب حسب itemId: itemId + quantity + Price بصيغة منزلتين مثل '10.00']
+ * Build signature according to Fawry documentation:
+ * merchantCode + merchantRefNum + customerProfileId (or "") + returnUrl
+ * + [sorted by itemId: itemId + quantity + price as "10.00"]
  * + Secure hash key
- * ثم SHA-256 للناتج.
+ * Then SHA-256
  */
 function buildSignature(merchantCode, merchantRefNum, customerProfileId, returnUrl, chargeItems, secureKey) {
   const profilePart = customerProfileId != null && String(customerProfileId).trim() !== '' ? String(customerProfileId).trim() : '';
@@ -29,14 +30,12 @@ function buildSignature(merchantCode, merchantRefNum, customerProfileId, returnU
     itemsPart += String(item.itemId || '') + String(qty) + priceStr;
   }
   const toHash = String(merchantCode).trim() + String(merchantRefNum).trim() + profilePart + String(returnUrl).trim() + itemsPart + String(secureKey).trim();
-  console.log('Fawry Signature Source:', toHash);
+  logger.debug('Fawry Signature Source', { signatureSource: toHash });
   return crypto.createHash('sha256').update(toHash, 'utf8').digest('hex');
 }
 
 /**
- * بناء كائن طلب الشحن مطابقاً لـ FawryPay Hosted Checkout (نفس البنية والترتيب في الوثيقة).
- * وثيقة الرابط: https://developer.fawrystaging.com/docs/express-checkout/fawrypay-hosted-checkout
- * التوقيع: merchantCode + merchantRefNum + customerProfileId أو "" + returnUrl + [مرتب حسب itemId: itemId+quantity+Price بصيغة 10.00] + Secure hash key ثم SHA-256.
+ * Build charge request matching Fawry Checkout Link API format
  */
 function buildChargeRequest(options) {
   const merchantCode = String(options.merchantCode ?? '').trim();
@@ -44,14 +43,14 @@ function buildChargeRequest(options) {
   const returnUrl = String(options.returnUrl ?? '').trim();
   const secureKey = String(options.secureKey ?? '').trim();
   const customerProfileIdRaw = options.customerProfileId != null && String(options.customerProfileId).trim() !== '' ? String(options.customerProfileId).trim() : '';
-  const customerProfileIdForSignature = customerProfileIdRaw;
 
+  // Process charge items - keep prices as numbers
   const chargeItems = (options.chargeItems || []).map((item) => {
     const rawPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price);
     const priceVal = Number.isFinite(rawPrice) ? rawPrice : 0;
-    const price = priceVal.toFixed(2); // Fawry expects string "10.00"
+    const price = parseFloat(priceVal.toFixed(2)); // Number format
     const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
-    const itemId = String(item.itemId || '').trim().replace(/[^a-zA-Z0-9]/g, '') || 'item1';
+    const itemId = String(item.itemId || '').trim() || 'item1';
     return {
       itemId,
       description: String(item.description || '').trim() || 'Product Description',
@@ -60,63 +59,56 @@ function buildChargeRequest(options) {
     };
   });
 
-  // Sort items by itemId to ensure signature matches payload order
-  // Sort items by itemId to ensure signature matches payload order
-  chargeItems.sort((a, b) => {
-    const idA = (a.itemId || '');
-    const idB = (b.itemId || '');
-    return idA === idB ? 0 : idA > idB ? 1 : -1;
-  });
+  // Calculate total amount as string with 2 decimals
+  const totalAmount = chargeItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  // Determine Payment Method FIRST so it can be signed
-  const paymentMethod = options.paymentMethod && ['CashOnDelivery', 'PayAtFawry', 'MWALLET', 'CARD', 'VALU'].includes(options.paymentMethod)
-    ? options.paymentMethod
-    : 'CARD';
+  // For signature, we need items with price as string
+  const itemsForSignature = chargeItems.map(item => ({
+    ...item,
+    price: item.price.toFixed(2)
+  }));
 
-  const signature = buildSignature(merchantCode, merchantRefNum, customerProfileIdForSignature, returnUrl, chargeItems, secureKey);
+  const signature = buildSignature(merchantCode, merchantRefNum, customerProfileIdRaw, returnUrl, itemsForSignature, secureKey);
 
-  // ترتيب الحقول كما في وثيقة Fawry (Hosted Checkout مثال buildChargeRequest)
+  // Build request matching Fawry's API format
   const request = {
     merchantCode,
     merchantRefNum,
+    customerName: options.customerName ? String(options.customerName).trim() : '',
+    customerMobile: options.customerMobile ? String(options.customerMobile).replace(/\s/g, '') : '',
+    customerEmail: options.customerEmail ? String(options.customerEmail).trim() : '',
+    customerProfileId: customerProfileIdRaw,
+    amount: totalAmount.toFixed(2), // String format "100.00"
+    currencyCode: options.currencyCode || 'EGP',
+    language: options.language === 'en-gb' ? 'en-gb' : 'ar-eg',
+    chargeItems,
+    paymentMethod: options.paymentMethod || 'CARD',
+    enable3DS: options.enable3DS !== false, // Default to true
+    returnUrl,
+    description: options.description || 'Payment',
+    signature,
   };
-  if (options.customerMobile) request.customerMobile = String(options.customerMobile).replace(/\s/g, '');
-  if (options.customerEmail) request.customerEmail = String(options.customerEmail || '').trim();
-  if (options.customerName) request.customerName = String(options.customerName || '').trim();
-  if (customerProfileIdRaw !== '') {
-    request.customerProfileId = customerProfileIdRaw;
-  }
-  if (options.paymentExpiry != null && options.paymentExpiry !== '') request.paymentExpiry = String(options.paymentExpiry);
-  request.language = options.language === 'en-gb' ? 'en-gb' : 'ar-eg';
-  request.chargeItems = chargeItems;
-  request.paymentMethod = paymentMethod;
-  request.returnUrl = returnUrl;
-  if (options.orderWebHookUrl) request.orderWebHookUrl = String(options.orderWebHookUrl).trim();
-  request.authCaptureModePayment = false;
-  request.signature = signature;
 
   return request;
 }
 
 /**
- * استدعاء واجهة فوري لإنشاء رابط الدفع (Checkout Link).
- * POST بنفس الطلب إلى نفس الـ endpoint المذكور في وثيقة Hosted.
+ * Call Fawry API to create checkout link
  */
 async function createCharge(chargeRequest) {
-  const baseUrl = (process.env.FAWRY_BASE_URL || 'https://atfawry.fawrystaging.com').replace(/\/$/, '');
-  const url = baseUrl + (process.env.FAWRY_CHARGE_PATH || CHARGE_PATH);
+  const baseUrl = process.env.FAWRY_BASE_URL || 'https://atfawry.fawrystaging.com';
+  const url = baseUrl.replace(/\/$/, '') + (process.env.FawryPay_Express_Checkout_Link_API || FawryPay_Express_Checkout_Link_API);
 
   let res;
   try {
-    console.log('Sending to Fawry:', url);
-    console.log('Payload:', JSON.stringify(chargeRequest, null, 2));
+    logger.info('Sending to Fawry', { url, payload: chargeRequest });
     res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(chargeRequest),
     });
   } catch (err) {
-    console.error('Fawry Fetch Error:', err);
+    logger.error('Fawry Fetch Error', err);
     const cause = err.cause || err;
     const msg = cause.code ? `Fawry unreachable (${cause.code})` : err.message || 'fetch failed';
     const e = new Error(msg);
@@ -126,14 +118,31 @@ async function createCharge(chargeRequest) {
   }
 
   const text = await res.text();
-  console.log('Fawry Response Status:', res.status);
-  console.log('Fawry Response Body:', text);
+  logger.info('Fawry Response', { status: res.status, body: text });
 
+  // Check if response is a direct URL (successful payment link)
+  if (res.ok && text.startsWith('http')) {
+    logger.info('Fawry returned payment URL', { paymentUrl: text });
+    return {
+      paymentUrl: text,
+      expiresAt: null,
+      referenceNumber: null
+    };
+  }
+
+  // Try to parse as JSON (for errors or structured responses)
   let data = {};
   try {
     data = JSON.parse(text);
   } catch (e) {
-    console.error('Failed to parse Fawry JSON:', e);
+    // If not JSON and not a URL, it's an unexpected response
+    if (!res.ok) {
+      logger.error('Failed to parse Fawry response', { text, error: e.message });
+      const err = new Error('Fawry returned invalid response');
+      err.statusCode = 502;
+      err.fawryResponse = { rawResponse: text };
+      throw err;
+    }
   }
 
   if (res.ok) {
@@ -141,16 +150,14 @@ async function createCharge(chargeRequest) {
     if (paymentUrl) {
       return { paymentUrl, expiresAt: data.expiresAt, referenceNumber: data.referenceNumber };
     }
-    const e = new Error(data.statusDescription || data.message || 'No payment URL in response');
-    // If we have a response from Fawry but it's an error (e.g. 9929, 9901), it's a Bad Request (400), not Bad Gateway (502)
+    const e = new Error(data.statusDescription || data.description || data.message || 'No payment URL in response');
     e.statusCode = 400;
-    console.error('Fawry Detail Error:', JSON.stringify(data, null, 2)); // Log full error details
+    logger.error('Fawry Detail Error', { statusCode: data.statusCode, statusDescription: data.statusDescription, errorId: data.errorId, fullResponse: data });
     e.fawryResponse = data;
     throw e;
   }
 
-  const e = new Error(data.statusDescription || data.message || `Fawry ${res.status}`);
-  // If 404/500+ -> 502. If 400-499 -> 400.
+  const e = new Error(data.statusDescription || data.description || data.message || `Fawry ${res.status}`);
   e.statusCode = res.status === 404 ? 502 : res.status >= 500 ? 502 : 400;
   e.fawryResponse = data;
   throw e;
@@ -181,5 +188,5 @@ module.exports = {
   buildChargeRequest,
   createCharge,
   verifyWebhookSignature,
-  CHARGE_PATH,
+  FawryPay_Express_Checkout_Link_API,
 };

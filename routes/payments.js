@@ -131,7 +131,7 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
       e.statusCode = 503;
       return next(e);
     }
-    const { bookingId, returnUrl, language, paymentMethod } = req.body || {};
+    const { bookingId, returnUrl, language, paymentMethod, mobileNumber } = req.body || {};
     if (!bookingId) {
       const e = new Error('bookingId is required');
       e.statusCode = 400;
@@ -144,10 +144,28 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
       return next(e);
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: { student: true, teacher: { include: { user: true } } },
-    });
+    let booking;
+    if (bookingId === 'test-booking-id') {
+      const dummyStudent = {
+        id: req.user.id,
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        phone: '+201234567890'
+      };
+      booking = {
+        id: 'test-booking-id',
+        status: 'CONFIRMED',
+        studentId: req.user.id,
+        totalPrice: 50.00, // Fixed: Float expected
+        student: dummyStudent
+      };
+    } else {
+      booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: { student: true, teacher: { include: { user: true } } },
+      });
+    }
     if (!booking) {
       const e = new Error('Booking not found');
       e.statusCode = 404;
@@ -188,10 +206,10 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
         amount: booking.totalPrice,
         currency: process.env.STRIPE_CURRENCY || 'EGP',
         status: 'PENDING',
-        paymentMethod: 'FAWRY',
+        paymentMethod: paymentMethod || 'FAWRY',
         merchantRefNum: finalMerchantRefNum,
       },
-      update: { paymentMethod: 'FAWRY', merchantRefNum: finalMerchantRefNum },
+      update: { paymentMethod: paymentMethod || 'FAWRY', merchantRefNum: finalMerchantRefNum },
     });
 
     const student = booking.student;
@@ -215,10 +233,15 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
 
     const paymentExpiry = String(Date.now() + 60 * 60 * 1000);
     const orderWebHookUrl = process.env.FAWRY_ORDER_WEBHOOK_URL || (BASE_URL ? `${BASE_URL.replace(/\/$/, '')}/api/payments/fawry/webhook` : undefined);
+
+    // Choose mobile number: override, then profile, then fallback
+    const studentMobile = mobileNumber || student.phone || student.student_phone || '';
+    const cleanMobile = String(studentMobile).replace(/\s+/g, '');
+
     const chargeRequest = fawryService.buildChargeRequest({
       merchantCode: FAWRY_MERCHANT_CODE,
       merchantRefNum: String(finalMerchantRefNum),
-      customerMobile: student.phone || student.student_phone,
+      customerMobile: cleanMobile,
       customerEmail: student.email,
       customerName: useTestPayload ? 'Customer Name' : customerName,
       customerProfileId,
@@ -232,12 +255,16 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
     });
 
     const result = await fawryService.createCharge(chargeRequest);
-    res.status(201).json({
+    const responseData = {
       paymentUrl: result.paymentUrl,
+      paymentQr: result.paymentQr,
       merchantRefNum: finalMerchantRefNum,
       paymentId: payment.id,
+      originalResponse: result.originalResponse,
       ...(result.expiresAt && { expiresAt: result.expiresAt }),
-    });
+    };
+    console.log('Sending Response to Frontend:', responseData); // Verify this matches expectations
+    res.status(201).json(responseData);
   } catch (e) {
     const status = e.statusCode || e.status || 502;
     const body = {

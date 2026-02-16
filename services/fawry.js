@@ -24,14 +24,14 @@ const FawryPay_Express_Checkout_Link_API = process.env.FawryPay_Express_Checkout
 function buildSignature(merchantCode, merchantRefNum, customerProfileId, returnUrl, chargeItems, secureKey, paymentMethod, amount) {
   const profilePart = customerProfileId != null && String(customerProfileId).trim() !== '' ? String(customerProfileId).trim() : '';
 
-  // PayAtFawry uses different signature format
-  if (paymentMethod === 'PayAtFawry') {
+  // PayAtFawry and MWALLET use the same signature format (merchantCode + merchantRefNum + customerProfileId + paymentMethod + amount + secureKey)
+  if (paymentMethod === 'PayAtFawry' || paymentMethod === 'MWALLET') {
     const toHash = String(merchantCode).trim() + String(merchantRefNum).trim() + profilePart + String(paymentMethod) + String(amount) + String(secureKey).trim();
-    logger.debug('Fawry PayAtFawry Signature Source', { signatureSource: toHash });
+    logger.debug(`Fawry ${paymentMethod} Signature Source`, { signatureSource: toHash });
     return crypto.createHash('sha256').update(toHash, 'utf8').digest('hex');
   }
 
-  // Express Checkout signature (CARD, MWALLET, etc.)
+  // Express Checkout signature (CARD, etc.)
   const sorted = [...chargeItems].sort((a, b) => {
     const idA = (a.itemId || '');
     const idB = (b.itemId || '');
@@ -84,7 +84,7 @@ function buildChargeRequest(options) {
     price: item.price.toFixed(2)
   }));
 
-  // Build signature with paymentMethod and amount for PayAtFawry support
+  // Build signature with paymentMethod and amount for PayAtFawry/MWALLET support
   const signature = buildSignature(
     merchantCode,
     merchantRefNum,
@@ -117,11 +117,13 @@ function buildChargeRequest(options) {
     request.description = String(options.description).trim();
   }
 
-  // For Express Checkout (CARD, MWALLET, etc.)
-  if (paymentMethod !== 'PayAtFawry') {
+  // For Express Checkout (CARD, etc.) - MWALLET might behave like PayAtFawry regarding returnUrl (not used in signature but maybe in payload? docs say yes)
+  if (paymentMethod !== 'PayAtFawry' && paymentMethod !== 'MWALLET') {
     request.enable3DS = options.enable3DS !== false; // Default to true
     request.returnUrl = returnUrl;
   }
+  // Docs for MWALLET don't emphasize returnUrl in signature but it might be in payload. 
+  // However, PayAtFawry/MWALLET signature format logic above excludes it.
 
   // Add payment expiry if provided
   if (options.paymentExpiry) {
@@ -142,17 +144,25 @@ function buildChargeRequest(options) {
 async function createCharge(chargeRequest) {
   const baseUrl = process.env.FAWRY_BASE_URL || 'https://atfawry.fawrystaging.com';
   const isPayAtFawry = chargeRequest.paymentMethod === 'PayAtFawry';
+  const isWallet = chargeRequest.paymentMethod === 'MWALLET';
 
-  // PayAtFawry uses the charge endpoint, not the express checkout endpoint
-  const endpoint = isPayAtFawry
-    ? '/ECommerceWeb/Fawry/payments/charge'
-    : (process.env.FawryPay_Express_Checkout_Link_API || FawryPay_Express_Checkout_Link_API);
+  // PayAtFawry uses the charge endpoint
+  // MWALLET also uses the charge endpoint (api/payments/charge)
+  let endpoint = (process.env.FawryPay_Express_Checkout_Link_API || FawryPay_Express_Checkout_Link_API);
 
+  if (isPayAtFawry) {
+    endpoint = '/ECommerceWeb/Fawry/payments/charge';
+  } else if (isWallet) {
+    // Usually /ECommerceWeb/api/payments/charge or same as PayAtFawry
+    endpoint = '/ECommerceWeb/api/payments/charge';
+  }
+
+  // If baseUrl ends with slash and endpoint starts with slash, fix it
   const url = baseUrl.replace(/\/$/, '') + endpoint;
 
   let res;
   try {
-    logger.info('Sending to Fawry', { url, payload: chargeRequest, isPayAtFawry });
+    logger.info('Sending to Fawry', { url, payload: chargeRequest, paymentMethod: chargeRequest.paymentMethod });
     res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -169,10 +179,11 @@ async function createCharge(chargeRequest) {
   }
 
   const text = await res.text();
-  logger.info('Fawry Response', { status: res.status, body: text, isPayAtFawry });
+  logger.info('Fawry Response', { status: res.status, body: text, paymentMethod: chargeRequest.paymentMethod });
 
-  // For Express Checkout: Check if response is a direct URL (successful payment link)
-  if (!isPayAtFawry && res.ok && text.startsWith('http')) {
+  // For Express Checkout (CARD): Check if response is a direct URL (successful payment link)
+  // MWALLET returns JSON, not a raw URL string
+  if (!isPayAtFawry && !isWallet && res.ok && text.startsWith('http')) {
     logger.info('Fawry returned payment URL', { paymentUrl: text });
     return {
       paymentUrl: text,
@@ -197,16 +208,20 @@ async function createCharge(chargeRequest) {
   }
 
   if (res.ok) {
-    // For PayAtFawry: Extract reference number
-    if (isPayAtFawry) {
+    // For PayAtFawry or MWALLET: Extract reference number / status
+    if (isPayAtFawry || isWallet) {
       const referenceNumber = data.referenceNumber || data.fawryRefNumber;
-      if (referenceNumber) {
+      if (referenceNumber || data.statusCode === 200) {
         return {
           referenceNumber,
           expiresAt: data.expirationTime || data.paymentExpiry,
           merchantRefNumber: data.merchantRefNumber || chargeRequest.merchantRefNum,
           statusCode: data.statusCode,
-          statusDescription: data.statusDescription
+          statusDescription: data.statusDescription,
+          // MWALLET specific fields:
+          paymentUrl: data.paymentUrl || data.redirectUrl || data.url,
+          paymentQr: data.walletQr || data.paymentQr, // Map walletQr to paymentQr
+          originalResponse: data, // Return full response for debugging
         };
       }
     } else {

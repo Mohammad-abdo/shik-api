@@ -176,6 +176,8 @@ async function subscribe(studentId, dto) {
     const paymentId = uuidv4();
     const merchantRefNum = paymentId; // Use payment ID as ref
 
+    const paymentMethod = dto.paymentMethod || 'CARD';
+
     const payment = await prisma.payment.create({
       data: {
         id: paymentId,
@@ -184,17 +186,23 @@ async function subscribe(studentId, dto) {
         currency: 'EGP',
         status: 'PENDING',
         merchantRefNum: merchantRefNum,
-        paymentMethod: dto.paymentMethod || 'CARD' // Default
+        paymentMethod: paymentMethod
       }
     });
 
     // Initiate Fawry Payment
+    // Prioritize mobile from input (for wallet), then from profile
+    const studentPhone = dto.mobileNumber || subscription.student.phone || '';
+
+    // Ensure mobile number format is clean for Fawry (no spaces, etc.)
+    const cleanMobile = String(studentPhone).replace(/\s+/g, '');
+
     const chargeRequest = fawryService.buildChargeRequest({
       merchantCode: process.env.FAWRY_MERCHANT_CODE,
       merchantRefNum: merchantRefNum,
       customerProfileId: studentId,
       customerName: `${subscription.student.firstName} ${subscription.student.lastName}`,
-      customerMobile: subscription.student.phone || '',
+      customerMobile: cleanMobile,
       customerEmail: subscription.student.email,
       description: `Subscription to ${pkg.name}`,
       amount: amount,
@@ -207,7 +215,7 @@ async function subscribe(studentId, dto) {
         }
       ],
       returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/subscriptions/callback?subscriptionId=${subscription.id}`,
-      paymentMethod: dto.paymentMethod || 'CARD',
+      paymentMethod: paymentMethod,
       secureKey: process.env.FAWRY_SECURE_KEY
     });
 
@@ -220,7 +228,11 @@ async function subscribe(studentId, dto) {
         paymentUrl: fawryResponse.paymentUrl,
         referenceNumber: fawryResponse.referenceNumber,
         fawryRefNumber: fawryResponse.referenceNumber, // Sometimes called this way
-        paymentId: payment.id
+        paymentId: payment.id,
+        merchantRefNum: merchantRefNum, // Return this so frontend knows which ref to track
+        expiresAt: fawryResponse.expiresAt,
+        statusCode: fawryResponse.statusCode,
+        statusDescription: fawryResponse.statusDescription
       };
 
     } catch (error) {

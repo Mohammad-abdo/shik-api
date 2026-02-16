@@ -114,8 +114,10 @@ router.get('/fawry', (req, res) => {
   res.json({
     available: true,
     configured: !!(FAWRY_MERCHANT_CODE && FAWRY_SECURE_KEY),
+    payAtFawryEnabled: process.env.FAWRY_PAYATFAWRY_ENABLED === 'true',
     endpoints: {
       checkoutLink: 'POST /api/payments/fawry/checkout-link',
+      referenceNumber: 'POST /api/payments/fawry/reference-number',
       webhook: 'POST /api/payments/fawry/webhook',
       status: 'GET /api/payments/fawry/status/:merchantRefNum',
     },
@@ -241,6 +243,147 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
     const body = {
       success: false,
       message: e.message || 'Fawry request failed',
+      data: e.fawryResponse ? { fawryResponse: e.fawryResponse } : null,
+      statusCode: status,
+    };
+    res.status(status).json(body);
+  }
+});
+
+// PayAtFawry - Generate reference number for payment at Fawry stores
+router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
+  try {
+    if (!FAWRY_MERCHANT_CODE || !FAWRY_SECURE_KEY) {
+      const e = new Error('Fawry is not configured');
+      e.statusCode = 503;
+      return next(e);
+    }
+
+    const isPayAtFawryEnabled = process.env.FAWRY_PAYATFAWRY_ENABLED === 'true';
+    if (!isPayAtFawryEnabled) {
+      const e = new Error('PayAtFawry is not enabled');
+      e.statusCode = 503;
+      return next(e);
+    }
+
+    const { bookingId, expiryHours, language } = req.body || {};
+    if (!bookingId) {
+      const e = new Error('bookingId is required');
+      e.statusCode = 400;
+      return next(e);
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { student: true, teacher: { include: { user: true } } },
+    });
+    if (!booking) {
+      const e = new Error('Booking not found');
+      e.statusCode = 404;
+      return next(e);
+    }
+    if (booking.status !== 'CONFIRMED') {
+      const e = new Error('Booking must be confirmed before payment');
+      e.statusCode = 400;
+      return next(e);
+    }
+    const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+    if (booking.studentId !== req.user.id && !isAdmin) {
+      const e = new Error('You can only pay for your own booking');
+      e.statusCode = 403;
+      return next(e);
+    }
+
+    const existingPayment = await prisma.payment.findUnique({ where: { bookingId } });
+    if (existingPayment && existingPayment.status === 'COMPLETED') {
+      const e = new Error('Payment already completed');
+      e.statusCode = 400;
+      return next(e);
+    }
+    if (!booking.totalPrice || Number(booking.totalPrice) <= 0) {
+      const e = new Error('Booking total price must be greater than zero');
+      e.statusCode = 400;
+      return next(e);
+    }
+
+    // Generate merchant reference number
+    const numericRef = () => String(Math.floor(Math.random() * 900000000) + 100000000);
+    const finalMerchantRefNum = numericRef();
+
+    // Calculate expiry time
+    // Priority: request parameter > env variable > default (24 hours)
+    const defaultExpiryHours = parseInt(process.env.FAWRY_PAYATFAWRY_EXPIRY_HOURS || '24', 10);
+    const finalExpiryHours = expiryHours || defaultExpiryHours;
+    const expiryTimestamp = Date.now() + (finalExpiryHours * 60 * 60 * 1000);
+    const paymentExpiry = String(expiryTimestamp);
+
+    const payment = await prisma.payment.upsert({
+      where: { bookingId },
+      create: {
+        bookingId,
+        amount: booking.totalPrice,
+        currency: process.env.FAWRY_CURRENCY || 'EGP',
+        status: 'PENDING',
+        paymentMethod: 'PayAtFawry',
+        merchantRefNum: finalMerchantRefNum,
+      },
+      update: {
+        paymentMethod: 'PayAtFawry',
+        merchantRefNum: finalMerchantRefNum
+      },
+    });
+
+    const student = booking.student;
+    const customerName = [student.firstName, student.lastName].filter(Boolean).join(' ') || student.email;
+    const customerProfileId = String(student.id || booking.studentId || '0').replace(/\D/g, '').slice(0, 10) || '0';
+
+    const chargeItems = [
+      {
+        itemId: booking.id.replace(/-/g, ''),
+        description: `Booking ${booking.date ? new Date(booking.date).toLocaleDateString() : ''} - ${booking.duration}min`,
+        price: Number(booking.totalPrice),
+        quantity: 1,
+      },
+    ];
+
+    const orderWebHookUrl = process.env.FAWRY_ORDER_WEBHOOK_URL || (BASE_URL ? `${BASE_URL.replace(/\/$/, '')}/api/payments/fawry/webhook` : undefined);
+
+    const chargeRequest = fawryService.buildChargeRequest({
+      merchantCode: FAWRY_MERCHANT_CODE,
+      merchantRefNum: String(finalMerchantRefNum),
+      customerMobile: student.phone || student.student_phone,
+      customerEmail: student.email,
+      customerName,
+      customerProfileId,
+      chargeItems,
+      language: language === 'en-gb' ? 'en-gb' : 'ar-eg',
+      secureKey: FAWRY_SECURE_KEY,
+      paymentExpiry,
+      orderWebHookUrl,
+      paymentMethod: 'PayAtFawry',
+      description: `Payment for booking ${booking.id}`,
+    });
+
+    const result = await fawryService.createCharge(chargeRequest);
+
+    res.status(201).json({
+      referenceNumber: result.referenceNumber,
+      merchantRefNum: finalMerchantRefNum,
+      paymentId: payment.id,
+      amount: booking.totalPrice,
+      currency: process.env.FAWRY_CURRENCY || 'EGP',
+      expiresAt: result.expiresAt || new Date(expiryTimestamp).toISOString(),
+      expiryHours: finalExpiryHours,
+      instructions: {
+        en: 'Visit any Fawry store and provide this reference number to complete your payment.',
+        ar: 'قم بزيارة أي فرع من فروع فوري وقدم رقم المرجع هذا لإتمام الدفع.'
+      }
+    });
+  } catch (e) {
+    const status = e.statusCode || e.status || 502;
+    const body = {
+      success: false,
+      message: e.message || 'Fawry PayAtFawry request failed',
       data: e.fawryResponse ? { fawryResponse: e.fawryResponse } : null,
       statusCode: status,
     };

@@ -337,7 +337,7 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"packageId\": \"package-uuid-here\",\n    \"paymentId\": \"payment-uuid-here\"\n}"
+                            "raw": "{\n    \"packageId\": \"package-uuid-here\",\n    \"paymentId\": \"payment-uuid-here\",\n    \"paymentMethod\": \"MWALLET\",\n    \"mobileNumber\": \"010xxxxxxxxx\"\n}"
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/student-subscriptions/subscribe",
@@ -465,6 +465,76 @@
                                 {
                                     "key": "status",
                                     "value": "ACTIVE"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Payments (Fawry)",
+            "item": [
+                {
+                    "name": "Fawry Checkout Link",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"bookingId\": \"booking-uuid\",\n    \"paymentMethod\": \"MWALLET\",\n    \"mobileNumber\": \"010xxxxxxxxx\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/payments/fawry/checkout-link",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "payments",
+                                "fawry",
+                                "checkout-link"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Payment Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/payments/fawry/status/:merchantRefNum",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "payments",
+                                "fawry",
+                                "status",
+                                ":merchantRefNum"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "merchantRefNum",
+                                    "value": "merchant-ref-num"
                                 }
                             ]
                         }

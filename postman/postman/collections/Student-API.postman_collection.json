@@ -1,0 +1,582 @@
+{
+  "info": {
+    "_postman_id": "8ff29346-72e9-4b13-8878-26f320238691",
+    "name": "Student-API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "id": "0bee599e-f586-44e7-aac7-0348701674ce",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "3dd71684-ed36-47e7-8967-9e0b7dc2c887"
+    },
+    {
+      "name": "7. كورسات (Courses)",
+      "item": [
+        {
+          "name": "Get All Courses",
+          "id": "8c52ed50-a0b5-4374-86e5-a435b6dd050c",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Course By ID",
+          "id": "a414da8e-a4cf-4052-8d75-becb35450109",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Enroll Student",
+          "id": "899f1e27-1632-477e-ad97-3f3015c55fd9",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"studentId\": \"some-uuid-here\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/:id/enroll-student",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                ":id",
+                "enroll-student"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "2e2edb6a-2475-4444-adae-1549f14f1b7b"
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "id": "6294bc90-654a-4c79-a818-6f8de1a5fc03",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "id": "b1d2acbc-afd2-4037-8e40-095797ce1c33",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\",\n    \"firstName\": \"Test\",\n    \"lastName\": \"User\",\n    \"role\": \"STUDENT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "79d8c7b4-a71b-44f2-a61e-a3ed486f88a1"
+    },
+    {
+      "name": "Student Subscription Packages",
+      "item": [
+        {
+          "name": "Get All Packages",
+          "id": "179a12b7-0ce7-4f60-9dd7-a7c894f5c855",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/packages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "packages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Package By ID",
+          "id": "f089798b-d7a2-4f41-9bd1-e9f5a3e8e64f",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/packages/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "packages",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "package-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Package",
+          "id": "f7a78b3b-74be-48e6-9a02-0bb23fe4a27f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Premium Package\",\n    \"nameAr\": \"الباقة المميزة\",\n    \"description\": \"Full access to all features\",\n    \"descriptionAr\": \"وصول كامل لجميع الميزات\",\n    \"price\": 99.99,\n    \"durationMonths\": 12,\n    \"monthlyPrice\": 9.99,\n    \"yearlyPrice\": 99.99,\n    \"maxTeachers\": 5,\n    \"maxBookings\": 100,\n    \"maxCourses\": 10,\n    \"isActive\": true,\n    \"isPopular\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/packages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "packages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Package",
+          "id": "f26778c8-e21d-4945-b2ae-522b611d8d25",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Updated Premium Package\",\n    \"monthlyPrice\": 12.99,\n    \"yearlyPrice\": 119.99,\n    \"maxTeachers\": 10,\n    \"isPopular\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/packages/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "packages",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "package-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Package",
+          "id": "4be5afbe-50f1-45d1-8763-a68218f2376e",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/packages/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "packages",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "package-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Subscribe to Package",
+          "id": "ed490bfb-cb01-47a4-a907-f482e97930ff",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"packageId\": \"package-uuid-here\",\n    \"paymentId\": \"payment-uuid-here\",\n    \"paymentMethod\": \"MWALLET\",\n    \"mobileNumber\": \"010xxxxxxxxx\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/subscribe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "subscribe"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Subscriptions",
+          "id": "5a8379d3-3c86-417f-b681-31e5d0c38654",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/my-subscriptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "my-subscriptions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Active Subscription",
+          "id": "22468e07-ca78-41dc-b4d7-ed9e82cd365f",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/my-active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "my-active"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Subscription",
+          "id": "207dbb39-544f-4bcb-97d4-d855690cf947",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/cancel/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "cancel",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "subscription-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Subscriptions (Admin)",
+          "id": "2a098225-f8fe-431a-9b9e-b0572dbab689",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student-subscriptions/admin/all?page=1&limit=20&status=ACTIVE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "admin",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "c2f23d15-315b-4beb-bbb2-b8fb5f2f527b"
+    },
+    {
+      "name": "Payments (Fawry)",
+      "item": [
+        {
+          "name": "Fawry Checkout Link",
+          "id": "cbdd7e99-d4b4-43c6-b918-2229e33b69a8",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"bookingId\": \"booking-uuid\",\n    \"paymentMethod\": \"MWALLET\",\n    \"mobileNumber\": \"010xxxxxxxxx\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/fawry/checkout-link",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "fawry",
+                "checkout-link"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Status",
+          "id": "89628cb7-0b25-4cc1-a2bc-45d3da9059e7",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/fawry/status/:merchantRefNum",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "fawry",
+                "status",
+                ":merchantRefNum"
+              ],
+              "variable": [
+                {
+                  "key": "merchantRefNum",
+                  "value": "merchant-ref-num"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "d5bccefb-f354-4446-a246-632907a6abe9"
+    }
+  ],
+  "variable": [
+    {
+      "id": "c6c83cfd-af7a-4e5b-afef-058b4a340e0c",
+      "key": "baseUrl",
+      "value": "http://localhost:5002"
+    },
+    {
+      "id": "c86420fd-6677-4cd9-a83a-0b9011171576",
+      "key": "token",
+      "value": "your-jwt-token-here"
+    }
+  ]
+}

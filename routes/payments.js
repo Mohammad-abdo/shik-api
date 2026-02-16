@@ -468,27 +468,37 @@ router.post('/fawry/webhook', async (req, res, next) => {
 router.get('/fawry/status/:merchantRefNum', jwtAuth, async (req, res, next) => {
   try {
     const { merchantRefNum } = req.params;
+
+    // Query Fawry API directly for live status
+    const fawryStatus = await fawryService.getPaymentStatus(merchantRefNum);
+
+    // Also try to find local payment record (may not exist for test payments)
     const payment = await prisma.payment.findFirst({
       where: { merchantRefNum },
       include: { booking: true },
     });
-    if (!payment) {
-      const e = new Error('Payment not found');
-      e.statusCode = 404;
-      return next(e);
+
+    // If we have a local payment, check ownership
+    if (payment) {
+      const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+      if (payment.booking && payment.booking.studentId !== req.user.id && !isAdmin) {
+        const e = new Error('You can only view your own payment');
+        e.statusCode = 403;
+        return next(e);
+      }
     }
-    const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
-    if (payment.booking.studentId !== req.user.id && !isAdmin) {
-      const e = new Error('You can only view your own payment');
-      e.statusCode = 403;
-      return next(e);
-    }
+
     res.json({
-      status: payment.status,
-      amount: payment.amount,
-      currency: payment.currency,
-      fawryRefNumber: payment.fawryRefNumber,
-      paymentId: payment.id,
+      // Fawry live status
+      fawryStatus,
+      // Local DB info (if exists)
+      localPayment: payment ? {
+        status: payment.status,
+        amount: payment.amount,
+        currency: payment.currency,
+        fawryRefNumber: payment.fawryRefNumber,
+        paymentId: payment.id,
+      } : null,
     });
   } catch (e) {
     next(e);

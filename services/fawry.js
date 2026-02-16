@@ -265,10 +265,43 @@ function formatTwoDecimals(v) {
   return Number.isFinite(n) ? n.toFixed(2) : '0.00';
 }
 
+/**
+ * Check payment status from Fawry API
+ * GET /ECommerceWeb/Fawry/payments/status/v2
+ * Signature = SHA256(merchantCode + merchantRefNumber + secureKey)
+ */
+async function getPaymentStatus(merchantRefNum) {
+  const merchantCode = process.env.FAWRY_MERCHANT_CODE;
+  const secureKey = process.env.FAWRY_SECURE_KEY;
+  if (!merchantCode || !secureKey) {
+    throw new Error('Fawry is not configured');
+  }
+
+  const toHash = String(merchantCode) + String(merchantRefNum) + String(secureKey);
+  const signature = crypto.createHash('sha256').update(toHash, 'utf8').digest('hex');
+
+  // Use same base URL as createCharge
+  const baseUrl = process.env.FAWRY_BASE_URL || 'https://atfawry.fawrystaging.com';
+
+  const url = `${baseUrl}/ECommerceWeb/Fawry/payments/status/v2?merchantCode=${encodeURIComponent(merchantCode)}&merchantRefNumber=${encodeURIComponent(merchantRefNum)}&signature=${encodeURIComponent(signature)}`;
+
+  logger.info('Fawry Status Check', { url });
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+  });
+
+  const data = await res.json();
+  logger.info('Fawry Status Response', { data });
+  return data;
+}
+
 module.exports = {
   buildSignature,
   buildChargeRequest,
   createCharge,
   verifyWebhookSignature,
+  getPaymentStatus,
   FawryPay_Express_Checkout_Link_API,
 };

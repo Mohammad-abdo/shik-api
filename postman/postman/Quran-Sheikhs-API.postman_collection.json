@@ -1,17 +1,48 @@
 {
   "info": {
-    "_postman_id": "40c746f2-2d3f-445f-807b-05d4277dbc77",
     "name": "شيخي - Quran Sheikhs API (Mo5)",
     "description": "مجموعة طلبات Postman لـ API مشايخ القرآن - تطبيق شيخي.\n\n**للطالب (Student):** قائمة المشايخ، تفاصيل الشيخ، حجز، تعليقات، جلساتي، تقرير الجلسة، دوراتي، تفاصيل الدورة، تقاريري.\n**للمشايخ (Sheikh):** نفس endpoints قائمة المشايخ والبروفايل والتعليقات (لا يوجد endpoints منفصلة للمشايخ).\n\n**Global Headers:**\n- `Authorization`: Bearer <ACTION_TOKEN>\n- `Accept-Language`: ar | en",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3001/api/v1"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_JWT_TOKEN"
+    },
+    {
+      "key": "sheikh_id",
+      "value": ""
+    },
+    {
+      "key": "session_id",
+      "value": ""
+    },
+    {
+      "key": "course_id",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
   "item": [
     {
       "name": "1. Quran Sheikhs (مشايخ القرآن)",
+      "description": "جلب قائمة المشايخ، تفاصيل الشيخ، التعليقات. يستخدمها الطالب والمشايخ.",
       "item": [
         {
           "name": "Get All Quran Sheikhs",
-          "id": "f6fc6f29-4c24-4ad7-854f-162c5f574901",
           "request": {
             "method": "GET",
             "header": [
@@ -48,12 +79,10 @@
               ]
             },
             "description": "GET /api/v1/quran-sheikhs - جلب قائمة مشايخ القرآن مع Pagination."
-          },
-          "response": []
+          }
         },
         {
           "name": "Get Sheikh Profile Details",
-          "id": "326de650-d982-4bb0-81ad-eef626db042f",
           "request": {
             "method": "GET",
             "header": [
@@ -74,12 +103,10 @@
               ]
             },
             "description": "GET /api/v1/quran-sheikhs/:id - تفاصيل الشيخ (مع is_subscribed إذا مُرسل Authorization)."
-          },
-          "response": []
+          }
         },
         {
           "name": "Get Sheikh Reviews",
-          "id": "4c0fe44a-47aa-4489-9eef-30c055f53392",
           "request": {
             "method": "GET",
             "header": [
@@ -111,12 +138,10 @@
               ]
             },
             "description": "GET /api/v1/quran-sheikhs/:id/reviews - جلب تعليقات الشيخ."
-          },
-          "response": []
+          }
         },
         {
           "name": "Add Review (Subscribed Only)",
-          "id": "e0e369b8-6e34-449d-821b-3ea5fb0e0562",
           "request": {
             "method": "POST",
             "header": [
@@ -147,19 +172,16 @@
               ]
             },
             "description": "POST /api/v1/quran-sheikhs/:id/reviews - إضافة تعليق (للطالب المشترك فقط). يتطلب Authorization."
-          },
-          "response": []
+          }
         }
-      ],
-      "id": "c44c21be-4bb0-45c4-be95-4494bad660f0",
-      "description": "جلب قائمة المشايخ، تفاصيل الشيخ، التعليقات. يستخدمها الطالب والمشايخ."
+      ]
     },
     {
       "name": "2. Bookings (حجوزات - طالب)",
+      "description": "حجز باقة مع الشيخ. يتطلب Authorization (طالب).",
       "item": [
         {
           "name": "Book Sheikh",
-          "id": "12af2a95-e3b8-4c5f-a887-7b71838416c2",
           "request": {
             "method": "POST",
             "header": [
@@ -188,19 +210,16 @@
               ]
             },
             "description": "POST /api/v1/bookings - حجز باقة مع الشيخ. payment_type: monthly | per_session | quarterly. يتطلب Authorization."
-          },
-          "response": []
+          }
         }
-      ],
-      "id": "19f0deae-4fc1-4693-8f36-865b88459df4",
-      "description": "حجز باقة مع الشيخ. يتطلب Authorization (طالب)."
+      ]
     },
     {
       "name": "3. Student - Sessions (جلساتي)",
+      "description": "جدول جلسات الطالب وتقرير الجلسة. يتطلب Authorization.",
       "item": [
         {
           "name": "Get My Sessions",
-          "id": "69dbc87d-5786-4bab-8fe3-6bf74307a75c",
           "request": {
             "method": "GET",
             "header": [
@@ -233,12 +252,10 @@
               ]
             },
             "description": "GET /api/v1/student/sessions - جدول جلسات الطالب للشهر. يتطلب Authorization."
-          },
-          "response": []
+          }
         },
         {
           "name": "Get Session Report",
-          "id": "99a48465-02b6-487a-90bb-bd4740d931d0",
           "request": {
             "method": "GET",
             "header": [
@@ -261,19 +278,16 @@
               ]
             },
             "description": "GET /api/v1/student/sessions/:id/report - تقرير الجلسة (لجلسة منتهية). يتطلب Authorization."
-          },
-          "response": []
+          }
         }
-      ],
-      "id": "ad130a08-57ae-4f55-aadc-6685896b097d",
-      "description": "جدول جلسات الطالب وتقرير الجلسة. يتطلب Authorization."
+      ]
     },
     {
       "name": "4. Student - Courses (دوراتي)",
+      "description": "دورات الطالب وتفاصيل الدورة. يتطلب Authorization.",
       "item": [
         {
           "name": "Get My Courses",
-          "id": "025c5f23-e7c3-4509-8fee-863db142fa02",
           "request": {
             "method": "GET",
             "header": [
@@ -294,12 +308,10 @@
               ]
             },
             "description": "GET /api/v1/student/courses - قائمة الدورات التي اشترك فيها الطالب. يتطلب Authorization."
-          },
-          "response": []
+          }
         },
         {
           "name": "Get Course Details",
-          "id": "f6415eef-875e-432a-9eba-e2b20041a791",
           "request": {
             "method": "GET",
             "header": [
@@ -321,19 +333,16 @@
               ]
             },
             "description": "GET /api/v1/student/courses/:id - تفاصيل الدورة ونسبة التقدم والمشايخ. يتطلب Authorization."
-          },
-          "response": []
+          }
         }
-      ],
-      "id": "78252583-bc1e-42ff-9edd-b241067f77a6",
-      "description": "دورات الطالب وتفاصيل الدورة. يتطلب Authorization."
+      ]
     },
     {
       "name": "5. Student - Reports (التقارير بتاعتي)",
+      "description": "قائمة تقارير جلسات الطالب السابقة. يتطلب Authorization.",
       "item": [
         {
           "name": "Get My Reports",
-          "id": "8fa54306-d6c7-4c6b-9ba5-5b550bbd288c",
           "request": {
             "method": "GET",
             "header": [
@@ -364,19 +373,15 @@
               ]
             },
             "description": "GET /api/v1/student/reports - قائمة تقارير جلسات الطالب. يتطلب Authorization."
-          },
-          "response": []
+          }
         }
-      ],
-      "id": "17571167-5e10-480a-a62f-845425c05f52",
-      "description": "قائمة تقارير جلسات الطالب السابقة. يتطلب Authorization."
+      ]
     },
     {
       "name": "Payments (Fawry)",
       "item": [
         {
           "name": "Check Fawry Configuration",
-          "id": "0464df12-8852-4075-9e4c-2e5040918d0f",
           "request": {
             "method": "GET",
             "header": [],
@@ -395,7 +400,6 @@
         },
         {
           "name": "PayAtFawry (Reference Number)",
-          "id": "4a597586-d9c7-4a84-ba51-74a75b8dd2bf",
           "request": {
             "method": "POST",
             "header": [
@@ -428,7 +432,6 @@
         },
         {
           "name": "Card Payment",
-          "id": "ba800693-8ae1-4cb1-b949-d192d265767b",
           "request": {
             "method": "POST",
             "header": [
@@ -461,7 +464,6 @@
         },
         {
           "name": "Mobile Wallet",
-          "id": "dda440c1-b5cc-4b1e-a8a6-c92989d674f8",
           "request": {
             "method": "POST",
             "header": [
@@ -494,7 +496,6 @@
         },
         {
           "name": "Check Payment Status",
-          "id": "455ba395-fb4c-40fd-91a1-eb9636e265b7",
           "request": {
             "method": "GET",
             "header": [
@@ -524,45 +525,7 @@
           },
           "response": []
         }
-      ],
-      "id": "e3649843-a8cd-4a2b-9807-185269da85fd"
-    }
-  ],
-  "auth": {
-    "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{token}}",
-        "type": "string"
-      }
-    ]
-  },
-  "variable": [
-    {
-      "id": "d4f9fcdd-8610-4c7d-b405-765a84c98002",
-      "key": "base_url",
-      "value": "http://localhost:3001/api/v1"
-    },
-    {
-      "id": "627920e7-fdc2-478f-99b5-dd72e675deb6",
-      "key": "token",
-      "value": "YOUR_JWT_TOKEN"
-    },
-    {
-      "id": "b9d71a2a-2c0e-463f-ad5c-3e8153857c8d",
-      "key": "sheikh_id",
-      "value": ""
-    },
-    {
-      "id": "ecb71dc6-e5df-4010-b963-0a540d0edab3",
-      "key": "session_id",
-      "value": ""
-    },
-    {
-      "id": "9333e775-93fb-49f4-a4ee-c94a6671ac95",
-      "key": "course_id",
-      "value": ""
+      ]
     }
   ]
 }

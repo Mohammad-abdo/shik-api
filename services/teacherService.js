@@ -158,4 +158,33 @@ async function deleteSchedule(scheduleId, teacherId, userId) {
   return { message: 'Schedule deleted successfully' };
 }
 
-module.exports = { findAll, findOne, create, update, approveTeacher, rejectTeacher, createSchedule, updateSchedule, deleteSchedule };
+async function getAvailability(teacherId, startDate, endDate) {
+  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
+  if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
+
+  const schedules = await prisma.schedule.findMany({
+    where: { teacherId, isActive: true },
+  });
+
+  const bookings = await prisma.booking.findMany({
+    where: {
+      teacherId,
+      status: { notIn: ['CANCELLED', 'REJECTED'] },
+      date: {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      },
+    },
+    select: {
+      id: true,
+      date: true,
+      startTime: true,
+      duration: true,
+      status: true,
+    },
+  });
+
+  return { schedules, bookings };
+}
+
+module.exports = { findAll, findOne, create, update, approveTeacher, rejectTeacher, createSchedule, updateSchedule, deleteSchedule, getAvailability };

@@ -28,6 +28,41 @@ router.get('/:id/courses', async (req, res, next) => {
   }
 });
 
+router.get('/profile/me', jwtAuth, async (req, res, next) => {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId: req.user.id },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+        schedules: { where: { isActive: true } },
+      },
+    });
+    if (!teacher) {
+      const e = new Error('Teacher profile not found');
+      e.statusCode = 404;
+      return next(e);
+    }
+    res.json(teacher);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:id/availability', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      const err = new Error('startDate and endDate are required');
+      err.statusCode = 400;
+      throw err;
+    }
+    const result = await teacherService.getAvailability(req.params.id, startDate, endDate);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/:id', async (req, res, next) => {
   try {
     const teacher = await teacherService.findOne(req.params.id);

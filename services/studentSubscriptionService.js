@@ -1,4 +1,6 @@
 const { prisma } = require('../lib/prisma');
+const fawryService = require('./fawry');
+const { v4: uuidv4 } = require('uuid');
 
 function parseFeatures(pkg) {
   if (pkg.features && typeof pkg.features === 'string') pkg.features = JSON.parse(pkg.features);
@@ -78,13 +80,176 @@ async function deletePackage(id) {
 async function subscribe(studentId, dto) {
   const pkg = await prisma.studentSubscriptionPackage.findUnique({ where: { id: dto.packageId } });
   if (!pkg) throw Object.assign(new Error('Package not found'), { statusCode: 404 });
+
   const startDate = new Date();
   const endDate = new Date();
-  endDate.setDate(endDate.getDate() + (pkg.duration || 30));
-  return prisma.studentSubscription.create({
-    data: { studentId, packageId: dto.packageId, startDate, endDate, status: 'ACTIVE', paymentId: dto.paymentId },
-    include: { package: true, student: { select: { id: true, firstName: true, lastName: true, email: true } } },
+
+  let validSlots = [];
+
+  if (pkg.durationMonths && dto.selectedSlots && dto.selectedSlots.length > 0) {
+    if (!dto.teacherId) throw Object.assign(new Error('Teacher is required for this package'), { statusCode: 400 });
+
+    endDate.setMonth(endDate.getMonth() + pkg.durationMonths);
+
+    // Fetch existing bookings in range for optimization
+    const existingBookings = await prisma.booking.findMany({
+      where: {
+        teacherId: dto.teacherId,
+        date: { gte: startDate, lte: endDate },
+        status: { notIn: ['CANCELLED', 'REJECTED'] }
+      }
+    });
+
+    // Validate slots and generate booking dates
+    const dayMap = { 'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6 };
+    const toMinutes = (time) => {
+      const [h, m] = time.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    let currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dayName = Object.keys(dayMap).find(key => dayMap[key] === currentDate.getDay());
+      const slotsForDay = dto.selectedSlots.filter(s => s.dayOfWeek === dayName);
+
+      for (const slot of slotsForDay) {
+        const slotDate = new Date(currentDate);
+        const slotStart = toMinutes(slot.startTime);
+        const slotDuration = pkg.duration || 30;
+        const slotEnd = slotStart + slotDuration;
+
+        // Check for conflicts
+        const conflict = existingBookings.find(b => {
+          const bDate = new Date(b.date);
+          if (bDate.getDate() !== slotDate.getDate() || bDate.getMonth() !== slotDate.getMonth() || bDate.getFullYear() !== slotDate.getFullYear()) {
+            return false;
+          }
+          const bStart = toMinutes(b.startTime);
+          const bEnd = bStart + (b.duration || 30);
+          return (slotStart < bEnd) && (bStart < slotEnd);
+        });
+
+        if (conflict) {
+          throw Object.assign(new Error(`Conflict found at ${slot.startTime} on ${currentDate.toDateString()}`), { statusCode: 409 });
+        }
+
+        validSlots.push({
+          date: slotDate,
+          startTime: slot.startTime,
+          dayOfWeek: slot.dayOfWeek
+        });
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  } else {
+    endDate.setDate(endDate.getDate() + (pkg.duration || 30));
+  }
+
+  // Calculate Amount
+  let amount = 0;
+  if (pkg.price > 0) {
+    amount = pkg.price;
+    // If monthly/yearly logic applies, adjust here.
+    // Current schema suggests pkg.price is main price.
+    // If recurring, we might need monthlyPrice? Let's assume price is the upfront cost for now.
+    if (dto.billingCount && pkg.monthlyPrice) { // Example logic if frontend sends billingCount
+      amount = pkg.monthlyPrice * dto.billingCount;
+    }
+  }
+
+  // Create Subscription as PENDING
+  const subscription = await prisma.studentSubscription.create({
+    data: {
+      studentId,
+      packageId: dto.packageId,
+      teacherId: dto.teacherId,
+      startDate,
+      endDate,
+      status: amount > 0 ? 'PENDING' : 'ACTIVE', // If free, activate immediately
+      selectedSlots: dto.selectedSlots ? JSON.stringify(dto.selectedSlots) : null
+    },
+    include: { package: true, student: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } },
   });
+
+  if (amount > 0) {
+    // Create Payment Record
+    const paymentId = uuidv4();
+    const merchantRefNum = paymentId; // Use payment ID as ref
+
+    const payment = await prisma.payment.create({
+      data: {
+        id: paymentId,
+        subscriptionId: subscription.id,
+        amount: amount,
+        currency: 'EGP',
+        status: 'PENDING',
+        merchantRefNum: merchantRefNum,
+        paymentMethod: dto.paymentMethod || 'CARD' // Default
+      }
+    });
+
+    // Initiate Fawry Payment
+    const chargeRequest = fawryService.buildChargeRequest({
+      merchantCode: process.env.FAWRY_MERCHANT_CODE,
+      merchantRefNum: merchantRefNum,
+      customerProfileId: studentId,
+      customerName: `${subscription.student.firstName} ${subscription.student.lastName}`,
+      customerMobile: subscription.student.phone || '',
+      customerEmail: subscription.student.email,
+      description: `Subscription to ${pkg.name}`,
+      amount: amount,
+      chargeItems: [
+        {
+          itemId: pkg.id,
+          description: pkg.name,
+          price: amount,
+          quantity: 1
+        }
+      ],
+      returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/subscriptions/callback?subscriptionId=${subscription.id}`,
+      paymentMethod: dto.paymentMethod || 'CARD',
+      secureKey: process.env.FAWRY_SECURE_KEY
+    });
+
+    try {
+      const fawryResponse = await fawryService.createCharge(chargeRequest);
+
+      // Respond with Payment URL or Reference Number
+      return {
+        subscription,
+        paymentUrl: fawryResponse.paymentUrl,
+        referenceNumber: fawryResponse.referenceNumber,
+        fawryRefNumber: fawryResponse.referenceNumber, // Sometimes called this way
+        paymentId: payment.id
+      };
+
+    } catch (error) {
+      // If payment initiation fails, maybe cancel subscription?
+      // Keeping it PENDING allows retry.
+      throw error;
+    }
+  }
+
+  // If Free or Amount 0
+  if (validSlots.length > 0) {
+    // Create Bookings
+    const bookingData = validSlots.map(slot => ({
+      studentId,
+      teacherId: dto.teacherId,
+      date: slot.date,
+      startTime: slot.startTime,
+      duration: pkg.duration || 60, // Default duration if not specified
+      status: 'CONFIRMED', // Automatically confirmed? or PENDING?
+      price: 0,
+      totalPrice: 0,
+      type: 'SUBSCRIPTION', // Use new enum value
+      subscriptionId: subscription.id
+    }));
+
+    await prisma.booking.createMany({ data: bookingData });
+  }
+
+  return { subscription };
 }
 
 async function getMySubscriptions(studentId) {

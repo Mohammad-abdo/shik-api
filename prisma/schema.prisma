@@ -37,23 +37,25 @@ model AuditLog {
 }
 
 model Booking {
-  id          String        @id @default(uuid())
-  studentId   String
-  teacherId   String
-  date        DateTime
-  startTime   String
-  duration    Int
-  status      BookingStatus @default(PENDING)
-  price       Float
-  discount    Float         @default(0)
-  totalPrice  Float
-  notes       String?
-  courseId    String?
-  cancelledAt DateTime?
-  cancelledBy String?
-  isFeatured  Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String        @id @default(uuid())
+  studentId      String
+  teacherId      String
+  date           DateTime
+  startTime      String
+  duration       Int
+  status         BookingStatus @default(PENDING)
+  price          Float
+  discount       Float         @default(0)
+  totalPrice     Float
+  notes          String?
+  courseId       String?
+  cancelledAt    DateTime?
+  cancelledBy    String?
+  type           BookingType   @default(SINGLE)
+  subscriptionId String?
+  isFeatured     Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   student User     @relation("StudentBookings", fields: [studentId], references: [id])
   teacher Teacher  @relation("TeacherBookings", fields: [teacherId], references: [id])
@@ -125,7 +127,8 @@ model Otp {
 
 model Payment {
   id              String        @id @default(uuid())
-  bookingId       String        @unique
+  bookingId       String?       @unique
+  subscriptionId  String?       @unique
   amount          Float
   currency        String        @default("USD")
   status          PaymentStatus @default(PENDING)
@@ -140,7 +143,8 @@ model Payment {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  booking Booking @relation(fields: [bookingId], references: [id])
+  booking      Booking?             @relation(fields: [bookingId], references: [id])
+  subscription StudentSubscription? @relation(fields: [subscriptionId], references: [id])
 
   @@map("payments")
 }
@@ -289,28 +293,29 @@ model TeacherWallet {
 }
 
 model Teacher {
-  id                   String      @id @default(uuid())
-  userId               String      @unique
+  id                   String                @id @default(uuid())
+  studentSubscriptions StudentSubscription[] @relation("TeacherStudentSubscriptions")
+  userId               String                @unique
   bio                  String?
   bioAr                String?
   image                String?
   experience           Int?
-  hourlyRate           Float       @default(0)
-  rating               Float       @default(0)
-  totalReviews         Int         @default(0)
-  isApproved           Boolean     @default(false)
+  hourlyRate           Float                 @default(0)
+  rating               Float                 @default(0)
+  totalReviews         Int                   @default(0)
+  isApproved           Boolean               @default(false)
   approvedAt           DateTime?
   approvedBy           String?
-  specialties          String?     @db.LongText
-  specialtiesAr        String?     @db.LongText
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  specialties          String?               @db.LongText
+  specialtiesAr        String?               @db.LongText
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   introVideoUrl        String?
-  canIssueCertificates Boolean?    @default(false)
+  canIssueCertificates Boolean?              @default(false)
   readingType          String?
   readingTypeAr        String?
-  certificates         String?     @db.LongText
-  teacherType          TeacherType @default(FULL_TEACHER)
+  certificates         String?               @db.LongText
+  teacherType          TeacherType           @default(FULL_TEACHER)
 
   user               User                  @relation("TeacherProfile", fields: [userId], references: [id])
   bookings           Booking[]             @relation("TeacherBookings")
@@ -706,26 +711,28 @@ model TeacherSubscription {
 }
 
 model StudentSubscriptionPackage {
-  id             String   @id @default(uuid())
-  name           String
-  nameAr         String?
-  description    String?  @db.LongText
-  descriptionAr  String?  @db.LongText
-  price          Float
-  duration       Int      @default(30)
-  durationMonths Int?
-  monthlyPrice   Float?
-  yearlyPrice    Float?
-  maxTeachers    Int?
-  features       String?  @db.LongText
-  featuresAr     String?  @db.LongText
-  maxBookings    Int?
-  maxCourses     Int?
-  isActive       Boolean  @default(true)
-  isPopular      Boolean  @default(false)
-  createdBy      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(uuid())
+  name            String
+  nameAr          String?
+  description     String?  @db.LongText
+  descriptionAr   String?  @db.LongText
+  price           Float
+  duration        Int      @default(30)
+  durationMonths  Int?
+  totalSessions   Int?     @default(0)
+  weeklyFrequency Int?     @default(0)
+  monthlyPrice    Float?
+  yearlyPrice     Float?
+  maxTeachers     Int?
+  features        String?  @db.LongText
+  featuresAr      String?  @db.LongText
+  maxBookings     Int?
+  maxCourses      Int?
+  isActive        Boolean  @default(true)
+  isPopular       Boolean  @default(false)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   subscriptions StudentSubscription[] @relation("StudentPackageSubscriptions")
 
@@ -735,7 +742,9 @@ model StudentSubscriptionPackage {
 model StudentSubscription {
   id                   String             @id @default(uuid())
   studentId            String
+  teacherId            String
   packageId            String
+  selectedSlots        Json?
   status               SubscriptionStatus @default(ACTIVE)
   startDate            DateTime
   endDate              DateTime
@@ -748,7 +757,9 @@ model StudentSubscription {
   updatedAt            DateTime           @updatedAt
 
   student User                       @relation("StudentSubscriptions", fields: [studentId], references: [id], onDelete: Cascade)
+  teacher Teacher                    @relation("TeacherStudentSubscriptions", fields: [teacherId], references: [id])
   package StudentSubscriptionPackage @relation("StudentPackageSubscriptions", fields: [packageId], references: [id])
+  payment Payment?
 
   @@index([studentId], map: "student_subscriptions_studentId_fkey")
   @@index([packageId], map: "student_subscriptions_packageId_fkey")
@@ -801,6 +812,11 @@ enum NotificationType {
   REVIEW_RECEIVED
 
   @@map("notifications_type")
+}
+
+enum BookingType {
+  SINGLE
+  SUBSCRIPTION
 }
 
 enum SessionType {

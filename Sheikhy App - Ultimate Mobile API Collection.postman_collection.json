@@ -892,6 +892,225 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "💰 10. Student Subscriptions & Payments",
+      "item": [
+        {
+          "name": "Get Subscription Packages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/student-subscriptions/packages?activeOnly=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "packages"
+              ],
+              "query": [
+                {
+                  "key": "activeOnly",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Subscribe to Package",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packageId\": \"{{package_id}}\",\n  \"teacherId\": \"{{teacher_id}}\",\n  \"paymentMethod\": \"CARD\",\n  \"selectedSlots\": [\n    { \"dayOfWeek\": \"MONDAY\", \"startTime\": \"10:00\" },\n    { \"dayOfWeek\": \"WEDNESDAY\", \"startTime\": \"10:00\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/student-subscriptions/subscribe",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "subscribe"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/student-subscriptions/my-subscriptions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "my-subscriptions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Active Subscription",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/student-subscriptions/my-active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "my-active"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/student-subscriptions/cancel/{{subscription_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "student-subscriptions",
+                "cancel",
+                "{{subscription_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fawry Checkout Link (Card)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{booking_id}}\",\n  \"paymentMethod\": \"CARD\",\n  \"returnUrl\": \"http://localhost:5173/student/subscriptions/callback\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/fawry/checkout-link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "fawry",
+                "checkout-link"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fawry Reference Number (PayAtFawry)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{booking_id}}\",\n  \"expiryHours\": 48\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/fawry/reference-number",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "fawry",
+                "reference-number"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Fawry Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/payments/fawry/status/{{merchant_ref_num}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "fawry",
+                "status",
+                "{{merchant_ref_num}}"
+              ]
+            }
+          }
+        }
+      ]
     }
   ],
   "variable": [

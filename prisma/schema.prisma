@@ -90,6 +90,18 @@ model Content {
   @@map("content")
 }
 
+model SitePage {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  titleAr   String?
+  body      String   @db.LongText
+  bodyAr    String?  @db.LongText
+  updatedAt DateTime @updatedAt
+
+  @@map("site_pages")
+}
+
 model Notification {
   id        String           @id @default(uuid())
   userId    String

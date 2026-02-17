@@ -153,7 +153,7 @@ VideoProgress → User (Student)
 
 ### شراء دورة مع شيخ
 ```bash
-curl -X POST http://localhost:3001/api/v1/enrollments/course-123/enroll \
+curl -X POST http://localhost:8002/api/v1/enrollments/course-123/enroll \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"sheikId": "sheikh-456"}'
@@ -161,7 +161,7 @@ curl -X POST http://localhost:3001/api/v1/enrollments/course-123/enroll \
 
 ### بدء درس
 ```bash
-curl -X POST http://localhost:3001/api/v1/enrollments/lessons/lesson-789/start \
+curl -X POST http://localhost:8002/api/v1/enrollments/lessons/lesson-789/start \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"videoId": "video-101"}'
@@ -169,7 +169,7 @@ curl -X POST http://localhost:3001/api/v1/enrollments/lessons/lesson-789/start \
 
 ### إتمام درس
 ```bash
-curl -X POST http://localhost:3001/api/v1/enrollments/lessons/lesson-789/complete \
+curl -X POST http://localhost:8002/api/v1/enrollments/lessons/lesson-789/complete \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"videoId": "video-101", "watchDurationSeconds": 1800}'

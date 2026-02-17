@@ -10,7 +10,7 @@ const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760', 10);
 const MAX_VIDEO_SIZE = parseInt(process.env.MAX_VIDEO_SIZE || '104857600', 10);
 const ALLOWED_FILE_TYPES = (process.env.ALLOWED_FILE_TYPES || 'jpg,jpeg,png,gif,webp,pdf').split(',').map((x) => x.trim().toLowerCase());
 const ALLOWED_VIDEO_TYPES = (process.env.ALLOWED_VIDEO_TYPES || 'mp4,webm,mov,avi,mkv').split(',').map((x) => x.trim().toLowerCase());
-const BASE_URL = process.env.BASE_URL || process.env.API_URL || 'http://localhost:3001';
+const BASE_URL = process.env.BASE_URL || process.env.API_URL || 'http://localhost:8002';
 
 /** يضمن أن المسار النهائي داخل مجلد uploads بالمشروع فقط (يمنع الخروج خارج المشروع) */
 function resolveUploadPath(relativePath) {

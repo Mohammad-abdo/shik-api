@@ -5,6 +5,17 @@ const { jwtAuth } = require('../middleware/jwtAuth');
 
 router.use(jwtAuth);
 
+router.get('/', async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const result = await sessionService.getMySessions(req.user.id, page, limit);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/bookings/:bookingId', async (req, res, next) => {
   try {
     const session = await sessionService.create(req.params.bookingId, { ...req.body, userId: req.user.id });

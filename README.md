@@ -39,7 +39,7 @@ npm start
 npm run dev
 ```
 
-السيرفر يعمل على: `http://localhost:3001`  
+السيرفر يعمل على: `http://localhost:8002`  
 واجهة الـ API تحت البادئة: `/api`
 
 ## المسارات الرئيسية

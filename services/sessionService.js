@@ -2,27 +2,36 @@ const crypto = require('crypto');
 const { prisma } = require('../lib/prisma');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
-const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || process.env.AGORA_APP_SECRET;
+
+function getCertBuffer() {
+  const cert = AGORA_APP_CERTIFICATE;
+  if (!cert) return null;
+  try {
+    if (/^[A-Za-z0-9+/=]+$/.test(cert) && cert.length > 24) return Buffer.from(cert, 'base64');
+    return Buffer.from(cert, 'utf8');
+  } catch {
+    return Buffer.from(cert, 'utf8');
+  }
+}
 
 function generateAgoraToken(channelName, uid) {
-  if (!AGORA_APP_ID || !AGORA_APP_CERTIFICATE) {
-    return `placeholder_token_${Date.now()}`;
-  }
+  if (!AGORA_APP_ID || !AGORA_APP_CERTIFICATE) return `placeholder_token_${Date.now()}`;
+  const certBuffer = getCertBuffer();
+  if (!certBuffer) return `placeholder_token_${Date.now()}`;
   const role = 1;
-  const expirationTimeInSeconds = 3600;
-  const currentTimestamp = Math.floor(Date.now() / 1000);
-  const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
-  const tokenVersion = '006';
-  const content = Buffer.alloc(32);
+  const privilegeExpiredTs = Math.floor(Date.now() / 1000) + 3600;
+  const name = String(channelName).slice(0, 64);
+  const content = Buffer.alloc(28 + Math.max(name.length, 4));
   content.writeUInt32BE(0, 0);
   content.writeUInt32BE(privilegeExpiredTs, 4);
   content.writeUInt32BE(role, 8);
   content.write(AGORA_APP_ID, 12);
   content.writeUInt32BE(0, 24);
-  content.write(channelName, 28);
+  content.write(name, 28);
   const contentBase64 = content.toString('base64');
-  const signature = crypto.createHmac('sha256', Buffer.from(AGORA_APP_CERTIFICATE, 'base64')).update(Buffer.from(contentBase64, 'base64')).digest('base64');
-  return `${tokenVersion}${signature}${contentBase64}`;
+  const signature = crypto.createHmac('sha256', certBuffer).update(Buffer.from(contentBase64, 'base64')).digest('base64');
+  return `006${signature}${contentBase64}`;
 }
 
 async function create(bookingId, dto) {
@@ -103,4 +112,31 @@ async function endSession(bookingId, recordingUrl) {
   return updated;
 }
 
-module.exports = { create, getSession, startSession, endSession };
+/** List sessions for current user (as teacher or student) */
+async function getMySessions(userId, page = 1, limit = 20) {
+  const skip = (page - 1) * limit;
+  const teacher = await prisma.teacher.findUnique({ where: { userId }, select: { id: true } });
+  const where = teacher
+    ? { booking: { teacherId: teacher.id } }
+    : { booking: { studentId: userId } };
+  const [sessions, total] = await Promise.all([
+    prisma.session.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        booking: {
+          include: {
+            teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
+            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.session.count({ where }),
+  ]);
+  return { data: sessions, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+}
+
+module.exports = { create, getSession, startSession, endSession, getMySessions };

@@ -7,7 +7,7 @@
  *   node test-fawry.js --status=MERCHANT_REF_NUM
  *
  * متغيرات البيئة:
- *   API_BASE          = http://localhost:3001
+ *   API_BASE          = http://localhost:8002
  *   LOGIN_EMAIL       = بريد الطالب
  *   LOGIN_PASSWORD    = كلمة المرور
  *   BOOKING_ID        = (اختياري) UUID حجز بحالة CONFIRMED
@@ -18,7 +18,7 @@
  *   3) شغّل السيرفر (node app.js) ثم: node test-fawry.js
  */
 require('dotenv').config();
-const API_BASE = process.env.API_BASE || 'http://localhost:3001';
+const API_BASE = process.env.API_BASE || 'http://localhost:8002';
 
 async function login(email, password, userType = 'student') {
   const url = `${API_BASE}/api/auth/login`;

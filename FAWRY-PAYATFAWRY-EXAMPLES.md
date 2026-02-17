@@ -3,7 +3,7 @@
 ## Example 1: Generate Reference Number with Default Expiry
 
 ```bash
-curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
+curl -X POST http://localhost:8002/api/payments/fawry/reference-number \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -34,7 +34,7 @@ curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
 ## Example 2: Generate Reference Number with Custom Expiry
 
 ```bash
-curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
+curl -X POST http://localhost:8002/api/payments/fawry/reference-number \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -66,7 +66,7 @@ curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
 ## Example 3: Check Payment Status
 
 ```bash
-curl -X GET http://localhost:3001/api/payments/fawry/status/123456789 \
+curl -X GET http://localhost:8002/api/payments/fawry/status/123456789 \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
@@ -209,7 +209,7 @@ export default PaymentScreen;
 
 ### Booking Not Found
 ```bash
-curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
+curl -X POST http://localhost:8002/api/payments/fawry/reference-number \
   -H "Authorization: Bearer token" \
   -H "Content-Type: application/json" \
   -d '{"bookingId": "invalid-id"}'
@@ -228,7 +228,7 @@ curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
 ### PayAtFawry Disabled
 ```bash
 # When FAWRY_PAYATFAWRY_ENABLED=false
-curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
+curl -X POST http://localhost:8002/api/payments/fawry/reference-number \
   -H "Authorization: Bearer token" \
   -H "Content-Type: application/json" \
   -d '{"bookingId": "valid-id"}'
@@ -246,7 +246,7 @@ curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
 
 ### Payment Already Completed
 ```bash
-curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
+curl -X POST http://localhost:8002/api/payments/fawry/reference-number \
   -H "Authorization: Bearer token" \
   -H "Content-Type: application/json" \
   -d '{"bookingId": "already-paid-booking"}'
@@ -268,7 +268,7 @@ curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
 
 ```bash
 # Simulate Fawry webhook notification
-curl -X POST http://localhost:3001/api/payments/fawry/webhook \
+curl -X POST http://localhost:8002/api/payments/fawry/webhook \
   -H "Content-Type: application/json" \
   -d '{
     "fawryRefNumber": "8765432109",

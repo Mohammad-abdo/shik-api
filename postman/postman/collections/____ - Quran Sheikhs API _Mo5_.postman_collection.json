@@ -542,7 +542,7 @@
     {
       "id": "d4f9fcdd-8610-4c7d-b405-765a84c98002",
       "key": "base_url",
-      "value": "http://localhost:3001/api/v1"
+      "value": "http://localhost:8002/api/v1"
     },
     {
       "id": "627920e7-fdc2-478f-99b5-dd72e675deb6",

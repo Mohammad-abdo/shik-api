@@ -173,7 +173,7 @@ FAWRY_ORDER_WEBHOOK_URL=https://your-domain.com/api/payments/fawry/webhook
 ### Test Reference Number Generation
 
 ```bash
-curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
+curl -X POST http://localhost:8002/api/payments/fawry/reference-number \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -186,14 +186,14 @@ curl -X POST http://localhost:3001/api/payments/fawry/reference-number \
 ### Test Payment Status Check
 
 ```bash
-curl -X GET http://localhost:3001/api/payments/fawry/status/987654321 \
+curl -X GET http://localhost:8002/api/payments/fawry/status/987654321 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ### Test Fawry Info
 
 ```bash
-curl -X GET http://localhost:3001/api/payments/fawry
+curl -X GET http://localhost:8002/api/payments/fawry
 ```
 
 ## Signature Calculation

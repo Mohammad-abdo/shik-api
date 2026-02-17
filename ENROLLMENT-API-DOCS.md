@@ -380,7 +380,7 @@ console.log('Course progress:', result.data.courseProgress.progress + '%');
 
 ### Enroll in Course
 ```bash
-curl -X POST http://localhost:3001/api/v1/enrollments/your-course-id/enroll \
+curl -X POST http://localhost:8002/api/v1/enrollments/your-course-id/enroll \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-jwt-token" \
   -d '{"sheikId": "your-sheikh-id"}'
@@ -388,7 +388,7 @@ curl -X POST http://localhost:3001/api/v1/enrollments/your-course-id/enroll \
 
 ### Start Lesson
 ```bash
-curl -X POST http://localhost:3001/api/v1/enrollments/lessons/your-lesson-id/start \
+curl -X POST http://localhost:8002/api/v1/enrollments/lessons/your-lesson-id/start \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-jwt-token" \
   -d '{"videoId": "your-video-id"}'
@@ -396,7 +396,7 @@ curl -X POST http://localhost:3001/api/v1/enrollments/lessons/your-lesson-id/sta
 
 ### Complete Lesson
 ```bash
-curl -X POST http://localhost:3001/api/v1/enrollments/lessons/your-lesson-id/complete \
+curl -X POST http://localhost:8002/api/v1/enrollments/lessons/your-lesson-id/complete \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-jwt-token" \
   -d '{"videoId": "your-video-id", "watchDurationSeconds": 1800}'

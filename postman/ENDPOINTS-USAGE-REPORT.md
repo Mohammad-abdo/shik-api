@@ -32,7 +32,7 @@
 - `Accept-Language`: `ar` أو `en`
   - **ملاحظة:** البيانات النصية (الاسم، النبذة، المسمى الوظيفي) ستعود باللغة المحددة في هذا الهيدر.
 
-**Base URL:** `http://localhost:3001/api/v1`
+**Base URL:** `http://localhost:8002/api/v1`
 
 **ملاحظة – متى يُرسل Authorization:**
 - **بدون توكن:** يمكن استدعاء `GET /quran-sheikhs`, `GET /quran-sheikhs/:id`, `GET /quran-sheikhs/:id/reviews` (قراءة فقط). في تفاصيل الشيخ لن يُرجَع حقل `is_subscribed` أو سيكون `false`.
@@ -548,7 +548,7 @@
 ```javascript
 // في api.js – إضافة بعد تعريف api
 
-const API_V1_BASE = ''; // نفس baseURL (مثلاً http://localhost:3001/api) ثم المسار يبدأ بـ /v1/...
+const API_V1_BASE = ''; // نفس baseURL (مثلاً http://localhost:8002/api) ثم المسار يبدأ بـ /v1/...
 
 // Quran Sheikhs API (v1) – لتطبيق التلميذ/الموبايل
 export const quranSheikhsV1API = {

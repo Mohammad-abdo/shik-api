@@ -10,7 +10,7 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "node prisma/seed.js",
+    "prisma:seed": "prisma migrate deploy && node prisma/seed.js",
     "db:setup": "npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed",
     "db:deploy": "npm run prisma:generate && npm run prisma:migrate:deploy && npm run prisma:seed",
     "db:push": "npm run prisma:generate && prisma db push && npm run prisma:seed"

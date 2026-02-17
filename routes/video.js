@@ -39,6 +39,17 @@ router.get('/session/history', jwtAuth, async (req, res, next) => {
   }
 });
 
+router.get('/session/test-token', jwtAuth, async (req, res, next) => {
+  try {
+    const channelName = req.query.channelName || `test-${Date.now()}`;
+    const uid = req.query.uid || 1;
+    const result = videoService.getTestToken(channelName, uid);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/videos/:video_id/access', jwtAuth, async (req, res, next) => {
   try {
     const result = await videoService.getVideoAccess(req.params.video_id, req.user.id);

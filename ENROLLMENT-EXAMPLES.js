@@ -6,7 +6,7 @@
  * تأكد من وجود JWT token صحيح قبل استخدام هذه الأمثلة
  */
 
-const API_BASE_URL = 'http://localhost:3001/api/v1';
+const API_BASE_URL = 'http://localhost:8002/api/v1';
 
 // Replace with actual JWT token
 const JWT_TOKEN = 'your-jwt-token-here';

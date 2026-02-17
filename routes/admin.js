@@ -60,6 +60,12 @@ router.get('/bookings', permissions(['bookings.manage']), async (req, res, next)
     });
     res.json(result);
   } catch (e) {
+    if (e.code === 'P2022' || (e.meta?.column) || (e.message && /Unknown column|does not exist/i.test(e.message))) {
+      return res.status(503).json({
+        message: 'Database schema is out of date. Run in backend folder: npx prisma migrate deploy',
+        code: 'MIGRATION_NEEDED',
+      });
+    }
     next(e);
   }
 });
@@ -347,6 +353,36 @@ router.get('/reports/trends', permissions(['reports.view']), async (req, res, ne
     const start = req.query.startDate ? new Date(req.query.startDate) : new Date(new Date().setDate(1));
     const end = req.query.endDate ? new Date(req.query.endDate) : new Date();
     const result = await adminService.getBookingTrends(start, end);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/reports/sessions', permissions(['reports.view']), async (req, res, next) => {
+  try {
+    const start = req.query.startDate ? new Date(req.query.startDate) : undefined;
+    const end = req.query.endDate ? new Date(req.query.endDate) : undefined;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const result = await adminService.getSessionReportsForAdmin(start, end, page, limit);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/sessions', permissions(['reports.view', 'bookings.manage']), async (req, res, next) => {
+  try {
+    const result = await adminService.getAllSessionsForAdmin({
+      page: req.query.page,
+      limit: req.query.limit,
+      bookingId: req.query.bookingId,
+      roomId: req.query.roomId,
+      status: req.query.status,
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo,
+    });
     res.json(result);
   } catch (e) {
     next(e);

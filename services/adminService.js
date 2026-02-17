@@ -714,6 +714,117 @@ async function getBookingTrends(startDate, endDate) {
   return Object.entries(trends).map(([date, data]) => ({ date, ...data }));
 }
 
+/** Admin: list completed sessions (reports by sheikh about students after sessions) */
+async function getSessionReportsForAdmin(startDate, endDate, page = 1, limit = 50) {
+  const start = startDate ? new Date(startDate) : new Date(0);
+  const end = endDate ? new Date(endDate) : new Date();
+  const skip = (page - 1) * limit;
+  const [sessions, total] = await Promise.all([
+    prisma.session.findMany({
+      where: {
+        endedAt: { not: null },
+        booking: {
+          status: 'COMPLETED',
+          date: { gte: start, lte: end },
+        },
+      },
+      include: {
+        booking: {
+          include: {
+            teacher: { include: { user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
+            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+          },
+        },
+      },
+      orderBy: { endedAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.session.count({
+      where: {
+        endedAt: { not: null },
+        booking: {
+          status: 'COMPLETED',
+          date: { gte: start, lte: end },
+        },
+      },
+    }),
+  ]);
+  const list = sessions.map((s) => {
+    const b = s.booking;
+    const teacher = b?.teacher?.user;
+    const student = b?.student;
+    const teacherName = teacher ? [teacher.firstName, teacher.lastName].filter(Boolean).join(' ').trim() || [teacher.firstNameAr, teacher.lastNameAr].filter(Boolean).join(' ').trim() : '—';
+    const studentName = student ? [student.firstName, student.lastName].filter(Boolean).join(' ').trim() || [student.firstNameAr, student.lastNameAr].filter(Boolean).join(' ').trim() : '—';
+    return {
+      id: s.id,
+      sessionId: s.id,
+      bookingId: b?.id,
+      date: b?.date?.toISOString?.()?.split('T')[0],
+      endedAt: s.endedAt?.toISOString?.()?.split('T')[0],
+      teacherName,
+      teacherEmail: teacher?.email,
+      studentName,
+      studentEmail: student?.email,
+      studentId: student?.id,
+    };
+  });
+  return {
+    data: list,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    periodRange: { startDate: start, endDate: end },
+  };
+}
+
+/** Admin: list all sessions (Agora video sessions for sheikh–student bookings) */
+async function getAllSessionsForAdmin(filters = {}) {
+  const page = Math.max(1, parseInt(filters.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
+  const skip = (page - 1) * limit;
+  const where = {};
+
+  if (filters.bookingId) where.bookingId = filters.bookingId;
+  if (filters.roomId) where.roomId = { contains: filters.roomId };
+  if (filters.status === 'active') {
+    where.startedAt = { not: null };
+    where.endedAt = null;
+  } else if (filters.status === 'ended') {
+    where.endedAt = { not: null };
+  }
+  if (filters.dateFrom || filters.dateTo) {
+    where.booking = { date: {} };
+    if (filters.dateFrom) where.booking.date.gte = new Date(filters.dateFrom);
+    if (filters.dateTo) {
+      const end = new Date(filters.dateTo);
+      end.setHours(23, 59, 59, 999);
+      where.booking.date.lte = end;
+    }
+  }
+
+  const [sessions, total] = await Promise.all([
+    prisma.session.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        booking: {
+          include: {
+            teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
+            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.session.count({ where }),
+  ]);
+
+  return {
+    data: sessions,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
 // --- Teacher Wallets ---
 async function ensureAllWallets() {
   const teachersWithoutWallet = await prisma.teacher.findMany({
@@ -1053,6 +1164,8 @@ module.exports = {
   getDailyReport,
   getMonthlyReport,
   getBookingTrends,
+  getSessionReportsForAdmin,
+  getAllSessionsForAdmin,
   ensureAllWallets,
   getAllTeacherWallets,
   syncPaymentsToWallets,

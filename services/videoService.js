@@ -1,52 +1,11 @@
-const crypto = require('crypto');
 const { prisma } = require('../lib/prisma');
-
-function getAgoraAppId() {
-  return (process.env.AGORA_APP_ID || '').trim();
-}
-const AGORA_APP_ID = getAgoraAppId();
-const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || process.env.AGORA_APP_SECRET;
-
-function getAgoraCertBuffer() {
-  const cert = AGORA_APP_CERTIFICATE;
-  if (!cert) return null;
-  try {
-    if (/^[A-Za-z0-9+/=]+$/.test(cert) && cert.length > 24) {
-      return Buffer.from(cert, 'base64');
-    }
-    return Buffer.from(cert, 'utf8');
-  } catch {
-    return Buffer.from(cert, 'utf8');
-  }
-}
-
-function generateAgoraToken(channelName, uid) {
-  const appId = getAgoraAppId();
-  if (!appId || !AGORA_APP_CERTIFICATE) return `placeholder_${Date.now()}`;
-  const certBuffer = getAgoraCertBuffer();
-  if (!certBuffer) return `placeholder_${Date.now()}`;
-  const role = 1;
-  const privilegeExpiredTs = Math.floor(Date.now() / 1000) + 3600;
-  const name = String(channelName).slice(0, 64);
-  const content = Buffer.alloc(28 + Math.max(name.length, 4));
-  content.writeUInt32BE(0, 0);
-  content.writeUInt32BE(privilegeExpiredTs, 4);
-  content.writeUInt32BE(role, 8);
-  content.write(appId, 12);
-  content.writeUInt32BE(0, 24);
-  content.write(name, 28);
-  const contentBase64 = content.toString('base64');
-  const signature = crypto.createHmac('sha256', certBuffer).update(Buffer.from(contentBase64, 'base64')).digest('base64');
-  return `006${signature}${contentBase64}`;
-}
+const { buildRtcToken, getAgoraConfigOrThrow, sanitizeChannelName, sanitizeUid } = require('../utils/agora');
 
 /** For dashboard test pages: get appId + token for any channel (no booking required) */
 function getTestToken(channelName, uid = 1) {
-  const name = String(channelName || `test-${Date.now()}`).replace(/\s/g, '-').slice(0, 64);
-  const id = Math.abs(parseInt(uid, 10) || 1);
-  const token = generateAgoraToken(name, id);
-  const appId = getAgoraAppId();
-  if (!appId) throw Object.assign(new Error('AGORA_APP_ID is not set in server .env'), { statusCode: 503 });
+  const name = sanitizeChannelName(channelName);
+  const id = sanitizeUid(uid);
+  const { token, appId } = buildRtcToken(name, id);
   return { appId, token, channelName: name, uid: id };
 }
 
@@ -58,14 +17,13 @@ async function createSession(bookingId, userId) {
   if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
   if (booking.studentId !== userId && booking.teacher.userId !== userId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
   let session = await prisma.session.findUnique({ where: { bookingId } });
-  const appId = getAgoraAppId();
-  if (!appId) throw Object.assign(new Error('AGORA_APP_ID is not set in server .env'), { statusCode: 503 });
+  const { appId } = getAgoraConfigOrThrow();
   if (session) {
-    const token = generateAgoraToken(session.roomId, userId);
+    const { token } = buildRtcToken(session.roomId, userId);
     return { ...session, token, appId };
   }
   const roomId = `room_${bookingId}_${Date.now()}`;
-  const token = generateAgoraToken(roomId, userId);
+  const { token } = buildRtcToken(roomId, userId);
   session = await prisma.session.create({
     data: { bookingId, type: 'VIDEO', roomId, agoraToken: token, startedAt: new Date() },
   });
@@ -73,14 +31,13 @@ async function createSession(bookingId, userId) {
 }
 
 async function getSessionToken(bookingId, userId) {
-  const appId = getAgoraAppId();
-  if (!appId) throw Object.assign(new Error('AGORA_APP_ID is not set in server .env'), { statusCode: 503 });
+  const { appId } = getAgoraConfigOrThrow();
   const session = await prisma.session.findUnique({
     where: { bookingId },
     include: { booking: { include: { student: true, teacher: { include: { user: true } } } } },
   });
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
-  const token = generateAgoraToken(session.roomId, userId);
+  const { token } = buildRtcToken(session.roomId, userId);
   return { ...session, token, appId };
 }
 

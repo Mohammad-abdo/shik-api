@@ -9,6 +9,7 @@ const { keepAliveMiddleware, configureServer, setupGracefulShutdown, mobileHealt
 const responseTransform = require('./middleware/responseTransform');
 const errorHandler = require('./middleware/errorHandler');
 const routes = require('./routes');
+const { getAgoraConfigValidationErrors } = require('./utils/agora');
 
 const app = express();
 const PORT = process.env.PORT || 8002;
@@ -33,8 +34,8 @@ const corsOptions = {
   credentials: false, // Can't use credentials with wildcard origin
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
+    'Content-Type',
+    'Authorization',
     'X-Requested-With',
     'Accept',
     'Origin',
@@ -112,13 +113,13 @@ app.use(errorHandler);
 process.on('uncaughtException', (err) => {
   console.error('⚠️  Uncaught Exception (keeping server alive):', err.message);
   console.error('Stack:', err.stack);
-  
+
   // Don't exit for common mobile app errors
   if (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ETIMEDOUT') {
     console.log('📱 Mobile app connection error - continuing...');
     return;
   }
-  
+
   // Log but don't crash for other errors (mobile apps need stable server)
   console.log('🔄 Server continuing for mobile app stability...');
 });
@@ -130,9 +131,16 @@ process.on('unhandledRejection', (reason, promise) => {
 
 async function start() {
   try {
+    const agoraConfigErrors = getAgoraConfigValidationErrors();
+    if (agoraConfigErrors.length > 0) {
+      console.warn('⚠️  Agora configuration warnings:');
+      agoraConfigErrors.forEach((error) => console.warn(`   - ${error}`));
+      console.warn('   Video session token endpoints may fail until these are fixed.');
+    }
+
     await connect();
     console.log('✅ Database connected successfully');
-    
+
     const server = app.listen(PORT, HOST, () => {
       console.log(`🚀 Application is running on:`);
       console.log(`   Local:   http://localhost:${PORT}`);
@@ -141,23 +149,23 @@ async function start() {
       console.log(`📱 Mobile health: http://localhost:${PORT}/api/mobile/health`);
       console.log(`🌐 CORS enabled for web and mobile apps`);
     });
-    
+
     // Configure server for mobile apps and prevent crashes
     configureServer(server);
-    
+
     // Setup graceful shutdown
     setupGracefulShutdown(server);
-    
+
   } catch (error) {
     console.error('❌ Error starting the application:', error);
-    
+
     // If port is in use, don't crash - log and continue
     if (error.code === 'EADDRINUSE') {
       console.log(`⚠️  Port ${PORT} is already in use. Server may already be running.`);
       console.log(`💡 Check if mobile app server is already running on port ${PORT}`);
       return;
     }
-    
+
     await disconnect();
     process.exit(1);
   }

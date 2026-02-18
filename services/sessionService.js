@@ -1,38 +1,5 @@
-const crypto = require('crypto');
 const { prisma } = require('../lib/prisma');
-
-const AGORA_APP_ID = process.env.AGORA_APP_ID;
-const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || process.env.AGORA_APP_SECRET;
-
-function getCertBuffer() {
-  const cert = AGORA_APP_CERTIFICATE;
-  if (!cert) return null;
-  try {
-    if (/^[A-Za-z0-9+/=]+$/.test(cert) && cert.length > 24) return Buffer.from(cert, 'base64');
-    return Buffer.from(cert, 'utf8');
-  } catch {
-    return Buffer.from(cert, 'utf8');
-  }
-}
-
-function generateAgoraToken(channelName, uid) {
-  if (!AGORA_APP_ID || !AGORA_APP_CERTIFICATE) return `placeholder_token_${Date.now()}`;
-  const certBuffer = getCertBuffer();
-  if (!certBuffer) return `placeholder_token_${Date.now()}`;
-  const role = 1;
-  const privilegeExpiredTs = Math.floor(Date.now() / 1000) + 3600;
-  const name = String(channelName).slice(0, 64);
-  const content = Buffer.alloc(28 + Math.max(name.length, 4));
-  content.writeUInt32BE(0, 0);
-  content.writeUInt32BE(privilegeExpiredTs, 4);
-  content.writeUInt32BE(role, 8);
-  content.write(AGORA_APP_ID, 12);
-  content.writeUInt32BE(0, 24);
-  content.write(name, 28);
-  const contentBase64 = content.toString('base64');
-  const signature = crypto.createHmac('sha256', certBuffer).update(Buffer.from(contentBase64, 'base64')).digest('base64');
-  return `006${signature}${contentBase64}`;
-}
+const { buildRtcToken } = require('../utils/agora');
 
 async function create(bookingId, dto) {
   const booking = await prisma.booking.findUnique({
@@ -46,7 +13,7 @@ async function create(bookingId, dto) {
   const existingSession = await prisma.session.findUnique({ where: { bookingId } });
   if (existingSession) return existingSession;
   const roomId = `room_${bookingId}_${Date.now()}`;
-  const agoraToken = generateAgoraToken(roomId, dto.userId);
+  const { token: agoraToken } = buildRtcToken(roomId, dto.userId);
   const session = await prisma.session.create({
     data: {
       bookingId,
@@ -82,7 +49,7 @@ async function getSession(bookingId, userId) {
   if (session.booking.studentId !== userId && session.booking.teacher.userId !== userId) {
     throw Object.assign(new Error('You do not have access to this session'), { statusCode: 403 });
   }
-  const agoraToken = generateAgoraToken(session.roomId, userId);
+  const { token: agoraToken } = buildRtcToken(session.roomId, userId);
   return { ...session, agoraToken };
 }
 

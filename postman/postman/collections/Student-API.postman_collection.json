@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "8ff29346-72e9-4b13-8878-26f320238691",
+    "_postman_id": "4ba61789-d43f-4962-80c5-4074fce9b919",
     "name": "Student-API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -10,7 +10,7 @@
       "item": [
         {
           "name": "Login",
-          "id": "0bee599e-f586-44e7-aac7-0348701674ce",
+          "id": "6f9b45eb-9fb4-4560-a3e5-1531f3eb15fd",
           "request": {
             "method": "POST",
             "header": [
@@ -38,14 +38,14 @@
           "response": []
         }
       ],
-      "id": "3dd71684-ed36-47e7-8967-9e0b7dc2c887"
+      "id": "aff091f2-78ee-4e7e-b0cf-66896ca52ce6"
     },
     {
       "name": "7. كورسات (Courses)",
       "item": [
         {
           "name": "Get All Courses",
-          "id": "8c52ed50-a0b5-4374-86e5-a435b6dd050c",
+          "id": "874afe30-a00f-4eec-a3bf-c3568140e2e6",
           "request": {
             "method": "GET",
             "header": [],
@@ -64,7 +64,7 @@
         },
         {
           "name": "Get Course By ID",
-          "id": "a414da8e-a4cf-4052-8d75-becb35450109",
+          "id": "71816c3c-261d-4ba4-834b-c53eda119431",
           "request": {
             "method": "GET",
             "header": [],
@@ -90,7 +90,7 @@
         },
         {
           "name": "Enroll Student",
-          "id": "899f1e27-1632-477e-ad97-3f3015c55fd9",
+          "id": "f34c4dd9-71cb-4a87-bb4a-aba3d2bf132f",
           "request": {
             "method": "POST",
             "header": [
@@ -125,14 +125,14 @@
           "response": []
         }
       ],
-      "id": "2e2edb6a-2475-4444-adae-1549f14f1b7b"
+      "id": "f8750796-8e13-42f9-9711-9c3b0f80e68c"
     },
     {
       "name": "Users",
       "item": [
         {
           "name": "Get All Users",
-          "id": "6294bc90-654a-4c79-a818-6f8de1a5fc03",
+          "id": "5e27ec8e-64a0-405c-8b85-e24dd56f7a75",
           "request": {
             "method": "GET",
             "header": [],
@@ -151,7 +151,7 @@
         },
         {
           "name": "Create User",
-          "id": "b1d2acbc-afd2-4037-8e40-095797ce1c33",
+          "id": "112e89e8-06c8-4d0f-9ce1-a070e3373399",
           "request": {
             "method": "POST",
             "header": [
@@ -178,14 +178,14 @@
           "response": []
         }
       ],
-      "id": "79d8c7b4-a71b-44f2-a61e-a3ed486f88a1"
+      "id": "da360ba7-ac66-49f8-a9dc-3d897f816227"
     },
     {
       "name": "Student Subscription Packages",
       "item": [
         {
           "name": "Get All Packages",
-          "id": "179a12b7-0ce7-4f60-9dd7-a7c894f5c855",
+          "id": "8cbc8e21-d03c-4a3f-a391-e510f7d52218",
           "request": {
             "method": "GET",
             "header": [],
@@ -205,7 +205,7 @@
         },
         {
           "name": "Get Package By ID",
-          "id": "f089798b-d7a2-4f41-9bd1-e9f5a3e8e64f",
+          "id": "7455a767-3771-45a7-91bb-f36c29a52298",
           "request": {
             "method": "GET",
             "header": [],
@@ -232,7 +232,7 @@
         },
         {
           "name": "Create Package",
-          "id": "f7a78b3b-74be-48e6-9a02-0bb23fe4a27f",
+          "id": "e4877cf8-fc4f-4819-86dc-07ba08518dfd",
           "request": {
             "method": "POST",
             "header": [
@@ -265,7 +265,7 @@
         },
         {
           "name": "Update Package",
-          "id": "f26778c8-e21d-4945-b2ae-522b611d8d25",
+          "id": "9ada5c88-f558-498f-b37b-713bf8308e0b",
           "request": {
             "method": "PUT",
             "header": [
@@ -305,7 +305,7 @@
         },
         {
           "name": "Delete Package",
-          "id": "4be5afbe-50f1-45d1-8763-a68218f2376e",
+          "id": "ba3171ff-7ccd-496f-a916-5128cd9ae7aa",
           "request": {
             "method": "DELETE",
             "header": [
@@ -337,7 +337,7 @@
         },
         {
           "name": "Subscribe to Package",
-          "id": "ed490bfb-cb01-47a4-a907-f482e97930ff",
+          "id": "e4f5aabd-11bd-43dd-8461-811a451ec712",
           "request": {
             "method": "POST",
             "header": [
@@ -352,7 +352,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"packageId\": \"package-uuid-here\",\n    \"paymentId\": \"payment-uuid-here\",\n    \"paymentMethod\": \"MWALLET\",\n    \"mobileNumber\": \"010xxxxxxxxx\"\n}"
+              "raw": "{\n  \"packageId\": \"package-uuid-here\",\n  \"teacherId\": \"teacher-uuid-here\",\n  \"paymentMethod\": \"MWALLET\",\n  \"mobileNumber\": \"010xxxxxxxxx\",\n  \"selectedSlots\": [\n    {\n      \"dayOfWeek\": \"SUNDAY\",\n      \"startTime\": \"18:00\"\n    },\n    {\n      \"dayOfWeek\": \"MONDAY\",\n      \"startTime\": \"19:30\"\n    },\n    {\n      \"dayOfWeek\": \"SATURDAY\",\n      \"startTime\": \"17:00\"\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/student-subscriptions/subscribe",
@@ -364,13 +364,14 @@
                 "student-subscriptions",
                 "subscribe"
               ]
-            }
+            },
+            "description": "Subscribe with selected weekly slots. dayOfWeek accepts English day names only (SUNDAY..SATURDAY), and reserves sessions until package end."
           },
           "response": []
         },
         {
           "name": "Get My Subscriptions",
-          "id": "5a8379d3-3c86-417f-b681-31e5d0c38654",
+          "id": "13050b9f-dc98-494f-93ad-928e76dee5fa",
           "request": {
             "method": "GET",
             "header": [
@@ -395,7 +396,7 @@
         },
         {
           "name": "Get My Active Subscription",
-          "id": "22468e07-ca78-41dc-b4d7-ed9e82cd365f",
+          "id": "c7801dc6-7bce-4568-a900-694c3e1a9bc4",
           "request": {
             "method": "GET",
             "header": [
@@ -420,7 +421,7 @@
         },
         {
           "name": "Cancel Subscription",
-          "id": "207dbb39-544f-4bcb-97d4-d855690cf947",
+          "id": "835e03df-500a-417c-b77e-b513a8d14f54",
           "request": {
             "method": "POST",
             "header": [
@@ -452,7 +453,7 @@
         },
         {
           "name": "Get All Subscriptions (Admin)",
-          "id": "2a098225-f8fe-431a-9b9e-b0572dbab689",
+          "id": "9daf4093-32f3-470b-ace4-68f38161f438",
           "request": {
             "method": "GET",
             "header": [
@@ -491,14 +492,14 @@
           "response": []
         }
       ],
-      "id": "c2f23d15-315b-4beb-bbb2-b8fb5f2f527b"
+      "id": "f27adc90-70e8-4b1a-b7e4-a5abb3eda742"
     },
     {
       "name": "Payments (Fawry)",
       "item": [
         {
           "name": "Fawry Checkout Link",
-          "id": "cbdd7e99-d4b4-43c6-b918-2229e33b69a8",
+          "id": "d60d9f69-00cf-4fcb-8b88-1b1540354720",
           "request": {
             "method": "POST",
             "header": [
@@ -513,7 +514,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"bookingId\": \"booking-uuid\",\n    \"paymentMethod\": \"MWALLET\",\n    \"mobileNumber\": \"010xxxxxxxxx\"\n}"
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"paymentMethod\": \"CARD\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/payments/fawry/checkout-link",
@@ -526,13 +527,14 @@
                 "fawry",
                 "checkout-link"
               ]
-            }
+            },
+            "description": "Create Fawry checkout link (CARD/MWALLET/PayAtFawry). Requires JWT."
           },
           "response": []
         },
         {
           "name": "Get Payment Status",
-          "id": "89628cb7-0b25-4cc1-a2bc-45d3da9059e7",
+          "id": "a2b1fec1-b4f6-43a5-810d-47e65c58efa2",
           "request": {
             "method": "GET",
             "header": [
@@ -542,7 +544,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/payments/fawry/status/:merchantRefNum",
+              "raw": "{{baseUrl}}/api/payments/fawry/status/{{merchantRefNum}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -551,32 +553,532 @@
                 "payments",
                 "fawry",
                 "status",
-                ":merchantRefNum"
-              ],
-              "variable": [
-                {
-                  "key": "merchantRefNum",
-                  "value": "merchant-ref-num"
-                }
+                "{{merchantRefNum}}"
               ]
-            }
+            },
+            "description": "Get payment status from Fawry + local DB status. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Fawry Info",
+          "id": "b842ee95-be43-436c-93b3-e8cd8d3bd72d",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/fawry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "fawry"
+              ]
+            },
+            "description": "Check if Fawry routes are deployed and configured."
+          },
+          "response": []
+        },
+        {
+          "name": "Fawry Reference Number (PayAtFawry)",
+          "id": "332ae0c0-46c8-45fe-b8ef-798e8f7c8da5",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"expiryHours\": 24\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/fawry/reference-number",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "fawry",
+                "reference-number"
+              ]
+            },
+            "description": "Generate PayAtFawry reference number for store payment. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Fawry Webhook (Test)",
+          "id": "5e0547a1-f156-4c81-baf3-d1114275c854",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantRefNumber\": \"{{merchantRefNum}}\",\n  \"orderStatus\": \"PAID\",\n  \"paymentMethod\": \"PayAtFawry\",\n  \"paymentAmount\": \"100.00\",\n  \"orderAmount\": \"100.00\",\n  \"fawryRefNumber\": \"999999999999\",\n  \"paymentRefrenceNumber\": \"999999999999\",\n  \"messageSignature\": \"replace-with-valid-signature\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/fawry/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "fawry",
+                "webhook"
+              ]
+            },
+            "description": "Webhook endpoint for Fawry callback. Usually called by Fawry server (no JWT)."
           },
           "response": []
         }
       ],
-      "id": "d5bccefb-f354-4446-a246-632907a6abe9"
+      "id": "9064f1bf-2f22-44da-a31d-52ec12e69467"
+    },
+    {
+      "name": "Bookings & Availability",
+      "item": [
+        {
+          "name": "Get Teacher Subscription Packages (Pre-Booking)",
+          "id": "25a95396-9753-4355-8339-40317b6b28a6",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings/teacher/{{teacherId}}/subscription-packages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "teacher",
+                "{{teacherId}}",
+                "subscription-packages"
+              ]
+            },
+            "description": "Get active student subscription packages and teacher details before booking. Requires student JWT token."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Teacher Weekly Availability",
+          "id": "bfc1a15a-1dd9-461d-81ab-52e61267d91c",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teachers/{{teacherId}}/availability?startDate={{startDate}}&endDate={{endDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teachers",
+                "{{teacherId}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "{{startDate}}"
+                },
+                {
+                  "key": "endDate",
+                  "value": "{{endDate}}"
+                }
+              ]
+            },
+            "description": "Get teacher weekly availability with normalized day/time fields and grouped availabilityByDay."
+          },
+          "response": []
+        }
+      ],
+      "id": "f0328fcf-1c90-43fd-b936-e54697190c80"
+    },
+    {
+      "name": "Video (Agora)",
+      "item": [
+        {
+          "name": "Create Video Session",
+          "id": "68153392-5938-4ffd-b085-98926bfb9d7e",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/video/session/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "session",
+                "create"
+              ]
+            },
+            "description": "Create/initialize video session for booking. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session Token",
+          "id": "cc9733a1-a56e-4e40-8593-1ecab47fe2a4",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/video/session/token/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "session",
+                "token",
+                "{{bookingId}}"
+              ]
+            },
+            "description": "Get Agora token for existing booking session. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "End Video Session",
+          "id": "fb195c52-0849-4340-be5f-a8ca852a8c5f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/video/session/end",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "session",
+                "end"
+              ]
+            },
+            "description": "End booking video session. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session History",
+          "id": "5715e066-599e-4cec-9b8e-36d96ff14ced",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/video/session/history?bookingId={{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "session",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "bookingId",
+                  "value": "{{bookingId}}"
+                }
+              ]
+            },
+            "description": "Get session history/details by bookingId. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Test Token",
+          "id": "bcadeac3-730f-41cd-b730-f0e1e0fe561e",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/video/session/test-token?channelName={{channelName}}&uid={{uid}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "session",
+                "test-token"
+              ],
+              "query": [
+                {
+                  "key": "channelName",
+                  "value": "{{channelName}}"
+                },
+                {
+                  "key": "uid",
+                  "value": "{{uid}}"
+                }
+              ]
+            },
+            "description": "Generate Agora test token for manual host/join pages. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Video Access",
+          "id": "d8999609-6f46-477d-a691-5a04022429a4",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/video/videos/{{videoId}}/access",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "videos",
+                "{{videoId}}",
+                "access"
+              ]
+            },
+            "description": "Check student access to a video. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Start Watching Video",
+          "id": "d33e13d6-adea-4aa6-b794-a86748b55eba",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lesson_id\": \"{{lessonId}}\",\n  \"course_id\": \"{{courseId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/video/videos/{{videoId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "videos",
+                "{{videoId}}",
+                "start"
+              ]
+            },
+            "description": "Mark video as started for progress tracking. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Video",
+          "id": "80703978-aaec-46fb-8e3e-5c39c2195b3f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lesson_id\": \"{{lessonId}}\",\n  \"course_id\": \"{{courseId}}\",\n  \"duration\": 300\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/video/videos/{{videoId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "videos",
+                "{{videoId}}",
+                "complete"
+              ]
+            },
+            "description": "Mark video as completed for progress tracking. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Course Progress",
+          "id": "601bde5b-470e-45fc-bf90-7bcd2a1cbcf2",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/video/courses/{{courseId}}/progress",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "video",
+                "courses",
+                "{{courseId}}",
+                "progress"
+              ]
+            },
+            "description": "Get user progress for all course videos. Requires JWT."
+          },
+          "response": []
+        }
+      ],
+      "id": "32b7b124-8b39-4f67-ab98-431487277153"
     }
   ],
   "variable": [
     {
-      "id": "c6c83cfd-af7a-4e5b-afef-058b4a340e0c",
+      "id": "a8086ea9-dcdc-4bcf-93a7-3ae68cbd64a8",
       "key": "baseUrl",
       "value": "http://localhost:5002"
     },
     {
-      "id": "c86420fd-6677-4cd9-a83a-0b9011171576",
+      "id": "e77bb234-a598-4793-940e-b432f93eabc2",
       "key": "token",
       "value": "your-jwt-token-here"
+    },
+    {
+      "id": "9abd183a-07ef-40f6-95ed-050f57fd1583",
+      "key": "teacherId",
+      "value": "teacher-uuid-here"
+    },
+    {
+      "id": "e2fda80e-ba99-470d-a5f9-0cf95a4cec54",
+      "key": "startDate",
+      "value": "2026-02-18"
+    },
+    {
+      "id": "921ce7c3-39d6-4db7-8628-e97e0a63fce4",
+      "key": "endDate",
+      "value": "2026-02-25"
+    },
+    {
+      "id": "7093268e-3660-4438-bb61-778857d5d3d1",
+      "key": "bookingId",
+      "value": "booking-id-here"
+    },
+    {
+      "id": "7fc39a79-e74c-4073-a790-73ed40d484af",
+      "key": "merchantRefNum",
+      "value": "123456789"
+    },
+    {
+      "id": "478c00af-ca89-45e4-bfdd-843d5f6e1694",
+      "key": "channelName",
+      "value": "sheikh-room-test"
+    },
+    {
+      "id": "8b62c2be-3083-4ab4-9452-bc0f319bc165",
+      "key": "uid",
+      "value": "1"
+    },
+    {
+      "id": "0d39932f-ec12-4017-aeef-2fbef0a7e126",
+      "key": "videoId",
+      "value": "video-id-here"
+    },
+    {
+      "id": "0591c477-d7ab-4937-a87a-e60fb7886922",
+      "key": "lessonId",
+      "value": "lesson-id-here"
+    },
+    {
+      "id": "26ef2e0f-5f61-4a5b-9e64-8ef3e04b0fa4",
+      "key": "courseId",
+      "value": "course-id-here"
     }
   ]
 }

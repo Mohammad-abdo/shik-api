@@ -32,6 +32,15 @@ router.get('/my-bookings', async (req, res, next) => {
   }
 });
 
+router.get('/teacher/:teacherId/subscription-packages', async (req, res, next) => {
+  try {
+    const result = await bookingService.getSubscriptionPackagesForStudent(req.user.id, req.params.teacherId);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/:id', async (req, res, next) => {
   try {
     const booking = await bookingService.findOne(req.params.id, req.user.id, req.user.role);

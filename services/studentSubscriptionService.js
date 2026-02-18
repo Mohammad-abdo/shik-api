@@ -1,11 +1,83 @@
 const { prisma } = require('../lib/prisma');
 const fawryService = require('./fawry');
 const { v4: uuidv4 } = require('uuid');
+const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const SESSION_DURATION_MINUTES = 120;
+
+const DAY_ALIASES = {
+  SUNDAY: 0, SUN: 0,
+  MONDAY: 1, MON: 1,
+  TUESDAY: 2, TUE: 2, TUES: 2,
+  WEDNESDAY: 3, WED: 3,
+  THURSDAY: 4, THU: 4, THUR: 4, THURS: 4,
+  FRIDAY: 5, FRI: 5,
+  SATURDAY: 6, SAT: 6,
+};
 
 function parseFeatures(pkg) {
   if (pkg.features && typeof pkg.features === 'string') pkg.features = JSON.parse(pkg.features);
   if (pkg.featuresAr && typeof pkg.featuresAr === 'string') pkg.featuresAr = JSON.parse(pkg.featuresAr);
   return pkg;
+}
+
+function parseDayOfWeek(value) {
+  if (typeof value !== 'string') return null;
+  const upper = String(value || '').trim().toUpperCase();
+  if (Object.prototype.hasOwnProperty.call(DAY_ALIASES, upper)) return DAY_ALIASES[upper];
+  return null;
+}
+
+function normalizeTime(time) {
+  const raw = String(time || '').trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const min = Number(match[2]);
+  if (hour < 0 || hour > 23 || min < 0 || min > 59) return null;
+  return `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+function toMinutes(time) {
+  const normalized = normalizeTime(time);
+  if (!normalized) return null;
+  const [h, m] = normalized.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function normalizeSelectedSlots(selectedSlots) {
+  if (!Array.isArray(selectedSlots)) return [];
+  const seen = new Set();
+  const normalized = [];
+  for (let index = 0; index < selectedSlots.length; index += 1) {
+    const slot = selectedSlots[index];
+    const dayOfWeek = parseDayOfWeek(slot?.dayOfWeek);
+    const startTime = normalizeTime(slot?.startTime);
+    if (dayOfWeek == null) {
+      throw Object.assign(
+        new Error(`selectedSlots[${index}].dayOfWeek must be an English day name (e.g. SUNDAY, MONDAY)`),
+        { statusCode: 400 }
+      );
+    }
+    if (!startTime) {
+      throw Object.assign(
+        new Error(`selectedSlots[${index}].startTime must be in HH:mm format`),
+        { statusCode: 400 }
+      );
+    }
+    const key = `${dayOfWeek}-${startTime}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push({
+      dayOfWeek,
+      dayName: DAY_NAMES[dayOfWeek],
+      startTime,
+    });
+  }
+  return normalized.sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
 }
 
 async function createPackage(dto, adminId) {
@@ -83,66 +155,69 @@ async function subscribe(studentId, dto) {
 
   const startDate = new Date();
   const endDate = new Date();
+  const normalizedSlots = normalizeSelectedSlots(dto.selectedSlots);
 
-  let validSlots = [];
+  if (normalizedSlots.length > 0 && !dto.teacherId) {
+    throw Object.assign(new Error('teacherId is required when selectedSlots are provided'), { statusCode: 400 });
+  }
 
-  if (pkg.durationMonths && dto.selectedSlots && dto.selectedSlots.length > 0) {
-    if (!dto.teacherId) throw Object.assign(new Error('Teacher is required for this package'), { statusCode: 400 });
-
+  if (pkg.durationMonths) {
     endDate.setMonth(endDate.getMonth() + pkg.durationMonths);
+  } else {
+    endDate.setDate(endDate.getDate() + (pkg.duration || 30));
+  }
 
+  let generatedSlots = [];
+  if (normalizedSlots.length > 0) {
     // Fetch existing bookings in range for optimization
     const existingBookings = await prisma.booking.findMany({
       where: {
         teacherId: dto.teacherId,
         date: { gte: startDate, lte: endDate },
-        status: { notIn: ['CANCELLED', 'REJECTED'] }
-      }
+        status: { notIn: ['CANCELLED', 'REJECTED'] },
+      },
+      select: {
+        date: true,
+        startTime: true,
+        duration: true,
+      },
     });
 
-    // Validate slots and generate booking dates
-    const dayMap = { 'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6 };
-    const toMinutes = (time) => {
-      const [h, m] = time.split(':').map(Number);
-      return h * 60 + m;
-    };
-
-    let currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dayName = Object.keys(dayMap).find(key => dayMap[key] === currentDate.getDay());
-      const slotsForDay = dto.selectedSlots.filter(s => s.dayOfWeek === dayName);
-
+    const slotDuration = SESSION_DURATION_MINUTES;
+    const cursorDate = new Date(startDate);
+    while (cursorDate <= endDate) {
+      const dayOfWeek = cursorDate.getDay();
+      const slotsForDay = normalizedSlots.filter((s) => s.dayOfWeek === dayOfWeek);
       for (const slot of slotsForDay) {
-        const slotDate = new Date(currentDate);
         const slotStart = toMinutes(slot.startTime);
-        const slotDuration = pkg.duration || 30;
         const slotEnd = slotStart + slotDuration;
+        const slotDate = new Date(cursorDate);
 
         // Check for conflicts
-        const conflict = existingBookings.find(b => {
+        const conflict = existingBookings.find((b) => {
           const bDate = new Date(b.date);
-          if (bDate.getDate() !== slotDate.getDate() || bDate.getMonth() !== slotDate.getMonth() || bDate.getFullYear() !== slotDate.getFullYear()) {
-            return false;
-          }
+          if (!sameDay(bDate, slotDate)) return false;
           const bStart = toMinutes(b.startTime);
           const bEnd = bStart + (b.duration || 30);
-          return (slotStart < bEnd) && (bStart < slotEnd);
+          return slotStart < bEnd && bStart < slotEnd;
         });
 
         if (conflict) {
-          throw Object.assign(new Error(`Conflict found at ${slot.startTime} on ${currentDate.toDateString()}`), { statusCode: 409 });
+          throw Object.assign(
+            new Error(`Conflict found at ${slot.startTime} on ${slotDate.toDateString()}`),
+            { statusCode: 409 }
+          );
         }
 
-        validSlots.push({
+        generatedSlots.push({
           date: slotDate,
           startTime: slot.startTime,
-          dayOfWeek: slot.dayOfWeek
+          dayOfWeek,
+          dayName: DAY_NAMES[dayOfWeek],
         });
       }
-      currentDate.setDate(currentDate.getDate() + 1);
+      cursorDate.setDate(cursorDate.getDate() + 1);
     }
-  } else {
-    endDate.setDate(endDate.getDate() + (pkg.duration || 30));
   }
 
   // Calculate Amount
@@ -166,7 +241,7 @@ async function subscribe(studentId, dto) {
       startDate,
       endDate,
       status: amount > 0 ? 'PENDING' : 'ACTIVE', // If free, activate immediately
-      selectedSlots: dto.selectedSlots ? JSON.stringify(dto.selectedSlots) : null
+      selectedSlots: normalizedSlots.length > 0 ? JSON.stringify(normalizedSlots) : null
     },
     include: { package: true, student: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } },
   });
@@ -242,16 +317,16 @@ async function subscribe(studentId, dto) {
     }
   }
 
-  // If Free or Amount 0
-  if (validSlots.length > 0) {
-    // Create Bookings
-    const bookingData = validSlots.map(slot => ({
+  // Reserve selected slots for the whole package duration (both paid/free).
+  if (generatedSlots.length > 0) {
+    const bookingStatus = amount > 0 ? 'PENDING' : 'CONFIRMED';
+    const bookingData = generatedSlots.map(slot => ({
       studentId,
       teacherId: dto.teacherId,
       date: slot.date,
       startTime: slot.startTime,
-      duration: pkg.duration || 60, // Default duration if not specified
-      status: 'CONFIRMED', // Automatically confirmed? or PENDING?
+      duration: SESSION_DURATION_MINUTES,
+      status: bookingStatus,
       price: 0,
       totalPrice: 0,
       type: 'SUBSCRIPTION', // Use new enum value
@@ -261,7 +336,14 @@ async function subscribe(studentId, dto) {
     await prisma.booking.createMany({ data: bookingData });
   }
 
-  return { subscription };
+  return {
+    subscription,
+    reservation: {
+      slotsPerWeek: normalizedSlots.length,
+      totalReservedSessions: generatedSlots.length,
+      bookingStatus: amount > 0 ? 'PENDING' : 'CONFIRMED',
+    },
+  };
 }
 
 async function getMySubscriptions(studentId) {

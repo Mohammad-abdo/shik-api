@@ -1,4 +1,34 @@
 const { prisma } = require('../lib/prisma');
+const DAY_NAMES_EN = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+function parseDateRange(startDate, endDate) {
+  const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+  const parseOne = (value, endOfDay = false) => {
+    if (!value) return null;
+    if (dateOnlyRegex.test(value)) {
+      return new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`);
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const startAt = parseOne(startDate, false);
+  const endAt = parseOne(endDate, true);
+
+  if (!startAt || !endAt) {
+    throw Object.assign(new Error('Invalid startDate or endDate format'), { statusCode: 400 });
+  }
+  if (startAt > endAt) {
+    throw Object.assign(new Error('startDate must be earlier than or equal to endDate'), { statusCode: 400 });
+  }
+  return { startAt, endAt };
+}
+
+function normalizeTime(value) {
+  if (!value) return value;
+  return String(value).slice(0, 5);
+}
 
 async function findAll(filters = {}) {
   const where = { isApproved: filters.isApproved !== undefined ? filters.isApproved : true };
@@ -161,9 +191,11 @@ async function deleteSchedule(scheduleId, teacherId, userId) {
 async function getAvailability(teacherId, startDate, endDate) {
   const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
+  const { startAt, endAt } = parseDateRange(startDate, endDate);
 
   const schedules = await prisma.schedule.findMany({
     where: { teacherId, isActive: true },
+    orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
   });
 
   const bookings = await prisma.booking.findMany({
@@ -171,8 +203,8 @@ async function getAvailability(teacherId, startDate, endDate) {
       teacherId,
       status: { notIn: ['CANCELLED', 'REJECTED'] },
       date: {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
+        gte: startAt,
+        lte: endAt,
       },
     },
     select: {
@@ -182,9 +214,46 @@ async function getAvailability(teacherId, startDate, endDate) {
       duration: true,
       status: true,
     },
+    orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
   });
 
-  return { schedules, bookings };
+  const normalizedSchedules = schedules.map((s) => ({
+    ...s,
+    dayName: DAY_NAMES_EN[s.dayOfWeek],
+    startTime: normalizeTime(s.startTime),
+    endTime: normalizeTime(s.endTime),
+  }));
+
+  const normalizedBookings = bookings.map((b) => {
+    const bookingDate = new Date(b.date);
+    const dayOfWeek = bookingDate.getUTCDay();
+    return {
+      ...b,
+      date: bookingDate,
+      startTime: normalizeTime(b.startTime),
+      dayOfWeek,
+      dayName: DAY_NAMES_EN[dayOfWeek],
+    };
+  });
+
+  const availabilityByDay = DAY_NAMES_EN.map((name, dayOfWeek) => {
+    const daySchedules = normalizedSchedules.filter((s) => s.dayOfWeek === dayOfWeek);
+    const dayBookings = normalizedBookings.filter((b) => b.dayOfWeek === dayOfWeek);
+    return {
+      dayOfWeek,
+      dayName: name,
+      schedules: daySchedules,
+      bookings: dayBookings,
+      isAvailable: daySchedules.length > 0,
+    };
+  });
+
+  return {
+    range: { startDate: startAt, endDate: endAt },
+    schedules: normalizedSchedules,
+    bookings: normalizedBookings,
+    availabilityByDay,
+  };
 }
 
 module.exports = { findAll, findOne, create, update, approveTeacher, rejectTeacher, createSchedule, updateSchedule, deleteSchedule, getAvailability };

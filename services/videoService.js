@@ -1,5 +1,27 @@
 const { prisma } = require('../lib/prisma');
 const { buildRtcToken, getAgoraConfigOrThrow, sanitizeChannelName, sanitizeUid } = require('../utils/agora');
+const SESSION_DURATION_MINUTES = 120;
+
+function getBookingWindow(booking) {
+  const date = new Date(booking.date);
+  const [hour = '0', minute = '0'] = String(booking.startTime || '00:00').split(':');
+  const startAt = new Date(date);
+  startAt.setHours(parseInt(hour, 10) || 0, parseInt(minute, 10) || 0, 0, 0);
+  const endAt = new Date(startAt.getTime() + (SESSION_DURATION_MINUTES * 60 * 1000));
+  return { startAt, endAt };
+}
+
+function validateStudentJoinWindowOrThrow(booking, userId) {
+  if (booking.studentId !== userId) return;
+  const now = new Date();
+  const { startAt, endAt } = getBookingWindow(booking);
+  if (now < startAt) {
+    throw Object.assign(new Error('Student cannot join before the scheduled start time'), { statusCode: 403 });
+  }
+  if (now > endAt) {
+    throw Object.assign(new Error('Session time window has ended (2 hours)'), { statusCode: 403 });
+  }
+}
 
 /** For dashboard test pages: get appId + token for any channel (no booking required) */
 function getTestToken(channelName, uid = 1) {
@@ -16,6 +38,8 @@ async function createSession(bookingId, userId) {
   });
   if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
   if (booking.studentId !== userId && booking.teacher.userId !== userId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
+  if (booking.status !== 'CONFIRMED') throw Object.assign(new Error('Booking must be confirmed before joining session'), { statusCode: 400 });
+  validateStudentJoinWindowOrThrow(booking, userId);
   let session = await prisma.session.findUnique({ where: { bookingId } });
   const { appId } = getAgoraConfigOrThrow();
   if (session) {
@@ -37,6 +61,13 @@ async function getSessionToken(bookingId, userId) {
     include: { booking: { include: { student: true, teacher: { include: { user: true } } } } },
   });
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
+  if (session.booking.studentId !== userId && session.booking.teacher.userId !== userId) {
+    throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
+  }
+  if (session.booking.status !== 'CONFIRMED') {
+    throw Object.assign(new Error('Booking must be confirmed before joining session'), { statusCode: 400 });
+  }
+  validateStudentJoinWindowOrThrow(session.booking, userId);
   const { token } = buildRtcToken(session.roomId, userId);
   return { ...session, token, appId };
 }

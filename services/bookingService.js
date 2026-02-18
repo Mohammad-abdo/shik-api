@@ -1,5 +1,16 @@
 const { prisma } = require('../lib/prisma');
 const notificationService = require('./notificationService');
+const SESSION_DURATION_MINUTES = 120;
+
+function parseJsonSafe(value) {
+  if (value == null) return null;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
 
 async function create(studentId, dto) {
   const teacher = await prisma.teacher.findUnique({
@@ -8,7 +19,8 @@ async function create(studentId, dto) {
   });
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
   if (!teacher.isApproved) throw Object.assign(new Error('Teacher is not approved'), { statusCode: 400 });
-  const price = teacher.hourlyRate * dto.duration;
+  const duration = SESSION_DURATION_MINUTES;
+  const price = teacher.hourlyRate * duration;
   const discount = dto.discount || 0;
   const totalPrice = price - discount;
   const booking = await prisma.booking.create({
@@ -17,7 +29,7 @@ async function create(studentId, dto) {
       teacherId: dto.teacherId,
       date: new Date(dto.date),
       startTime: dto.startTime,
-      duration: dto.duration,
+      duration,
       price,
       discount,
       totalPrice,
@@ -166,6 +178,63 @@ async function reject(bookingId, teacherId, userId) {
   return updated;
 }
 
+async function getSubscriptionPackagesForStudent(studentId, teacherId) {
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    include: {
+      user: {
+        select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, avatar: true },
+      },
+      schedules: { where: { isActive: true }, orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }] },
+    },
+  });
+  if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
+  if (!teacher.isApproved) throw Object.assign(new Error('Teacher is not approved'), { statusCode: 400 });
+
+  const packages = await prisma.studentSubscriptionPackage.findMany({
+    where: { isActive: true },
+    orderBy: [{ isPopular: 'desc' }, { price: 'asc' }, { createdAt: 'desc' }],
+  });
+
+  const currentSubscription = await prisma.studentSubscription.findFirst({
+    where: {
+      studentId,
+      teacherId,
+      status: { in: ['ACTIVE', 'PENDING'] },
+      endDate: { gte: new Date() },
+    },
+    include: { package: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return {
+    teacher: {
+      id: teacher.id,
+      name: `${teacher.user?.firstName || ''} ${teacher.user?.lastName || ''}`.trim(),
+      nameAr: `${teacher.user?.firstNameAr || ''} ${teacher.user?.lastNameAr || ''}`.trim(),
+      avatar: teacher.image || teacher.user?.avatar || null,
+      hourlyRate: teacher.hourlyRate,
+      schedules: teacher.schedules,
+    },
+    packages: packages.map((pkg) => ({
+      ...pkg,
+      features: parseJsonSafe(pkg.features),
+      featuresAr: parseJsonSafe(pkg.featuresAr),
+    })),
+    currentSubscription: currentSubscription
+      ? {
+          ...currentSubscription,
+          package: {
+            ...currentSubscription.package,
+            features: parseJsonSafe(currentSubscription.package.features),
+            featuresAr: parseJsonSafe(currentSubscription.package.featuresAr),
+          },
+          selectedSlots: parseJsonSafe(currentSubscription.selectedSlots),
+        }
+      : null,
+  };
+}
+
 module.exports = {
   create,
   findOne,
@@ -174,4 +243,5 @@ module.exports = {
   confirm,
   cancel,
   reject,
+  getSubscriptionPackagesForStudent,
 };

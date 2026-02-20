@@ -109,7 +109,18 @@ app.get('/api/mobile/health', (req, res) => {
 });
 
 // Swagger docs
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(
+  '/api/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customSiteTitle: 'Shik API Docs',
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+    },
+  })
+);
 app.get('/api/openapi.json', (req, res) => {
   res.json(swaggerSpec);
 });
@@ -155,6 +166,7 @@ async function start() {
       console.log(`   Local:   http://localhost:${PORT}`);
       console.log(`   API:     http://localhost:${PORT}/api`);
       console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`API docs: http://localhost:${PORT}/api/docs`);
       console.log(`📱 Mobile health: http://localhost:${PORT}/api/mobile/health`);
       console.log(`🌐 CORS enabled for web and mobile apps`);
     });
@@ -186,3 +198,6 @@ start().catch((err) => {
 });
 
 module.exports = app;
+
+
+

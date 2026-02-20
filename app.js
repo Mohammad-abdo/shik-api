@@ -3,7 +3,9 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
 const { connect, disconnect } = require('./lib/prisma');
+const { buildSwaggerSpec } = require('./lib/swagger');
 const { corsHandler, addCorsHeaders } = require('./middleware/corsHandler');
 const { keepAliveMiddleware, configureServer, setupGracefulShutdown, mobileHealthCheck } = require('./middleware/keepAlive');
 const responseTransform = require('./middleware/responseTransform');
@@ -14,6 +16,7 @@ const { getAgoraConfigValidationErrors } = require('./utils/agora');
 const app = express();
 const PORT = process.env.PORT || 8002;
 const HOST = process.env.HOST || '0.0.0.0';
+const swaggerSpec = buildSwaggerSpec({ port: PORT });
 
 // Keep raw body for Stripe webhook verification
 app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
@@ -103,6 +106,12 @@ app.get('/api/mobile/health', (req, res) => {
       userAgent: req.headers['user-agent'] || 'unknown'
     }
   });
+});
+
+// Swagger docs
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api/openapi.json', (req, res) => {
+  res.json(swaggerSpec);
 });
 
 app.use('/api', routes);

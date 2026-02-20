@@ -14,6 +14,33 @@ const uploadVideo = multer({ storage: multer.memoryStorage(), limits: { fileSize
 
 router.use(jwtAuth);
 
+/**
+ * @openapi
+ * /api/files/upload:
+ *   post:
+ *     tags: [files]
+ *     summary: POST /api/files/upload
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/upload', uploadDefault.single('file'), (req, res, next) => {
   try {
     if (!req.file) {
@@ -28,6 +55,33 @@ router.post('/upload', uploadDefault.single('file'), (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/files/upload/avatar:
+ *   post:
+ *     tags: [files]
+ *     summary: POST /api/files/upload/avatar
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/upload/avatar', uploadImage.single('file'), (req, res, next) => {
   try {
     if (!req.file) {
@@ -42,6 +96,33 @@ router.post('/upload/avatar', uploadImage.single('file'), (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/files/upload/video:
+ *   post:
+ *     tags: [files]
+ *     summary: POST /api/files/upload/video
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/upload/video', uploadVideo.single('file'), (req, res, next) => {
   try {
     if (!req.file) {
@@ -56,6 +137,33 @@ router.post('/upload/video', uploadVideo.single('file'), (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/files/upload/image:
+ *   post:
+ *     tags: [files]
+ *     summary: POST /api/files/upload/image
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/upload/image', uploadImage.single('file'), (req, res, next) => {
   try {
     if (!req.file) {

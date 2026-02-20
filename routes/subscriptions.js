@@ -4,6 +4,35 @@ const subscriptionService = require('../services/subscriptionService');
 const { jwtAuth } = require('../middleware/jwtAuth');
 const permissions = require('../middleware/permissions');
 
+/**
+ * @openapi
+ * /api/subscriptions/packages:
+ *   post:
+ *     tags: [subscriptions]
+ *     summary: POST /api/subscriptions/packages
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/packages', jwtAuth, permissions(['subscriptions.write']), async (req, res, next) => {
   try {
     const pkg = await subscriptionService.createPackage(req.body);
@@ -13,6 +42,26 @@ router.post('/packages', jwtAuth, permissions(['subscriptions.write']), async (r
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/packages:
+ *   get:
+ *     tags: [subscriptions]
+ *     summary: GET /api/subscriptions/packages
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/packages', async (req, res, next) => {
   try {
     const activeOnly = req.query.activeOnly === 'true';
@@ -23,6 +72,32 @@ router.get('/packages', async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/packages/{id}:
+ *   get:
+ *     tags: [subscriptions]
+ *     summary: GET /api/subscriptions/packages/{id}
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/packages/:id', async (req, res, next) => {
   try {
     const pkg = await subscriptionService.getPackageById(req.params.id);
@@ -32,6 +107,41 @@ router.get('/packages/:id', async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/packages/{id}:
+ *   put:
+ *     tags: [subscriptions]
+ *     summary: PUT /api/subscriptions/packages/{id}
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.put('/packages/:id', jwtAuth, permissions(['subscriptions.write']), async (req, res, next) => {
   try {
     const pkg = await subscriptionService.updatePackage(req.params.id, req.body);
@@ -41,6 +151,34 @@ router.put('/packages/:id', jwtAuth, permissions(['subscriptions.write']), async
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/packages/{id}:
+ *   delete:
+ *     tags: [subscriptions]
+ *     summary: DELETE /api/subscriptions/packages/{id}
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.delete('/packages/:id', jwtAuth, permissions(['subscriptions.write']), async (req, res, next) => {
   try {
     const result = await subscriptionService.deletePackage(req.params.id);
@@ -50,6 +188,35 @@ router.delete('/packages/:id', jwtAuth, permissions(['subscriptions.write']), as
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/subscribe:
+ *   post:
+ *     tags: [subscriptions]
+ *     summary: POST /api/subscriptions/subscribe
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/subscribe', jwtAuth, async (req, res, next) => {
   try {
     const sub = await subscriptionService.subscribe(req.user.id, req.body);
@@ -59,6 +226,28 @@ router.post('/subscribe', jwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/my-subscriptions:
+ *   get:
+ *     tags: [subscriptions]
+ *     summary: GET /api/subscriptions/my-subscriptions
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/my-subscriptions', jwtAuth, async (req, res, next) => {
   try {
     const subs = await subscriptionService.getMySubscriptions(req.user.id);
@@ -68,6 +257,28 @@ router.get('/my-subscriptions', jwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/my-active:
+ *   get:
+ *     tags: [subscriptions]
+ *     summary: GET /api/subscriptions/my-active
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/my-active', jwtAuth, async (req, res, next) => {
   try {
     const sub = await subscriptionService.getMyActive(req.user.id);
@@ -77,6 +288,41 @@ router.get('/my-active', jwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/cancel/{id}:
+ *   post:
+ *     tags: [subscriptions]
+ *     summary: POST /api/subscriptions/cancel/{id}
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/cancel/:id', jwtAuth, async (req, res, next) => {
   try {
     const sub = await subscriptionService.cancel(req.params.id, req.user.id);
@@ -86,6 +332,28 @@ router.post('/cancel/:id', jwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/subscriptions/admin/all:
+ *   get:
+ *     tags: [subscriptions]
+ *     summary: GET /api/subscriptions/admin/all
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/admin/all', jwtAuth, permissions(['subscriptions.read']), async (req, res, next) => {
   try {
     const page = req.query.page ? parseInt(req.query.page) : 1;

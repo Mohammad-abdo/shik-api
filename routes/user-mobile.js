@@ -4,6 +4,26 @@ const { jwtAuth } = require('../middleware/jwtAuth');
 
 router.use(jwtAuth);
 
+/**
+ * @openapi
+ * /api/user/:
+ *   get:
+ *     tags: [users]
+ *     summary: GET /api/user/
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/', (req, res) => {
   const user = req.user;
   const data = {

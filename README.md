@@ -1,5 +1,4 @@
 # Shaykhi Backend (Node.js + Express + Prisma + MySQL)
-
 نسخة من الباك اند باستخدام **Node.js** (بدون TypeScript) مع **Express** و **Prisma** و **MySQL**.
 
 ## المتطلبات
@@ -41,6 +40,13 @@ npm run dev
 
 السيرفر يعمل على: `http://localhost:8002`  
 واجهة الـ API تحت البادئة: `/api`
+
+## API Docs (Swagger)
+
+- Swagger UI: `GET /api/docs`
+- OpenAPI JSON: `GET /api/openapi.json`
+- Optional base URL override: set `SWAGGER_BASE_URL` in `.env`
+
 
 ## المسارات الرئيسية
 
@@ -93,3 +99,6 @@ backend-js/
 ```
 
 تم نقل المنطق من الباك اند (NestJS/TypeScript) إلى Express/Node.js مع الحفاظ على نفس الـ schema وواجهة الـ API قدر الإمكان.
+
+
+

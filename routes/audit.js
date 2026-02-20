@@ -4,6 +4,28 @@ const auditService = require('../services/auditService');
 const { jwtAuth } = require('../middleware/jwtAuth');
 const permissions = require('../middleware/permissions');
 
+/**
+ * @openapi
+ * /api/audit/logs:
+ *   get:
+ *     tags: [audit]
+ *     summary: GET /api/audit/logs
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/logs', jwtAuth, permissions(['reports.view']), async (req, res, next) => {
   try {
     const filters = {

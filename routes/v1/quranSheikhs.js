@@ -9,6 +9,26 @@ function getLang(req) {
   return accept.startsWith('ar') ? 'ar' : 'en';
 }
 
+/**
+ * @openapi
+ * /api/v1/quran-sheikhs/:
+ *   get:
+ *     tags: [quran-sheikhs]
+ *     summary: GET /api/v1/quran-sheikhs/
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/', async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -23,6 +43,26 @@ router.get('/', async (req, res, next) => {
 });
 
 /** المشايخ الذين ليسوا داخل أي دورة والذين يمكن الحجز معهم */
+/**
+ * @openapi
+ * /api/v1/quran-sheikhs/bookable:
+ *   get:
+ *     tags: [quran-sheikhs]
+ *     summary: GET /api/v1/quran-sheikhs/bookable
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/bookable', async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -36,6 +76,32 @@ router.get('/bookable', async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/v1/quran-sheikhs/{id}:
+ *   get:
+ *     tags: [quran-sheikhs]
+ *     summary: GET /api/v1/quran-sheikhs/{id}
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/:id', optionalJwtAuth, async (req, res, next) => {
   try {
     const studentId = req.user?.id;
@@ -47,6 +113,32 @@ router.get('/:id', optionalJwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/v1/quran-sheikhs/{id}/reviews:
+ *   get:
+ *     tags: [quran-sheikhs]
+ *     summary: GET /api/v1/quran-sheikhs/{id}/reviews
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/:id/reviews', async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -59,6 +151,41 @@ router.get('/:id/reviews', async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/v1/quran-sheikhs/{id}/reviews:
+ *   post:
+ *     tags: [quran-sheikhs]
+ *     summary: POST /api/v1/quran-sheikhs/{id}/reviews
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/:id/reviews', jwtAuth, async (req, res, next) => {
   try {
     await quranSheikhsService.addSheikhReview(req.params.id, req.user.id, req.body);

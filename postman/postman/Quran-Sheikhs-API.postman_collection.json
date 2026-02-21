@@ -24,6 +24,38 @@
     {
       "key": "course_id",
       "value": ""
+    },
+    {
+      "key": "baseApiUrl",
+      "value": "http://localhost:3001/api"
+    },
+    {
+      "key": "bookingId",
+      "value": "booking-id-here"
+    },
+    {
+      "key": "merchantRefNum",
+      "value": "123456789"
+    },
+    {
+      "key": "channelName",
+      "value": "sheikh-room-test"
+    },
+    {
+      "key": "uid",
+      "value": "1"
+    },
+    {
+      "key": "videoId",
+      "value": "video-id-here"
+    },
+    {
+      "key": "lessonId",
+      "value": "lesson-id-here"
+    },
+    {
+      "key": "courseId",
+      "value": "course-id-here"
     }
   ],
   "auth": {
@@ -381,25 +413,26 @@
       "name": "Payments (Fawry)",
       "item": [
         {
-          "name": "Check Fawry Configuration",
+          "name": "Fawry Info",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/payments/fawry",
+              "raw": "{{baseApiUrl}}/payments/fawry",
               "host": [
-                "{{base_url}}"
+                "{{baseApiUrl}}"
               ],
               "path": [
                 "payments",
                 "fawry"
               ]
-            }
+            },
+            "description": "Check if Fawry routes are deployed and configured."
           },
           "response": []
         },
         {
-          "name": "PayAtFawry (Reference Number)",
+          "name": "Fawry Checkout Link",
           "request": {
             "method": "POST",
             "header": [
@@ -414,31 +447,61 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"bookingId\": \"booking-uuid\",\n    \"expiryHours\": 24\n}"
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"paymentMethod\": \"CARD\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/payments/fawry/reference-number",
+              "raw": "{{baseApiUrl}}/payments/fawry/checkout-link",
               "host": [
-                "{{base_url}}"
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "payments",
+                "fawry",
+                "checkout-link"
+              ]
+            },
+            "description": "Create Fawry checkout link (CARD/MWALLET/PayAtFawry). Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Fawry Reference Number (PayAtFawry)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"expiryHours\": 24\n}"
+            },
+            "url": {
+              "raw": "{{baseApiUrl}}/payments/fawry/reference-number",
+              "host": [
+                "{{baseApiUrl}}"
               ],
               "path": [
                 "payments",
                 "fawry",
                 "reference-number"
               ]
-            }
+            },
+            "description": "Generate PayAtFawry reference number for store payment. Requires JWT."
           },
           "response": []
         },
         {
-          "name": "Card Payment",
+          "name": "Fawry Webhook (Test)",
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -446,56 +509,25 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"bookingId\": \"booking-uuid\",\n    \"paymentMethod\": \"CARD\"\n}"
+              "raw": "{\n  \"merchantRefNumber\": \"{{merchantRefNum}}\",\n  \"orderStatus\": \"PAID\",\n  \"paymentMethod\": \"PayAtFawry\",\n  \"paymentAmount\": \"100.00\",\n  \"orderAmount\": \"100.00\",\n  \"fawryRefNumber\": \"999999999999\",\n  \"paymentRefrenceNumber\": \"999999999999\",\n  \"messageSignature\": \"replace-with-valid-signature\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/payments/fawry/checkout-link",
+              "raw": "{{baseApiUrl}}/payments/fawry/webhook",
               "host": [
-                "{{base_url}}"
+                "{{baseApiUrl}}"
               ],
               "path": [
                 "payments",
                 "fawry",
-                "checkout-link"
+                "webhook"
               ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Mobile Wallet",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"bookingId\": \"booking-uuid\",\n    \"paymentMethod\": \"MWALLET\",\n    \"mobileNumber\": \"010xxxxxxxxx\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/payments/fawry/checkout-link",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "payments",
-                "fawry",
-                "checkout-link"
-              ]
-            }
+            "description": "Webhook endpoint for Fawry callback. Usually called by Fawry server (no JWT)."
           },
           "response": []
         },
         {
-          "name": "Check Payment Status",
+          "name": "Get Payment Status",
           "request": {
             "method": "GET",
             "header": [
@@ -505,23 +537,301 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/payments/fawry/status/:merchantRefNum",
+              "raw": "{{baseApiUrl}}/payments/fawry/status/{{merchantRefNum}}",
               "host": [
-                "{{base_url}}"
+                "{{baseApiUrl}}"
               ],
               "path": [
                 "payments",
                 "fawry",
                 "status",
-                ":merchantRefNum"
+                "{{merchantRefNum}}"
+              ]
+            },
+            "description": "Get payment status from Fawry + local DB status. Requires JWT."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Video (Agora)",
+      "item": [
+        {
+          "name": "Create Video Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseApiUrl}}/video/session/create",
+              "host": [
+                "{{baseApiUrl}}"
               ],
-              "variable": [
+              "path": [
+                "video",
+                "session",
+                "create"
+              ]
+            },
+            "description": "Create/initialize video session for booking. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApiUrl}}/video/session/token/{{bookingId}}",
+              "host": [
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "video",
+                "session",
+                "token",
+                "{{bookingId}}"
+              ]
+            },
+            "description": "Get Agora token for existing booking session. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "End Video Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseApiUrl}}/video/session/end",
+              "host": [
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "video",
+                "session",
+                "end"
+              ]
+            },
+            "description": "End booking video session. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApiUrl}}/video/session/history?bookingId={{bookingId}}",
+              "host": [
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "video",
+                "session",
+                "history"
+              ],
+              "query": [
                 {
-                  "key": "merchantRefNum",
-                  "value": "merchant-ref-num"
+                  "key": "bookingId",
+                  "value": "{{bookingId}}"
                 }
               ]
-            }
+            },
+            "description": "Get session history/details by bookingId. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Test Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApiUrl}}/video/session/test-token?channelName={{channelName}}&uid={{uid}}",
+              "host": [
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "video",
+                "session",
+                "test-token"
+              ],
+              "query": [
+                {
+                  "key": "channelName",
+                  "value": "{{channelName}}"
+                },
+                {
+                  "key": "uid",
+                  "value": "{{uid}}"
+                }
+              ]
+            },
+            "description": "Generate Agora test token for manual host/join pages. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Video Access",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApiUrl}}/video/videos/{{videoId}}/access",
+              "host": [
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "video",
+                "videos",
+                "{{videoId}}",
+                "access"
+              ]
+            },
+            "description": "Check student access to a video. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Start Watching Video",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lesson_id\": \"{{lessonId}}\",\n  \"course_id\": \"{{courseId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseApiUrl}}/video/videos/{{videoId}}/start",
+              "host": [
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "video",
+                "videos",
+                "{{videoId}}",
+                "start"
+              ]
+            },
+            "description": "Mark video as started for progress tracking. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Video",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lesson_id\": \"{{lessonId}}\",\n  \"course_id\": \"{{courseId}}\",\n  \"duration\": 300\n}"
+            },
+            "url": {
+              "raw": "{{baseApiUrl}}/video/videos/{{videoId}}/complete",
+              "host": [
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "video",
+                "videos",
+                "{{videoId}}",
+                "complete"
+              ]
+            },
+            "description": "Mark video as completed for progress tracking. Requires JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Course Progress",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApiUrl}}/video/courses/{{courseId}}/progress",
+              "host": [
+                "{{baseApiUrl}}"
+              ],
+              "path": [
+                "video",
+                "courses",
+                "{{courseId}}",
+                "progress"
+              ]
+            },
+            "description": "Get user progress for all course videos. Requires JWT."
           },
           "response": []
         }

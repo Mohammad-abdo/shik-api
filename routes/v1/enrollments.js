@@ -12,6 +12,41 @@ const router = express.Router();
  * @access Private (Student)
  * @body { sheikId?: string }
  */
+/**
+ * @openapi
+ * /api/v1/enrollments/{courseId}/enroll:
+ *   post:
+ *     tags: [enrollments]
+ *     summary: POST /api/v1/enrollments/{courseId}/enroll
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/:courseId/enroll', authenticateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -33,6 +68,28 @@ router.post('/:courseId/enroll', authenticateToken, async (req, res) => {
  * @access Private (Student)
  * @query { page?: number, limit?: number }
  */
+/**
+ * @openapi
+ * /api/v1/enrollments/my-courses:
+ *   get:
+ *     tags: [enrollments]
+ *     summary: GET /api/v1/enrollments/my-courses
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.get('/my-courses', authenticateToken, async (req, res) => {
   try {
     const studentId = req.user.id;
@@ -52,6 +109,34 @@ router.get('/my-courses', authenticateToken, async (req, res) => {
  * @route GET /api/v1/enrollments/:courseId/status
  * @desc Check if student is enrolled in course
  * @access Private (Student)
+ */
+/**
+ * @openapi
+ * /api/v1/enrollments/{courseId}/status:
+ *   get:
+ *     tags: [enrollments]
+ *     summary: GET /api/v1/enrollments/{courseId}/status
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
  */
 router.get('/:courseId/status', authenticateToken, async (req, res) => {
   try {
@@ -89,6 +174,41 @@ router.get('/:courseId/status', authenticateToken, async (req, res) => {
  * @access Private (Student)
  * @body { videoId?: string }
  */
+/**
+ * @openapi
+ * /api/v1/enrollments/lessons/{lessonId}/start:
+ *   post:
+ *     tags: [enrollments]
+ *     summary: POST /api/v1/enrollments/lessons/{lessonId}/start
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     parameters:
+ *       - in: path
+ *         name: lessonId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/lessons/:lessonId/start', authenticateToken, async (req, res) => {
   try {
     const { lessonId } = req.params;
@@ -110,6 +230,41 @@ router.post('/lessons/:lessonId/start', authenticateToken, async (req, res) => {
  * @access Private (Student)
  * @body { videoId?: string, watchDurationSeconds?: number }
  */
+/**
+ * @openapi
+ * /api/v1/enrollments/lessons/{lessonId}/complete:
+ *   post:
+ *     tags: [enrollments]
+ *     summary: POST /api/v1/enrollments/lessons/{lessonId}/complete
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     parameters:
+ *       - in: path
+ *         name: lessonId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/lessons/:lessonId/complete', authenticateToken, async (req, res) => {
   try {
     const { lessonId } = req.params;
@@ -129,6 +284,34 @@ router.post('/lessons/:lessonId/complete', authenticateToken, async (req, res) =
  * @route GET /api/v1/enrollments/:courseId/progress
  * @desc Get student's progress in a course
  * @access Private (Student)
+ */
+/**
+ * @openapi
+ * /api/v1/enrollments/{courseId}/progress:
+ *   get:
+ *     tags: [enrollments]
+ *     summary: GET /api/v1/enrollments/{courseId}/progress
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
  */
 router.get('/:courseId/progress', authenticateToken, async (req, res) => {
   try {

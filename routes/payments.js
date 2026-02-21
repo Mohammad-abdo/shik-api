@@ -73,6 +73,41 @@ async function refundPayment(bookingId, amount) {
   return updatedPayment;
 }
 
+/**
+ * @openapi
+ * /api/payments/bookings/{bookingId}/intent:
+ *   post:
+ *     tags: [payments]
+ *     summary: Create Stripe payment intent for booking
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 router.post('/bookings/:bookingId/intent', jwtAuth, async (req, res, next) => {
   try {
     const result = await createPaymentIntent(req.params.bookingId, req.body);
@@ -82,6 +117,34 @@ router.post('/bookings/:bookingId/intent', jwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/payments/bookings/{bookingId}:
+ *   get:
+ *     tags: [payments]
+ *     summary: Get payment for booking
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 router.get('/bookings/:bookingId', jwtAuth, async (req, res, next) => {
   try {
     const payment = await prisma.payment.findUnique({
@@ -94,6 +157,44 @@ router.get('/bookings/:bookingId', jwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/payments/bookings/{bookingId}/refund:
+ *   post:
+ *     tags: [payments]
+ *     summary: Refund booking payment
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Refunded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 router.post('/bookings/:bookingId/refund', jwtAuth, async (req, res, next) => {
   try {
     const payment = await refundPayment(req.params.bookingId, req.body?.amount);
@@ -110,6 +211,20 @@ const FAWRY_RETURN_URL_BASE = (process.env.FAWRY_RETURN_URL_BASE || '').trim();
 const BASE_URL = process.env.BASE_URL || '';
 
 // Optional: GET so you can verify Fawry routes are deployed (no auth)
+/**
+ * @openapi
+ * /api/payments/fawry:
+ *   get:
+ *     tags: [payments]
+ *     summary: Check Fawry availability
+ *     responses:
+ *       200:
+ *         description: Availability
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ */
 router.get('/fawry', (req, res) => {
   res.json({
     available: true,
@@ -124,6 +239,35 @@ router.get('/fawry', (req, res) => {
   });
 });
 
+/**
+ * @openapi
+ * /api/payments/fawry/checkout-link:
+ *   post:
+ *     tags: [payments]
+ *     summary: Create Fawry checkout link
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
   try {
     if (!FAWRY_MERCHANT_CODE || !FAWRY_SECURE_KEY) {
@@ -278,6 +422,35 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
 });
 
 // PayAtFawry - Generate reference number for payment at Fawry stores
+/**
+ * @openapi
+ * /api/payments/fawry/reference-number:
+ *   post:
+ *     tags: [payments]
+ *     summary: Create PayAtFawry reference number
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
   try {
     if (!FAWRY_MERCHANT_CODE || !FAWRY_SECURE_KEY) {
@@ -418,6 +591,25 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/payments/fawry/webhook:
+ *   post:
+ *     tags: [payments]
+ *     summary: Fawry webhook
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: Invalid signature
+ */
 router.post('/fawry/webhook', async (req, res, next) => {
   try {
     const secureKey = process.env.FAWRY_SECURE_KEY;
@@ -465,6 +657,34 @@ router.post('/fawry/webhook', async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/payments/fawry/status/{merchantRefNum}:
+ *   get:
+ *     tags: [payments]
+ *     summary: Get Fawry payment status
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: merchantRefNum
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 router.get('/fawry/status/:merchantRefNum', jwtAuth, async (req, res, next) => {
   try {
     const { merchantRefNum } = req.params;
@@ -506,6 +726,25 @@ router.get('/fawry/status/:merchantRefNum', jwtAuth, async (req, res, next) => {
 });
 
 // ---------- Stripe webhook ----------
+/**
+ * @openapi
+ * /api/payments/webhook:
+ *   post:
+ *     tags: [payments]
+ *     summary: Stripe webhook
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: OK
+ *       400:
+ *         description: Signature verification failed
+ */
 router.post('/webhook', async (req, res, next) => {
   try {
     if (!stripe) return res.status(500).json({ error: 'Stripe not configured' });

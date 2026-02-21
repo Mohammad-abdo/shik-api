@@ -3,6 +3,35 @@ const router = express.Router();
 const { prisma } = require('../../lib/prisma');
 const { jwtAuth } = require('../../middleware/jwtAuth');
 
+/**
+ * @openapi
+ * /api/v1/bookings/:
+ *   post:
+ *     tags: [bookings]
+ *     summary: POST /api/v1/bookings/
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
 router.post('/', jwtAuth, async (req, res, next) => {
   try {
     const { sheikh_id, package_id, payment_type } = req.body;

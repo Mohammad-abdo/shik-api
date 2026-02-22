@@ -71,6 +71,7 @@ async function subscribe(teacherId, dto) {
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
   const pkg = await prisma.subscriptionPackage.findUnique({ where: { id: dto.packageId } });
   if (!pkg) throw Object.assign(new Error('Package not found'), { statusCode: 404 });
+  if (!pkg.isActive) throw Object.assign(new Error('Package is not active'), { statusCode: 400 });
   const startDate = new Date();
   const endDate = new Date();
   endDate.setDate(endDate.getDate() + (pkg.duration || 30));

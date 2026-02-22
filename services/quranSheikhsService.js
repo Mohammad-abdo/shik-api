@@ -1,4 +1,5 @@
 const { prisma } = require('../lib/prisma');
+const teacherService = require('./teacherService');
 
 const DAY_NAMES_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DAY_NAMES_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -79,7 +80,7 @@ async function isStudentSubscribedToTeacher(studentId, teacherId) {
 
 async function getSheikhs(page = 1, limit = 10, search, lang = 'en') {
   const skip = (page - 1) * limit;
-  const where = { isApproved: true };
+  const where = { isApproved: true, teacherType: 'FULL_TEACHER' };
   if (search) {
     where.user = {
       OR: [
@@ -168,6 +169,9 @@ async function getSheikhById(id, studentId, lang = 'en') {
     },
   });
   if (!teacher) throw Object.assign(new Error('Sheikh not found'), { statusCode: 404 });
+  if (teacher.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('This profile is a course sheikh, not a Quran live-session sheikh'), { statusCode: 400 });
+  }
 
   const name = lang === 'ar'
     ? [teacher.user?.firstNameAr, teacher.user?.lastNameAr].filter(Boolean).join(' ').trim() ||
@@ -236,6 +240,12 @@ async function getSheikhById(id, studentId, lang = 'en') {
 }
 
 async function getSheikhReviews(teacherId, page = 1, limit = 10, lang = 'en') {
+  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, select: { id: true, teacherType: true } });
+  if (!teacher) throw Object.assign(new Error('Sheikh not found'), { statusCode: 404 });
+  if (teacher.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('Reviews endpoint is only available for Quran live-session sheikhs'), { statusCode: 400 });
+  }
+
   const skip = (page - 1) * limit;
   const reviews = await prisma.review.findMany({
     where: { teacherId },
@@ -260,6 +270,12 @@ async function getSheikhReviews(teacherId, page = 1, limit = 10, lang = 'en') {
 }
 
 async function addSheikhReview(teacherId, studentId, body) {
+  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, select: { id: true, teacherType: true } });
+  if (!teacher) throw Object.assign(new Error('Sheikh not found'), { statusCode: 404 });
+  if (teacher.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('Reviews endpoint is only available for Quran live-session sheikhs'), { statusCode: 400 });
+  }
+
   const booking = await prisma.booking.findFirst({
     where: { studentId, teacherId, status: 'COMPLETED' },
     orderBy: { date: 'desc' },
@@ -273,12 +289,17 @@ async function addSheikhReview(teacherId, studentId, body) {
   return reviewService.create(booking.id, studentId, { rating: body.rating, comment: body.comment });
 }
 
+async function createMySchedules(userId, dto) {
+  return teacherService.createMySchedules(userId, dto);
+}
+
 module.exports = {
   getSheikhs,
   getBookableSheikhsNotInCourses,
   getSheikhById,
   getSheikhReviews,
   addSheikhReview,
+  createMySchedules,
   getDayName,
   buildPackagesFromSchedules,
 };

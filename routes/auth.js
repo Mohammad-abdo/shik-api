@@ -299,7 +299,9 @@ router.post('/send-login-otp', async (req, res, next) => {
  */
 router.post('/forgot-password', async (req, res, next) => {
   try {
-    const result = await authService.forgotPassword(req.body);
+    const result = req.body.student_phone
+      ? await authService.mobileForgotPassword(req.body)
+      : await authService.forgotPassword(req.body);
     res.json(result);
   } catch (e) {
     next(e);
@@ -335,7 +337,9 @@ router.post('/forgot-password', async (req, res, next) => {
  */
 router.post('/reset-password', async (req, res, next) => {
   try {
-    const result = await authService.resetPassword(req.body);
+    const result = req.body.password_confirmation
+      ? await authService.mobileResetPassword(req.body)
+      : await authService.resetPassword(req.body);
     res.json(result);
   } catch (e) {
     next(e);
@@ -459,24 +463,6 @@ router.post('/register', upload.single('profile_image'), async (req, res, next) 
     }
     const result = await authService.mobileSignUp(req.body, profileImageUrl);
     res.status(201).json(result);
-  } catch (e) {
-    next(e);
-  }
-});
-
-router.post('/forgot-password', async (req, res, next) => {
-  try {
-    const result = req.body.student_phone ? await authService.mobileForgotPassword(req.body) : await authService.forgotPassword(req.body);
-    res.json(result);
-  } catch (e) {
-    next(e);
-  }
-});
-
-router.post('/reset-password', async (req, res, next) => {
-  try {
-    const result = req.body.password_confirmation ? await authService.mobileResetPassword(req.body) : await authService.resetPassword(req.body);
-    res.json(result);
   } catch (e) {
     next(e);
   }

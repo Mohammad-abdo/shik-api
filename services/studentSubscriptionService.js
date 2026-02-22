@@ -152,13 +152,46 @@ async function deletePackage(id) {
 async function subscribe(studentId, dto) {
   const pkg = await prisma.studentSubscriptionPackage.findUnique({ where: { id: dto.packageId } });
   if (!pkg) throw Object.assign(new Error('Package not found'), { statusCode: 404 });
+  if (!pkg.isActive) throw Object.assign(new Error('Package is not active'), { statusCode: 400 });
 
   const startDate = new Date();
   const endDate = new Date();
   const normalizedSlots = normalizeSelectedSlots(dto.selectedSlots);
 
+  let teacher = null;
+  if (dto.teacherId) {
+    teacher = await prisma.teacher.findUnique({
+      where: { id: dto.teacherId },
+      include: { schedules: { where: { isActive: true } } },
+    });
+    if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
+    if (!teacher.isApproved) throw Object.assign(new Error('Teacher is not approved'), { statusCode: 400 });
+    if (teacher.teacherType !== 'FULL_TEACHER') {
+      throw Object.assign(new Error('Subscriptions for live sessions are only available with Quran sheikhs'), { statusCode: 400 });
+    }
+  }
+
   if (normalizedSlots.length > 0 && !dto.teacherId) {
     throw Object.assign(new Error('teacherId is required when selectedSlots are provided'), { statusCode: 400 });
+  }
+
+  if (normalizedSlots.length > 0) {
+    for (const slot of normalizedSlots) {
+      const slotStart = toMinutes(slot.startTime);
+      const slotEnd = slotStart + SESSION_DURATION_MINUTES;
+      const compatibleSchedule = (teacher?.schedules || []).find((s) => {
+        if (s.dayOfWeek !== slot.dayOfWeek) return false;
+        const scheduleStart = toMinutes(s.startTime);
+        const scheduleEnd = toMinutes(s.endTime);
+        return slotStart >= scheduleStart && slotEnd <= scheduleEnd;
+      });
+      if (!compatibleSchedule) {
+        throw Object.assign(
+          new Error(`Selected slot ${slot.dayName} ${slot.startTime} is not within teacher availability`),
+          { statusCode: 400 }
+        );
+      }
+    }
   }
 
   if (pkg.durationMonths) {
@@ -246,6 +279,32 @@ async function subscribe(studentId, dto) {
     include: { package: true, student: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } },
   });
 
+  // Reserve selected slots for the whole package duration.
+  // Paid subscriptions reserve as PENDING until webhook confirms payment.
+  const bookingStatus = amount > 0 ? 'PENDING' : 'CONFIRMED';
+  if (generatedSlots.length > 0) {
+    const bookingData = generatedSlots.map(slot => ({
+      studentId,
+      teacherId: dto.teacherId,
+      date: slot.date,
+      startTime: slot.startTime,
+      duration: SESSION_DURATION_MINUTES,
+      status: bookingStatus,
+      price: 0,
+      totalPrice: 0,
+      type: 'SUBSCRIPTION',
+      subscriptionId: subscription.id
+    }));
+
+    await prisma.booking.createMany({ data: bookingData });
+  }
+
+  const reservation = {
+    slotsPerWeek: normalizedSlots.length,
+    totalReservedSessions: generatedSlots.length,
+    bookingStatus,
+  };
+
   if (amount > 0) {
     // Create Payment Record
     const paymentId = uuidv4();
@@ -300,6 +359,7 @@ async function subscribe(studentId, dto) {
       // Respond with Payment URL or Reference Number
       return {
         subscription,
+        reservation,
         paymentUrl: fawryResponse.paymentUrl,
         referenceNumber: fawryResponse.referenceNumber,
         fawryRefNumber: fawryResponse.referenceNumber, // Sometimes called this way
@@ -317,32 +377,9 @@ async function subscribe(studentId, dto) {
     }
   }
 
-  // Reserve selected slots for the whole package duration (both paid/free).
-  if (generatedSlots.length > 0) {
-    const bookingStatus = amount > 0 ? 'PENDING' : 'CONFIRMED';
-    const bookingData = generatedSlots.map(slot => ({
-      studentId,
-      teacherId: dto.teacherId,
-      date: slot.date,
-      startTime: slot.startTime,
-      duration: SESSION_DURATION_MINUTES,
-      status: bookingStatus,
-      price: 0,
-      totalPrice: 0,
-      type: 'SUBSCRIPTION', // Use new enum value
-      subscriptionId: subscription.id
-    }));
-
-    await prisma.booking.createMany({ data: bookingData });
-  }
-
   return {
     subscription,
-    reservation: {
-      slotsPerWeek: normalizedSlots.length,
-      totalReservedSessions: generatedSlots.length,
-      bookingStatus: amount > 0 ? 'PENDING' : 'CONFIRMED',
-    },
+    reservation,
   };
 }
 

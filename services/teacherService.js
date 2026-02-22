@@ -30,6 +30,40 @@ function normalizeTime(value) {
   return String(value).slice(0, 5);
 }
 
+function parseTimeToMinutes(value) {
+  const time = normalizeTime(value);
+  if (!/^\d{2}:\d{2}$/.test(time)) return null;
+  const [h, m] = time.split(':').map(Number);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+function normalizeSlotsPayload(dto) {
+  if (Array.isArray(dto?.slots)) return dto.slots;
+  return [dto];
+}
+
+function validateSlot(slot) {
+  const dayOfWeek = Number(slot?.dayOfWeek);
+  const startTime = normalizeTime(slot?.startTime);
+  const endTime = normalizeTime(slot?.endTime);
+
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+    throw Object.assign(new Error('dayOfWeek must be an integer from 0 to 6'), { statusCode: 400 });
+  }
+
+  const startMinutes = parseTimeToMinutes(startTime);
+  const endMinutes = parseTimeToMinutes(endTime);
+  if (startMinutes === null || endMinutes === null) {
+    throw Object.assign(new Error('startTime and endTime must be in HH:MM format'), { statusCode: 400 });
+  }
+  if (endMinutes <= startMinutes) {
+    throw Object.assign(new Error('endTime must be greater than startTime'), { statusCode: 400 });
+  }
+
+  return { dayOfWeek, startTime, endTime, startMinutes, endMinutes };
+}
+
 async function findAll(filters = {}) {
   const where = { isApproved: filters.isApproved !== undefined ? filters.isApproved : true };
   if (filters.minRating != null) where.rating = { gte: filters.minRating };
@@ -149,6 +183,9 @@ async function createSchedule(teacherId, userId, dto) {
   const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
   if (teacher.userId !== userId) throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
+  if (teacher.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('Schedules are only available for Quran sheikhs (FULL_TEACHER)'), { statusCode: 400 });
+  }
   return prisma.schedule.create({
     data: {
       teacherId,
@@ -157,6 +194,77 @@ async function createSchedule(teacherId, userId, dto) {
       endTime: dto.endTime,
     },
   });
+}
+
+async function createMySchedules(userId, dto) {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (!teacher) throw Object.assign(new Error('Teacher profile not found'), { statusCode: 404 });
+  if (teacher.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('Schedules are only available for Quran sheikhs (FULL_TEACHER)'), { statusCode: 400 });
+  }
+
+  const rawSlots = normalizeSlotsPayload(dto).filter(Boolean);
+  if (rawSlots.length === 0) {
+    throw Object.assign(new Error('At least one schedule slot is required'), { statusCode: 400 });
+  }
+
+  const validatedSlots = rawSlots.map(validateSlot);
+
+  const existingSchedules = await prisma.schedule.findMany({
+    where: { teacherId: teacher.id, isActive: true },
+    select: { id: true, dayOfWeek: true, startTime: true, endTime: true },
+  });
+
+  const existingByDay = new Map();
+  for (const s of existingSchedules) {
+    const list = existingByDay.get(s.dayOfWeek) || [];
+    list.push({
+      startMinutes: parseTimeToMinutes(s.startTime),
+      endMinutes: parseTimeToMinutes(s.endTime),
+    });
+    existingByDay.set(s.dayOfWeek, list);
+  }
+
+  const toCreate = [];
+  for (const slot of validatedSlots) {
+    const overlapsExisting = (existingByDay.get(slot.dayOfWeek) || []).some(
+      (s) => slot.startMinutes < s.endMinutes && slot.endMinutes > s.startMinutes
+    );
+    if (overlapsExisting) {
+      throw Object.assign(
+        new Error(`Slot overlaps existing schedule on day ${slot.dayOfWeek}: ${slot.startTime}-${slot.endTime}`),
+        { statusCode: 409 }
+      );
+    }
+    toCreate.push({ teacherId: teacher.id, dayOfWeek: slot.dayOfWeek, startTime: slot.startTime, endTime: slot.endTime });
+  }
+
+  for (let i = 0; i < toCreate.length; i += 1) {
+    for (let j = i + 1; j < toCreate.length; j += 1) {
+      if (toCreate[i].dayOfWeek !== toCreate[j].dayOfWeek) continue;
+      const aStart = parseTimeToMinutes(toCreate[i].startTime);
+      const aEnd = parseTimeToMinutes(toCreate[i].endTime);
+      const bStart = parseTimeToMinutes(toCreate[j].startTime);
+      const bEnd = parseTimeToMinutes(toCreate[j].endTime);
+      if (aStart < bEnd && aEnd > bStart) {
+        throw Object.assign(new Error('Provided slots must not overlap each other'), { statusCode: 409 });
+      }
+    }
+  }
+
+  const created = [];
+  await prisma.$transaction(async (tx) => {
+    for (const row of toCreate) {
+      const schedule = await tx.schedule.create({ data: row });
+      created.push(schedule);
+    }
+  });
+
+  return {
+    teacherId: teacher.id,
+    createdCount: created.length,
+    schedules: created,
+  };
 }
 
 async function updateSchedule(scheduleId, teacherId, userId, dto) {
@@ -256,4 +364,16 @@ async function getAvailability(teacherId, startDate, endDate) {
   };
 }
 
-module.exports = { findAll, findOne, create, update, approveTeacher, rejectTeacher, createSchedule, updateSchedule, deleteSchedule, getAvailability };
+module.exports = {
+  findAll,
+  findOne,
+  create,
+  update,
+  approveTeacher,
+  rejectTeacher,
+  createSchedule,
+  createMySchedules,
+  updateSchedule,
+  deleteSchedule,
+  getAvailability,
+};

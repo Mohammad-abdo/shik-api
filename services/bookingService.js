@@ -19,6 +19,9 @@ async function create(studentId, dto) {
   });
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
   if (!teacher.isApproved) throw Object.assign(new Error('Teacher is not approved'), { statusCode: 400 });
+  if (teacher.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('Bookings are only available with Quran live-session sheikhs'), { statusCode: 400 });
+  }
   const duration = SESSION_DURATION_MINUTES;
   const price = teacher.hourlyRate * duration;
   const discount = dto.discount || 0;
@@ -190,6 +193,9 @@ async function getSubscriptionPackagesForStudent(studentId, teacherId) {
   });
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
   if (!teacher.isApproved) throw Object.assign(new Error('Teacher is not approved'), { statusCode: 400 });
+  if (teacher.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('Subscription packages are only available with Quran live-session sheikhs'), { statusCode: 400 });
+  }
 
   const packages = await prisma.studentSubscriptionPackage.findMany({
     where: { isActive: true },

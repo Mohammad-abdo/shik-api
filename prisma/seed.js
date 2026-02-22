@@ -137,11 +137,11 @@ async function main() {
   // مشايخ عادية (FULL_TEACHER): حجوزات، جداول، محفظة
   // مشايخ دورات فقط (COURSE_SHEIKH): اسم، صورة، فيديو تعريفي، محفظة، يُربطون بالدورات فقط — بدون حجوزات ولا جداول
   const teachersData = [
-    { email: 'teacher1@shaykhi.com', firstName: 'Khalid', firstNameAr: '\u062E\u0627\u0644\u062F', lastName: 'Al-Ansari', lastNameAr: '\u0627\u0644\u0623\u0646\u0635\u0627\u0631\u064A', phone: '+201234567895', bio: 'Experienced Quran teacher', bioAr: '\u0634\u064A\u062E \u0642\u0631\u0622\u0646 \u0630\u0648 \u062E\u0628\u0631\u0629', experience: 10, hourlyRate: 50, specialties: ['tajweed', 'memorization', 'recitation'], specialtiesAr: ['\u062A\u062C\u0648\u064A\u062F', '\u062D\u0641\u0638', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.8, totalReviews: 25, image: teacherImages[0], introVideoUrl: introVideoUrls[0], teacherType: 'FULL_TEACHER' },
-    { email: 'teacher2@shaykhi.com', firstName: 'Omar', firstNameAr: '\u0639\u0645\u0631', lastName: 'Ibrahim', lastNameAr: '\u0625\u0628\u0631\u0627\u0647\u064A\u0645', phone: '+201234567896', bio: 'Specialized in Quran recitation', bioAr: '\u0645\u062A\u062E\u0635\u0635 \u0641\u064A \u062A\u0644\u0627\u0648\u0629 \u0627\u0644\u0642\u0631\u0622\u0646', experience: 5, hourlyRate: 40, specialties: ['recitation', 'tajweed'], specialtiesAr: ['\u062A\u0644\u0627\u0648\u0629', '\u062A\u062C\u0648\u064A\u062F'], readingType: 'WARSH', readingTypeAr: '\u0648\u0631\u0634', isApproved: true, rating: 4.5, totalReviews: 15, image: teacherImages[1], introVideoUrl: introVideoUrls[1], teacherType: 'FULL_TEACHER' },
-    { email: 'teacher3@shaykhi.com', firstName: 'Fatima', firstNameAr: '\u0641\u0627\u0637\u0645\u0629', lastName: 'Al-Zahra', lastNameAr: '\u0627\u0644\u0632\u0647\u0631\u0627\u0621', phone: '+201234567897', bio: 'Expert in memorization', bioAr: '\u062E\u0628\u064A\u0631\u0629 \u0641\u064A \u0627\u0644\u062D\u0641\u0638', experience: 15, hourlyRate: 60, specialties: ['memorization', 'ijaza'], specialtiesAr: ['\u062D\u0641\u0638', '\u0625\u062C\u0627\u0632\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.9, totalReviews: 40, canIssueCertificates: true, image: teacherImages[2], introVideoUrl: introVideoUrls[2], teacherType: 'FULL_TEACHER' },
-    { email: 'teacher4@shaykhi.com', firstName: 'Mohamed', firstNameAr: '\u0645\u062D\u0645\u062F', lastName: 'Al-Hafiz', lastNameAr: '\u0627\u0644\u062D\u0627\u0641\u0638', phone: '+201234567898', bio: 'Sheikh for courses only', bioAr: '\u0634\u064A\u062E \u062F\u0648\u0631\u0627\u062A \u0641\u0642\u0637', experience: 8, hourlyRate: 0, specialties: ['memorization', 'recitation'], specialtiesAr: ['\u062D\u0641\u0638', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 0, totalReviews: 0, image: teacherImages[3], introVideoUrl: introVideoUrls[3], teacherType: 'COURSE_SHEIKH' },
-    { email: 'teacher5@shaykhi.com', firstName: 'Aisha', firstNameAr: '\u0639\u0627\u0626\u0634\u0629', lastName: 'Bint-Abdullah', lastNameAr: '\u0628\u0646\u062A \u0639\u0628\u062F\u0627\u0644\u0644\u0647', phone: '+201234567899', bio: 'Course sheikh (no bookings)', bioAr: '\u0634\u064A\u062E\u0629 \u062F\u0648\u0631\u0627\u062A \u0641\u0642\u0637', experience: 6, hourlyRate: 0, specialties: ['tajweed', 'recitation'], specialtiesAr: ['\u062A\u062C\u0648\u064A\u062F', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 0, totalReviews: 0, image: teacherImages[4], introVideoUrl: introVideoUrls[0], teacherType: 'COURSE_SHEIKH' },
+    { email: 'teacher1@shaykhi.com', firstName: 'Abdelrahman', firstNameAr: '\u0639\u0628\u062F \u0627\u0644\u0631\u062D\u0645\u0646', lastName: 'El-Masry', lastNameAr: '\u0627\u0644\u0645\u0635\u0631\u064A', phone: '+201234567895', bio: 'Certified Quran sheikh for live one-to-one sessions. Focus on Tajweed correction and daily memorization plans.', bioAr: '\u0634\u064A\u062E \u0642\u0631\u0622\u0646 \u0645\u0639\u062A\u0645\u062F \u0644\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0648\u064A\u0631\u0643\u0632 \u0639\u0644\u0649 \u062A\u0635\u062D\u064A\u062D \u0627\u0644\u062A\u062C\u0648\u064A\u062F \u0648\u062E\u0637\u0637 \u0627\u0644\u062D\u0641\u0638', experience: 12, hourlyRate: 180, specialties: ['tajweed', 'memorization', 'recitation'], specialtiesAr: ['\u062A\u062C\u0648\u064A\u062F', '\u062D\u0641\u0638', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.9, totalReviews: 132, image: teacherImages[0], introVideoUrl: introVideoUrls[0], teacherType: 'FULL_TEACHER' },
+    { email: 'teacher2@shaykhi.com', firstName: 'Youssef', firstNameAr: '\u064A\u0648\u0633\u0641', lastName: 'Saeed', lastNameAr: '\u0633\u0639\u064A\u062F', phone: '+201234567896', bio: 'Live Quran recitation coach. Specialized in adults and advanced pronunciation practice.', bioAr: '\u0645\u062F\u0631\u0628 \u062A\u0644\u0627\u0648\u0629 \u0642\u0631\u0622\u0646 \u0645\u0628\u0627\u0634\u0631 \u0645\u062A\u062E\u0635\u0635 \u0641\u064A \u062A\u062F\u0631\u064A\u0628 \u0627\u0644\u0643\u0628\u0627\u0631 \u0648\u062A\u062D\u0633\u064A\u0646 \u0627\u0644\u0645\u062E\u0627\u0631\u062C', experience: 9, hourlyRate: 160, specialties: ['recitation', 'tajweed', 'qiraat'], specialtiesAr: ['\u062A\u0644\u0627\u0648\u0629', '\u062A\u062C\u0648\u064A\u062F', '\u0642\u0631\u0627\u0621\u0627\u062A'], readingType: 'WARSH', readingTypeAr: '\u0648\u0631\u0634', isApproved: true, rating: 4.7, totalReviews: 88, image: teacherImages[1], introVideoUrl: introVideoUrls[1], teacherType: 'FULL_TEACHER' },
+    { email: 'teacher3@shaykhi.com', firstName: 'Khadija', firstNameAr: '\u062E\u062F\u064A\u062C\u0629', lastName: 'Hassan', lastNameAr: '\u062D\u0633\u0646', phone: '+201234567897', bio: 'Female Quran sheikh for live sessions. Expert in kids memorization and weekly follow-up.', bioAr: '\u0634\u064A\u062E\u0629 \u0642\u0631\u0622\u0646 \u0644\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0648\u0645\u062A\u062E\u0635\u0635\u0629 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0623\u0637\u0641\u0627\u0644 \u0648\u0627\u0644\u0645\u062A\u0627\u0628\u0639\u0629 \u0627\u0644\u0623\u0633\u0628\u0648\u0639\u064A\u0629', experience: 14, hourlyRate: 190, specialties: ['memorization', 'ijaza', 'tajweed'], specialtiesAr: ['\u062D\u0641\u0638', '\u0625\u062C\u0627\u0632\u0629', '\u062A\u062C\u0648\u064A\u062F'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 4.95, totalReviews: 210, canIssueCertificates: true, image: teacherImages[2], introVideoUrl: introVideoUrls[2], teacherType: 'FULL_TEACHER' },
+    { email: 'teacher4@shaykhi.com', firstName: 'Mahmoud', firstNameAr: '\u0645\u062D\u0645\u0648\u062F', lastName: 'El-Qari', lastNameAr: '\u0627\u0644\u0642\u0627\u0631\u0626', phone: '+201234567898', bio: 'Course sheikh only for recorded and structured programs. Not available for live booking.', bioAr: '\u0634\u064A\u062E \u062F\u0648\u0631\u0627\u062A \u0641\u0642\u0637 \u0644\u0644\u0628\u0631\u0627\u0645\u062C \u0627\u0644\u0645\u0633\u062C\u0644\u0629 \u0648\u0644\u0627 \u064A\u062A\u064A\u062D \u062D\u062C\u0632 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629', experience: 11, hourlyRate: 0, specialties: ['memorization', 'recitation'], specialtiesAr: ['\u062D\u0641\u0638', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 0, totalReviews: 0, image: teacherImages[3], introVideoUrl: introVideoUrls[3], teacherType: 'COURSE_SHEIKH' },
+    { email: 'teacher5@shaykhi.com', firstName: 'Amina', firstNameAr: '\u0623\u0645\u064A\u0646\u0629', lastName: 'Abdullah', lastNameAr: '\u0639\u0628\u062F\u0627\u0644\u0644\u0647', phone: '+201234567899', bio: 'Course content sheikh. Provides curriculum lessons only.', bioAr: '\u0634\u064A\u062E\u0629 \u0645\u062D\u062A\u0648\u0649 \u062F\u0648\u0631\u0627\u062A \u0641\u0642\u0637 \u0644\u0644\u062F\u0631\u0648\u0633 \u0627\u0644\u0645\u0646\u0647\u062C\u064A\u0629', experience: 7, hourlyRate: 0, specialties: ['tajweed', 'recitation'], specialtiesAr: ['\u062A\u062C\u0648\u064A\u062F', '\u062A\u0644\u0627\u0648\u0629'], readingType: 'HAFS', readingTypeAr: '\u062D\u0641\u0635', isApproved: true, rating: 0, totalReviews: 0, image: teacherImages[4], introVideoUrl: introVideoUrls[0], teacherType: 'COURSE_SHEIKH' },
   ];
 
   const createdTeachers = [];
@@ -154,7 +154,19 @@ async function main() {
     }
     const teacherUser = await prisma.user.upsert({
       where: { email: d.email },
-      update: { password: teacherPassword, firstName: d.firstName, firstNameAr: d.firstNameAr, lastName: d.lastName, lastNameAr: d.lastNameAr, role: 'TEACHER', status: 'ACTIVE', emailVerified: true, phoneVerified: !!phoneToUse, avatar: d.image },
+      update: {
+        password: teacherPassword,
+        firstName: d.firstName,
+        firstNameAr: d.firstNameAr,
+        lastName: d.lastName,
+        lastNameAr: d.lastNameAr,
+        phone: phoneToUse,
+        role: 'TEACHER',
+        status: 'ACTIVE',
+        emailVerified: true,
+        phoneVerified: !!phoneToUse,
+        avatar: d.image,
+      },
       create: {
         email: d.email,
         password: teacherPassword,
@@ -173,7 +185,25 @@ async function main() {
     const teacherType = d.teacherType === 'COURSE_SHEIKH' ? 'COURSE_SHEIKH' : 'FULL_TEACHER';
     const teacher = await prisma.teacher.upsert({
       where: { userId: teacherUser.id },
-      update: { teacherType },
+      update: {
+        teacherType,
+        bio: d.bio,
+        bioAr: d.bioAr,
+        experience: d.experience,
+        hourlyRate: d.hourlyRate ?? 0,
+        specialties: JSON.stringify(d.specialties),
+        specialtiesAr: JSON.stringify(d.specialtiesAr),
+        readingType: d.readingType,
+        readingTypeAr: d.readingTypeAr,
+        isApproved: d.isApproved,
+        approvedAt: d.isApproved ? new Date() : null,
+        approvedBy: d.isApproved ? admin.id : null,
+        rating: d.rating || 0,
+        totalReviews: d.totalReviews || 0,
+        canIssueCertificates: d.canIssueCertificates || false,
+        image: d.image || null,
+        introVideoUrl: d.introVideoUrl || null,
+      },
       create: {
         userId: teacherUser.id,
         teacherType,
@@ -209,14 +239,37 @@ async function main() {
     console.log('Teacher created:', teacherUser.email);
   }
 
-  const fullTeachers = createdTeachers.filter((t) => t.teacher.teacherType !== 'COURSE_SHEIKH');
+  const fullTeachers = createdTeachers.filter((t) => t.teacher.teacherType === 'FULL_TEACHER');
   const schedules = [];
   if (fullTeachers.length >= 3) {
-    for (let t = 0; t < Math.min(3, fullTeachers.length); t++) {
+    for (let t = 0; t < Math.min(3, fullTeachers.length); t += 1) {
       const tid = fullTeachers[t].teacher.id;
-      const slots = t === 0 ? [1, 2, 3, 4, 5] : t === 1 ? [1, 2, 3] : [0, 1, 2, 3, 4];
-      const [start, end] = t === 0 ? ['09:00', '17:00'] : t === 1 ? ['10:00', '18:00'] : ['08:00', '16:00'];
-      slots.forEach((day) => schedules.push({ teacherId: tid, dayOfWeek: day, startTime: start, endTime: end }));
+      const slotsByTeacher = [
+        [
+          { dayOfWeek: 0, startTime: '07:00', endTime: '09:30' },
+          { dayOfWeek: 2, startTime: '19:00', endTime: '22:00' },
+          { dayOfWeek: 4, startTime: '19:00', endTime: '22:00' },
+          { dayOfWeek: 6, startTime: '03:00', endTime: '06:00' },
+        ],
+        [
+          { dayOfWeek: 1, startTime: '18:00', endTime: '21:00' },
+          { dayOfWeek: 3, startTime: '18:00', endTime: '21:00' },
+          { dayOfWeek: 5, startTime: '14:00', endTime: '18:00' },
+        ],
+        [
+          { dayOfWeek: 0, startTime: '10:00', endTime: '13:00' },
+          { dayOfWeek: 2, startTime: '10:00', endTime: '13:00' },
+          { dayOfWeek: 4, startTime: '10:00', endTime: '13:00' },
+          { dayOfWeek: 6, startTime: '16:00', endTime: '20:00' },
+        ],
+      ];
+      const slots = slotsByTeacher[t] || [];
+      slots.forEach((slot) => schedules.push({
+        teacherId: tid,
+        dayOfWeek: slot.dayOfWeek,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      }));
     }
     await prisma.schedule.createMany({ data: schedules, skipDuplicates: true });
     console.log('Schedules created (full teachers only)');
@@ -398,8 +451,60 @@ async function main() {
   console.log('Teacher subscriptions created');
 
   const studentPackagesData = [
-    { name: 'Student Basic', nameAr: '\u0627\u0644\u062E\u0637\u0629 \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629 \u0644\u0644\u0637\u0627\u0644\u0628', description: 'Basic for students', descriptionAr: '\u0627\u0634\u062A\u0631\u0627\u0643 \u0623\u0633\u0627\u0633\u064A', price: 19.99, duration: 30, features: JSON.stringify(['5 bookings per month']), featuresAr: JSON.stringify(['5 \u062D\u062C\u0648\u0632\u0627\u062A \u0634\u0647\u0631\u064A\u0627']), maxBookings: 5, maxCourses: 3, isActive: true, isPopular: false },
-    { name: 'Student Premium', nameAr: '\u0627\u0644\u062E\u0637\u0629 \u0627\u0644\u0645\u0645\u064A\u0632\u0629 \u0644\u0644\u0637\u0627\u0644\u0628', description: 'Premium for students', descriptionAr: '\u0627\u0634\u062A\u0631\u0627\u0643 \u0645\u0645\u064A\u0632', price: 39.99, duration: 30, features: JSON.stringify(['20 bookings per month']), featuresAr: JSON.stringify(['20 \u062D\u062C\u0632 \u0634\u0647\u0631\u064A\u0627']), maxBookings: 20, maxCourses: 10, isActive: true, isPopular: true },
+    {
+      name: 'Quran Live Lite',
+      nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0627\u064A\u062A',
+      description: '4 live sessions per month with Quran sheikhs.',
+      descriptionAr: '\u0623\u0631\u0628\u0639 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0634\u064A\u0648\u062E \u0627\u0644\u0642\u0631\u0622\u0646.',
+      price: 19.99,
+      duration: 30,
+      durationMonths: 1,
+      monthlyPrice: 19.99,
+      yearlyPrice: 199.99,
+      maxTeachers: 1,
+      features: JSON.stringify(['4 live sessions monthly', 'Session recording access']),
+      featuresAr: JSON.stringify(['4 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u0625\u0645\u0643\u0627\u0646\u064A\u0629 \u0631\u062C\u0648\u0639 \u0644\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062D\u0644\u0642\u0629']),
+      maxBookings: 4,
+      maxCourses: 2,
+      isActive: true,
+      isPopular: false,
+    },
+    {
+      name: 'Quran Live Plus',
+      nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0644\u0633',
+      description: '12 live sessions per month with priority booking slots.',
+      descriptionAr: '\u0627\u062B\u0646\u062A\u0627 \u0639\u0634\u0631\u0629 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0623\u0648\u0644\u0648\u064A\u0629 \u0627\u0644\u062D\u062C\u0632.',
+      price: 49.99,
+      duration: 30,
+      durationMonths: 1,
+      monthlyPrice: 49.99,
+      yearlyPrice: 499.99,
+      maxTeachers: 2,
+      features: JSON.stringify(['12 live sessions monthly', 'Priority support', 'Flexible rescheduling']),
+      featuresAr: JSON.stringify(['12 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u062F\u0639\u0645 \u0633\u0631\u064A\u0639', '\u0645\u0631\u0648\u0646\u0629 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062C\u062F\u0648\u0644\u0629']),
+      maxBookings: 12,
+      maxCourses: 5,
+      isActive: true,
+      isPopular: true,
+    },
+    {
+      name: 'Quran Live Family',
+      nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0627\u0644\u0639\u0627\u0626\u0644\u064A\u0629',
+      description: '24 live sessions monthly for family plans and multiple learners.',
+      descriptionAr: '\u0623\u0631\u0628\u0639 \u0648\u0639\u0634\u0631\u0648\u0646 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0644\u062E\u0637\u0637 \u0627\u0644\u0639\u0627\u0626\u0644\u0629 \u0648\u062A\u0639\u062F\u062F \u0627\u0644\u0645\u062A\u0639\u0644\u0645\u064A\u0646.',
+      price: 89.99,
+      duration: 30,
+      durationMonths: 1,
+      monthlyPrice: 89.99,
+      yearlyPrice: 899.99,
+      maxTeachers: 3,
+      features: JSON.stringify(['24 live sessions monthly', 'Family dashboard', 'Progress reports']),
+      featuresAr: JSON.stringify(['24 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 \u0639\u0627\u0626\u0644\u064A\u0629', '\u062A\u0642\u0627\u0631\u064A\u0631 \u062A\u0642\u062F\u0645']),
+      maxBookings: 24,
+      maxCourses: 8,
+      isActive: true,
+      isPopular: false,
+    },
   ];
   const createdStudentPackages = [];
   for (const pkg of studentPackagesData) {
@@ -411,6 +516,7 @@ async function main() {
   for (let i = 0; i < Math.min(3, createdStudents.length); i++) {
     const student = createdStudents[i];
     const pkg = createdStudentPackages[i % createdStudentPackages.length];
+    const sheikh = fullTeachers[i % fullTeachers.length];
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(startDate.getDate() + pkg.duration);
@@ -418,6 +524,7 @@ async function main() {
       await prisma.studentSubscription.create({
         data: {
           studentId: student.id,
+          teacherId: sheikh.teacher.id,
           packageId: pkg.id,
           status: 'ACTIVE',
           startDate,
@@ -429,9 +536,11 @@ async function main() {
   }
   console.log('Student subscriptions created');
 
+  const courseOnlyTeachers = createdTeachers.filter((t) => t.teacher.teacherType === 'COURSE_SHEIKH');
   const createdCourses = [];
   for (let i = 0; i < 5; i++) {
-    const teacher = createdTeachers[i % createdTeachers.length];
+    const teacherPool = courseOnlyTeachers.length > 0 ? courseOnlyTeachers : createdTeachers;
+    const teacher = teacherPool[i % teacherPool.length];
     const course = await prisma.course.create({
       data: {
         title: `Quran Course ${i + 1}`,

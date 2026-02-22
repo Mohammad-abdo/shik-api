@@ -651,6 +651,19 @@ router.post('/fawry/webhook', async (req, res, next) => {
       },
     });
 
+    // If this payment is for a student subscription, activate it after successful payment
+    if (newStatus === 'COMPLETED' && payment.subscriptionId) {
+      await prisma.studentSubscription.updateMany({
+        where: { id: payment.subscriptionId, status: 'PENDING' },
+        data: { status: 'ACTIVE', paymentId: payment.id },
+      });
+
+      await prisma.booking.updateMany({
+        where: { subscriptionId: payment.subscriptionId, status: 'PENDING' },
+        data: { status: 'CONFIRMED' },
+      });
+    }
+
     res.status(200).send();
   } catch (e) {
     next(e);

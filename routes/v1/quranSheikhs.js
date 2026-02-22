@@ -78,6 +78,116 @@ router.get('/bookable', async (req, res, next) => {
 
 /**
  * @openapi
+ * /api/v1/quran-sheikhs/me/schedules:
+ *   post:
+ *     tags: [quran-sheikhs]
+ *     summary: Add available schedule slots for the current sheikh
+ *     description: |
+ *       Creates one or multiple available time slots for the authenticated sheikh.
+ *       Students can then book sessions within these slots.
+ *       You can send either a single slot object or a `slots` array.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: object
+ *                 required: [dayOfWeek, startTime, endTime]
+ *                 properties:
+ *                   dayOfWeek:
+ *                     type: integer
+ *                     minimum: 0
+ *                     maximum: 6
+ *                     example: 1
+ *                   startTime:
+ *                     type: string
+ *                     example: "10:00"
+ *                   endTime:
+ *                     type: string
+ *                     example: "12:00"
+ *               - type: object
+ *                 required: [slots]
+ *                 properties:
+ *                   slots:
+ *                     type: array
+ *                     items:
+ *                       type: object
+ *                       required: [dayOfWeek, startTime, endTime]
+ *                       properties:
+ *                         dayOfWeek:
+ *                           type: integer
+ *                           minimum: 0
+ *                           maximum: 6
+ *                           example: 1
+ *                         startTime:
+ *                           type: string
+ *                           example: "10:00"
+ *                         endTime:
+ *                           type: string
+ *                           example: "12:00"
+ *           examples:
+ *             singleSlot:
+ *               summary: Add one slot
+ *               value:
+ *                 dayOfWeek: 1
+ *                 startTime: "10:00"
+ *                 endTime: "12:00"
+ *             multipleSlots:
+ *               summary: Add multiple slots at once
+ *               value:
+ *                 slots:
+ *                   - dayOfWeek: 0
+ *                     startTime: "09:00"
+ *                     endTime: "11:00"
+ *                   - dayOfWeek: 2
+ *                     startTime: "18:00"
+ *                     endTime: "20:00"
+ *     responses:
+ *       201:
+ *         description: Schedule slots created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ *       404:
+ *         description: Sheikh profile not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ *       409:
+ *         description: Overlapping slots
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
+router.post('/me/schedules', jwtAuth, async (req, res, next) => {
+  try {
+    const result = await quranSheikhsService.createMySchedules(req.user.id, req.body);
+    res.status(201).json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
  * /api/v1/quran-sheikhs/{id}:
  *   get:
  *     tags: [quran-sheikhs]

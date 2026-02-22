@@ -303,7 +303,9 @@ router.post('/me/schedules', jwtAuth, async (req, res, next) => {
  *                     isAvailable: true
  *                     bookedCount: 1
  *                     availableWindows:
- *                       - startTime: "19:00"
+ *                       - scheduleId: "schedule_tue_1900_2100"
+ *                         slotId: "schedule_tue_1900_2100:2026-02-24:19:00"
+ *                         startTime: "19:00"
  *                         endTime: "20:00"
  *       400:
  *         description: Invalid range or sheikh type

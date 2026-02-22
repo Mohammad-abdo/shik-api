@@ -24,6 +24,7 @@ function parseFeatures(pkg) {
 }
 
 function parseDayOfWeek(value) {
+  if (Number.isInteger(value) && value >= 0 && value <= 6) return value;
   if (typeof value !== 'string') return null;
   const upper = String(value || '').trim().toUpperCase();
   if (Object.prototype.hasOwnProperty.call(DAY_ALIASES, upper)) return DAY_ALIASES[upper];
@@ -47,21 +48,36 @@ function toMinutes(time) {
   return h * 60 + m;
 }
 
+function minutesToTime(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function normalizeSelectedSlots(selectedSlots) {
+function normalizeSelectedSlotsInput(selectedSlots) {
   if (!Array.isArray(selectedSlots)) return [];
   const seen = new Set();
   const normalized = [];
   for (let index = 0; index < selectedSlots.length; index += 1) {
     const slot = selectedSlots[index];
+    const scheduleId = String(slot?.scheduleId || slot?.slotId || '').trim();
+    if (scheduleId) {
+      const scheduleKey = `schedule:${scheduleId}`;
+      if (seen.has(scheduleKey)) continue;
+      seen.add(scheduleKey);
+      normalized.push({ scheduleId });
+      continue;
+    }
+
     const dayOfWeek = parseDayOfWeek(slot?.dayOfWeek);
     const startTime = normalizeTime(slot?.startTime);
     if (dayOfWeek == null) {
       throw Object.assign(
-        new Error(`selectedSlots[${index}].dayOfWeek must be an English day name (e.g. SUNDAY, MONDAY)`),
+        new Error(`selectedSlots[${index}] must include scheduleId or dayOfWeek as an English day name (e.g. SUNDAY, MONDAY)`),
         { statusCode: 400 }
       );
     }
@@ -81,6 +97,64 @@ function normalizeSelectedSlots(selectedSlots) {
     });
   }
   return normalized.sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
+}
+
+function resolveSelectedSlotsWithTeacher(rawSelectedSlots, teacherSchedules) {
+  if (!Array.isArray(rawSelectedSlots) || rawSelectedSlots.length === 0) return [];
+
+  const schedulesById = new Map((teacherSchedules || []).map((s) => [s.id, s]));
+  const resolved = [];
+
+  for (const slot of rawSelectedSlots) {
+    if (slot.scheduleId) {
+      const schedule = schedulesById.get(slot.scheduleId);
+      if (!schedule) {
+        throw Object.assign(new Error(`Selected schedule ${slot.scheduleId} is not available for this sheikh`), { statusCode: 400 });
+      }
+      const scheduleStart = toMinutes(schedule.startTime);
+      const scheduleEnd = toMinutes(schedule.endTime);
+      if ((scheduleEnd - scheduleStart) < SESSION_DURATION_MINUTES) {
+        throw Object.assign(new Error(`Schedule ${slot.scheduleId} duration is shorter than ${SESSION_DURATION_MINUTES} minutes`), { statusCode: 400 });
+      }
+      resolved.push({
+        scheduleId: schedule.id,
+        dayOfWeek: schedule.dayOfWeek,
+        dayName: DAY_NAMES[schedule.dayOfWeek],
+        startTime: normalizeTime(schedule.startTime),
+      });
+      continue;
+    }
+
+    const slotStart = toMinutes(slot.startTime);
+    const slotEnd = slotStart + SESSION_DURATION_MINUTES;
+    const compatibleSchedule = (teacherSchedules || []).find((s) => {
+      if (s.dayOfWeek !== slot.dayOfWeek) return false;
+      const scheduleStart = toMinutes(s.startTime);
+      const scheduleEnd = toMinutes(s.endTime);
+      return slotStart >= scheduleStart && slotEnd <= scheduleEnd;
+    });
+
+    if (!compatibleSchedule) {
+      throw Object.assign(
+        new Error(`Selected slot ${slot.dayName} ${slot.startTime} is not within teacher availability`),
+        { statusCode: 400 }
+      );
+    }
+
+    resolved.push({
+      scheduleId: compatibleSchedule.id,
+      dayOfWeek: slot.dayOfWeek,
+      dayName: DAY_NAMES[slot.dayOfWeek],
+      startTime: slot.startTime,
+    });
+  }
+
+  const dedupe = new Map();
+  for (const slot of resolved) {
+    const key = `${slot.scheduleId}:${slot.startTime}`;
+    if (!dedupe.has(key)) dedupe.set(key, slot);
+  }
+  return Array.from(dedupe.values()).sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
 }
 
 async function createPackage(dto, adminId) {
@@ -163,7 +237,7 @@ async function subscribe(studentId, dto) {
 
   const startDate = new Date();
   const endDate = new Date();
-  const normalizedSlots = normalizeSelectedSlots(dto.selectedSlots);
+  const rawSelectedSlots = normalizeSelectedSlotsInput(dto.selectedSlots);
 
   let teacher = null;
   if (dto.teacherId) {
@@ -178,28 +252,11 @@ async function subscribe(studentId, dto) {
     }
   }
 
-  if (normalizedSlots.length > 0 && !dto.teacherId) {
+  if (rawSelectedSlots.length > 0 && !dto.teacherId) {
     throw Object.assign(new Error('teacherId is required when selectedSlots are provided'), { statusCode: 400 });
   }
 
-  if (normalizedSlots.length > 0) {
-    for (const slot of normalizedSlots) {
-      const slotStart = toMinutes(slot.startTime);
-      const slotEnd = slotStart + SESSION_DURATION_MINUTES;
-      const compatibleSchedule = (teacher?.schedules || []).find((s) => {
-        if (s.dayOfWeek !== slot.dayOfWeek) return false;
-        const scheduleStart = toMinutes(s.startTime);
-        const scheduleEnd = toMinutes(s.endTime);
-        return slotStart >= scheduleStart && slotEnd <= scheduleEnd;
-      });
-      if (!compatibleSchedule) {
-        throw Object.assign(
-          new Error(`Selected slot ${slot.dayName} ${slot.startTime} is not within teacher availability`),
-          { statusCode: 400 }
-        );
-      }
-    }
-  }
+  const normalizedSlots = resolveSelectedSlotsWithTeacher(rawSelectedSlots, teacher?.schedules || []);
 
   if (pkg.durationMonths) {
     endDate.setMonth(endDate.getMonth() + pkg.durationMonths);
@@ -250,8 +307,10 @@ async function subscribe(studentId, dto) {
         }
 
         generatedSlots.push({
+          scheduleId: slot.scheduleId || null,
           date: slotDate,
           startTime: slot.startTime,
+          endTime: minutesToTime(slotEnd),
           dayOfWeek,
           dayName: DAY_NAMES[dayOfWeek],
         });
@@ -272,38 +331,59 @@ async function subscribe(studentId, dto) {
     }
   }
 
-  // Create Subscription as PENDING
-  const subscription = await prisma.studentSubscription.create({
-    data: {
-      studentId,
-      packageId: dto.packageId,
-      teacherId: dto.teacherId,
-      startDate,
-      endDate,
-      status: amount > 0 ? 'PENDING' : 'ACTIVE', // If free, activate immediately
-      selectedSlots: normalizedSlots.length > 0 ? JSON.stringify(normalizedSlots) : null
-    },
-    include: { package: true, student: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } },
-  });
-
-  // Reserve selected slots for the whole package duration.
-  // Paid subscriptions reserve as PENDING until webhook confirms payment.
   const bookingStatus = amount > 0 ? 'PENDING' : 'CONFIRMED';
-  if (generatedSlots.length > 0) {
-    const bookingData = generatedSlots.map(slot => ({
-      studentId,
-      teacherId: dto.teacherId,
-      date: slot.date,
-      startTime: slot.startTime,
-      duration: SESSION_DURATION_MINUTES,
-      status: bookingStatus,
-      price: 0,
-      totalPrice: 0,
-      type: 'SUBSCRIPTION',
-      subscriptionId: subscription.id
-    }));
+  let subscription = null;
+  try {
+    subscription = await prisma.$transaction(async (tx) => {
+      const createdSubscription = await tx.studentSubscription.create({
+        data: {
+          studentId,
+          packageId: dto.packageId,
+          teacherId: dto.teacherId,
+          startDate,
+          endDate,
+          status: amount > 0 ? 'PENDING' : 'ACTIVE',
+          selectedSlots: normalizedSlots.length > 0 ? JSON.stringify(normalizedSlots) : null,
+        },
+        include: { package: true, student: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } },
+      });
 
-    await prisma.booking.createMany({ data: bookingData });
+      if (generatedSlots.length > 0) {
+        const reservationData = generatedSlots.map((slot) => ({
+          scheduleId: slot.scheduleId,
+          studentId,
+          subscriptionId: createdSubscription.id,
+          reservationDate: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        }));
+
+        await tx.scheduleReservation.createMany({ data: reservationData });
+
+        const bookingData = generatedSlots.map((slot) => ({
+          studentId,
+          teacherId: dto.teacherId,
+          scheduleId: slot.scheduleId || null,
+          date: slot.date,
+          startTime: slot.startTime,
+          duration: SESSION_DURATION_MINUTES,
+          status: bookingStatus,
+          price: 0,
+          totalPrice: 0,
+          type: 'SUBSCRIPTION',
+          subscriptionId: createdSubscription.id,
+        }));
+
+        await tx.booking.createMany({ data: bookingData });
+      }
+
+      return createdSubscription;
+    });
+  } catch (error) {
+    if (error?.code === 'P2002') {
+      throw Object.assign(new Error('One or more selected schedule slots are already reserved'), { statusCode: 409 });
+    }
+    throw error;
   }
 
   const reservation = {
@@ -409,9 +489,27 @@ async function cancel(subscriptionId, studentId) {
   const sub = await prisma.studentSubscription.findUnique({ where: { id: subscriptionId } });
   if (!sub) throw Object.assign(new Error('Subscription not found'), { statusCode: 404 });
   if (sub.studentId !== studentId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
-  return prisma.studentSubscription.update({
-    where: { id: subscriptionId },
-    data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledBy: studentId },
+  const now = new Date();
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.studentSubscription.update({
+      where: { id: subscriptionId },
+      data: { status: 'CANCELLED', cancelledAt: now, cancelledBy: studentId },
+    });
+
+    await tx.scheduleReservation.deleteMany({
+      where: { subscriptionId, reservationDate: { gte: now } },
+    });
+
+    await tx.booking.updateMany({
+      where: {
+        subscriptionId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        date: { gte: now },
+      },
+      data: { status: 'CANCELLED', cancelledAt: now, cancelledBy: studentId },
+    });
+
+    return updated;
   });
 }
 

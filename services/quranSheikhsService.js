@@ -366,6 +366,16 @@ async function getSheikhAvailability(teacherId, startDate, endDate) {
   const base = await teacherService.getAvailability(teacherId, rangeStart, rangeEnd);
   const startAt = new Date(base.range.startDate);
   const endAt = new Date(base.range.endDate);
+  const reservations = await prisma.scheduleReservation.findMany({
+    where: {
+      schedule: { teacherId },
+      reservationDate: { gte: startAt, lte: endAt },
+    },
+    include: {
+      schedule: { select: { id: true, dayOfWeek: true } },
+    },
+    orderBy: [{ reservationDate: 'asc' }, { startTime: 'asc' }],
+  });
 
   const days = [];
   const cursor = new Date(startAt);
@@ -378,14 +388,24 @@ async function getSheikhAvailability(teacherId, startDate, endDate) {
     const daySchedules = base.schedules.filter((s) => s.dayOfWeek === dayOfWeek);
     const dayBookings = base.bookings.filter((b) => sameUtcDate(new Date(b.date), dayStart));
 
-    const busyIntervals = dayBookings
+    const dayReservations = reservations.filter((r) => sameUtcDate(new Date(r.reservationDate), dayStart));
+
+    const bookingIntervals = dayBookings
       .map((b) => {
         const start = timeToMinutes(b.startTime);
         const end = start + Number(b.duration || 30);
         return { start, end };
       })
-      .filter((b) => Number.isFinite(b.start) && Number.isFinite(b.end))
-      .sort((a, b) => a.start - b.start);
+      .filter((b) => Number.isFinite(b.start) && Number.isFinite(b.end));
+
+    const reservationIntervals = dayReservations
+      .map((r) => ({
+        start: timeToMinutes(r.startTime),
+        end: timeToMinutes(r.endTime),
+      }))
+      .filter((r) => Number.isFinite(r.start) && Number.isFinite(r.end));
+
+    const busyIntervals = [...bookingIntervals, ...reservationIntervals].sort((a, b) => a.start - b.start);
 
     const availableWindows = [];
     for (const schedule of daySchedules) {
@@ -395,9 +415,13 @@ async function getSheikhAvailability(teacherId, startDate, endDate) {
 
       const free = subtractBusyIntervals({ start: scheduleStart, end: scheduleEnd }, busyIntervals);
       for (const interval of free) {
+        const windowStart = minutesToTime(interval.start);
+        const windowEnd = minutesToTime(interval.end);
         availableWindows.push({
-          startTime: minutesToTime(interval.start),
-          endTime: minutesToTime(interval.end),
+          scheduleId: schedule.id,
+          slotId: `${schedule.id}:${dayStart.toISOString().split('T')[0]}:${windowStart}`,
+          startTime: windowStart,
+          endTime: windowEnd,
         });
       }
     }
@@ -408,7 +432,7 @@ async function getSheikhAvailability(teacherId, startDate, endDate) {
       dayName,
       isAvailable: availableWindows.length > 0,
       availableWindows,
-      bookedCount: dayBookings.length,
+      bookedCount: Math.max(dayBookings.length, dayReservations.length),
     });
 
     cursor.setUTCDate(cursor.getUTCDate() + 1);

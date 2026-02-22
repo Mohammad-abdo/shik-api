@@ -516,6 +516,47 @@ async function main() {
   }
   console.log('Student subscriptions created');
 
+  // Create sample schedule reservations for active student subscriptions
+  const activeStudentSubscriptions = await prisma.studentSubscription.findMany({
+    where: { status: 'ACTIVE' },
+    include: {
+      teacher: {
+        include: {
+          schedules: { where: { isActive: true }, orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }] },
+        },
+      },
+    },
+    take: 10,
+  });
+
+  const reservationSeedData = [];
+  for (const sub of activeStudentSubscriptions) {
+    const primarySchedule = sub.teacher?.schedules?.[0];
+    if (!primarySchedule) continue;
+
+    const cursor = new Date(sub.startDate);
+    let createdForSub = 0;
+    while (cursor <= sub.endDate && createdForSub < 4) {
+      if (cursor.getDay() === primarySchedule.dayOfWeek) {
+        reservationSeedData.push({
+          scheduleId: primarySchedule.id,
+          studentId: sub.studentId,
+          subscriptionId: sub.id,
+          reservationDate: new Date(cursor),
+          startTime: primarySchedule.startTime,
+          endTime: primarySchedule.endTime,
+        });
+        createdForSub += 1;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  if (reservationSeedData.length > 0) {
+    await prisma.scheduleReservation.createMany({ data: reservationSeedData, skipDuplicates: true });
+  }
+  console.log('Schedule reservations created');
+
   const courseOnlyTeachers = createdTeachers.filter((t) => t.teacher.teacherType === 'COURSE_SHEIKH');
   const createdCourses = [];
   for (let i = 0; i < 5; i++) {

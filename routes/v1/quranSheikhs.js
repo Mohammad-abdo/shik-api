@@ -79,6 +79,71 @@ router.get('/bookable', async (req, res, next) => {
 /**
  * @openapi
  * /api/v1/quran-sheikhs/me/schedules:
+ *   get:
+ *     tags: [quran-sheikhs]
+ *     summary: Get available schedule slots for the current sheikh
+ *     description: Returns all active schedule slots of the authenticated Quran sheikh (FULL_TEACHER).
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sheikh schedules retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *             example:
+ *               success: true
+ *               message: Request completed successfully
+ *               data:
+ *                 teacherId: "teacher_quran_ahmed_hassan"
+ *                 total: 2
+ *                 schedules:
+ *                   - id: "schedule_001"
+ *                     teacherId: "teacher_quran_ahmed_hassan"
+ *                     dayOfWeek: 2
+ *                     dayName: "TUESDAY"
+ *                     startTime: "19:00"
+ *                     endTime: "21:00"
+ *                     isActive: true
+ *                   - id: "schedule_002"
+ *                     teacherId: "teacher_quran_ahmed_hassan"
+ *                     dayOfWeek: 6
+ *                     dayName: "SATURDAY"
+ *                     startTime: "03:30"
+ *                     endTime: "05:30"
+ *                     isActive: true
+ *       400:
+ *         description: Invalid role/type for schedule access
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ *       404:
+ *         description: Sheikh profile not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
+router.get('/me/schedules', jwtAuth, async (req, res, next) => {
+  try {
+    const result = await quranSheikhsService.getMySchedules(req.user.id);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v1/quran-sheikhs/me/schedules:
  *   post:
  *     tags: [quran-sheikhs]
  *     summary: Add available schedule slots for the current sheikh
@@ -181,6 +246,83 @@ router.post('/me/schedules', jwtAuth, async (req, res, next) => {
   try {
     const result = await quranSheikhsService.createMySchedules(req.user.id, req.body);
     res.status(201).json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v1/quran-sheikhs/{id}/availability:
+ *   get:
+ *     tags: [quran-sheikhs]
+ *     summary: Get available booking windows for a Quran sheikh
+ *     description: |
+ *       Returns the available windows per day for the selected Quran sheikh (FULL_TEACHER),
+ *       after excluding booked slots in the requested date range.
+ *       If `startDate` and `endDate` are not sent, the API defaults to the next 14 days.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2026-02-22"
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2026-03-07"
+ *     responses:
+ *       200:
+ *         description: Availability retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *             example:
+ *               success: true
+ *               message: Request completed successfully
+ *               data:
+ *                 teacherId: "teacher_quran_ahmed_hassan"
+ *                 range:
+ *                   startDate: "2026-02-22"
+ *                   endDate: "2026-03-07"
+ *                 days:
+ *                   - date: "2026-02-24"
+ *                     dayOfWeek: 2
+ *                     dayName: "Tuesday"
+ *                     isAvailable: true
+ *                     bookedCount: 1
+ *                     availableWindows:
+ *                       - startTime: "19:00"
+ *                         endTime: "20:00"
+ *       400:
+ *         description: Invalid range or sheikh type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ *       404:
+ *         description: Sheikh not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
+router.get('/:id/availability', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const data = await quranSheikhsService.getSheikhAvailability(req.params.id, startDate, endDate);
+    res.json({ status: true, message: 'Sheikh availability retrieved successfully', data });
   } catch (e) {
     next(e);
   }

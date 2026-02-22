@@ -267,6 +267,35 @@ async function createMySchedules(userId, dto) {
   };
 }
 
+async function getMySchedules(userId) {
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId },
+    select: { id: true, teacherType: true },
+  });
+  if (!teacher) throw Object.assign(new Error('Teacher profile not found'), { statusCode: 404 });
+  if (teacher.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('Schedules are only available for Quran sheikhs (FULL_TEACHER)'), { statusCode: 400 });
+  }
+
+  const schedules = await prisma.schedule.findMany({
+    where: { teacherId: teacher.id, isActive: true },
+    orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+  });
+
+  const normalized = schedules.map((s) => ({
+    ...s,
+    dayName: DAY_NAMES_EN[s.dayOfWeek],
+    startTime: normalizeTime(s.startTime),
+    endTime: normalizeTime(s.endTime),
+  }));
+
+  return {
+    teacherId: teacher.id,
+    total: normalized.length,
+    schedules: normalized,
+  };
+}
+
 async function updateSchedule(scheduleId, teacherId, userId, dto) {
   const schedule = await prisma.schedule.findUnique({
     where: { id: scheduleId },
@@ -373,6 +402,7 @@ module.exports = {
   rejectTeacher,
   createSchedule,
   createMySchedules,
+  getMySchedules,
   updateSchedule,
   deleteSchedule,
   getAvailability,

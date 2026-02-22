@@ -9,6 +9,51 @@ function getDayName(dayOfWeek, lang) {
   return names[dayOfWeek] || names[0];
 }
 
+function normalizeTime(value) {
+  return String(value || '').slice(0, 5);
+}
+
+function timeToMinutes(value) {
+  const time = normalizeTime(value);
+  const [h, m] = time.split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return (h * 60) + m;
+}
+
+function minutesToTime(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function sameUtcDate(a, b) {
+  return a.getUTCFullYear() === b.getUTCFullYear()
+    && a.getUTCMonth() === b.getUTCMonth()
+    && a.getUTCDate() === b.getUTCDate();
+}
+
+function subtractBusyIntervals(scheduleInterval, busyIntervals) {
+  let free = [scheduleInterval];
+  for (const busy of busyIntervals) {
+    const nextFree = [];
+    for (const current of free) {
+      if (busy.start >= current.end || busy.end <= current.start) {
+        nextFree.push(current);
+        continue;
+      }
+      if (busy.start > current.start) {
+        nextFree.push({ start: current.start, end: busy.start });
+      }
+      if (busy.end < current.end) {
+        nextFree.push({ start: busy.end, end: current.end });
+      }
+    }
+    free = nextFree;
+    if (free.length === 0) break;
+  }
+  return free.filter((i) => i.end > i.start);
+}
+
 function teacherToSheikhListItem(teacher, lang) {
   const name = lang === 'ar'
     ? [teacher.user?.firstNameAr, teacher.user?.lastNameAr].filter(Boolean).join(' ').trim() ||
@@ -293,6 +338,89 @@ async function createMySchedules(userId, dto) {
   return teacherService.createMySchedules(userId, dto);
 }
 
+async function getMySchedules(userId) {
+  return teacherService.getMySchedules(userId);
+}
+
+async function getSheikhAvailability(teacherId, startDate, endDate) {
+  const sheikh = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: { id: true, isApproved: true, teacherType: true },
+  });
+
+  if (!sheikh) throw Object.assign(new Error('Sheikh not found'), { statusCode: 404 });
+  if (!sheikh.isApproved) throw Object.assign(new Error('Sheikh is not approved'), { statusCode: 400 });
+  if (sheikh.teacherType !== 'FULL_TEACHER') {
+    throw Object.assign(new Error('Availability endpoint is only available for Quran live-session sheikhs'), { statusCode: 400 });
+  }
+
+  const now = new Date();
+  const defaultStart = now.toISOString().split('T')[0];
+  const defaultEndDate = new Date(now);
+  defaultEndDate.setUTCDate(defaultEndDate.getUTCDate() + 14);
+  const defaultEnd = defaultEndDate.toISOString().split('T')[0];
+
+  const rangeStart = startDate || defaultStart;
+  const rangeEnd = endDate || defaultEnd;
+
+  const base = await teacherService.getAvailability(teacherId, rangeStart, rangeEnd);
+  const startAt = new Date(base.range.startDate);
+  const endAt = new Date(base.range.endDate);
+
+  const days = [];
+  const cursor = new Date(startAt);
+
+  while (cursor <= endAt) {
+    const dayStart = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate(), 0, 0, 0, 0));
+    const dayOfWeek = dayStart.getUTCDay();
+    const dayName = DAY_NAMES_EN[dayOfWeek];
+
+    const daySchedules = base.schedules.filter((s) => s.dayOfWeek === dayOfWeek);
+    const dayBookings = base.bookings.filter((b) => sameUtcDate(new Date(b.date), dayStart));
+
+    const busyIntervals = dayBookings
+      .map((b) => {
+        const start = timeToMinutes(b.startTime);
+        const end = start + Number(b.duration || 30);
+        return { start, end };
+      })
+      .filter((b) => Number.isFinite(b.start) && Number.isFinite(b.end))
+      .sort((a, b) => a.start - b.start);
+
+    const availableWindows = [];
+    for (const schedule of daySchedules) {
+      const scheduleStart = timeToMinutes(schedule.startTime);
+      const scheduleEnd = timeToMinutes(schedule.endTime);
+      if (!Number.isFinite(scheduleStart) || !Number.isFinite(scheduleEnd) || scheduleEnd <= scheduleStart) continue;
+
+      const free = subtractBusyIntervals({ start: scheduleStart, end: scheduleEnd }, busyIntervals);
+      for (const interval of free) {
+        availableWindows.push({
+          startTime: minutesToTime(interval.start),
+          endTime: minutesToTime(interval.end),
+        });
+      }
+    }
+
+    days.push({
+      date: dayStart.toISOString().split('T')[0],
+      dayOfWeek,
+      dayName,
+      isAvailable: availableWindows.length > 0,
+      availableWindows,
+      bookedCount: dayBookings.length,
+    });
+
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return {
+    teacherId,
+    range: { startDate: rangeStart, endDate: rangeEnd },
+    days,
+  };
+}
+
 module.exports = {
   getSheikhs,
   getBookableSheikhsNotInCourses,
@@ -300,6 +428,8 @@ module.exports = {
   getSheikhReviews,
   addSheikhReview,
   createMySchedules,
+  getMySchedules,
+  getSheikhAvailability,
   getDayName,
   buildPackagesFromSchedules,
 };

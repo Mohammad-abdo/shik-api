@@ -8,7 +8,7 @@ const permissions = require('../middleware/permissions');
  * @openapi
  * /api/student-subscriptions/packages:
  *   post:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: POST /api/student-subscriptions/packages
  *     security:
  *       - bearerAuth: []
@@ -46,7 +46,7 @@ router.post('/packages', jwtAuth, permissions(['subscriptions.write']), async (r
  * @openapi
  * /api/student-subscriptions/packages:
  *   get:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: GET /api/student-subscriptions/packages
  *     responses:
  *       200:
@@ -76,7 +76,7 @@ router.get('/packages', async (req, res, next) => {
  * @openapi
  * /api/student-subscriptions/packages/{id}:
  *   get:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: GET /api/student-subscriptions/packages/{id}
  *     parameters:
  *       - in: path
@@ -111,7 +111,7 @@ router.get('/packages/:id', async (req, res, next) => {
  * @openapi
  * /api/student-subscriptions/packages/{id}:
  *   put:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: PUT /api/student-subscriptions/packages/{id}
  *     security:
  *       - bearerAuth: []
@@ -155,7 +155,7 @@ router.put('/packages/:id', jwtAuth, permissions(['subscriptions.write']), async
  * @openapi
  * /api/student-subscriptions/packages/{id}:
  *   delete:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: DELETE /api/student-subscriptions/packages/{id}
  *     security:
  *       - bearerAuth: []
@@ -192,7 +192,7 @@ router.delete('/packages/:id', jwtAuth, permissions(['subscriptions.write']), as
  * @openapi
  * /api/student-subscriptions/subscribe:
  *   post:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: POST /api/student-subscriptions/subscribe
  *     security:
  *       - bearerAuth: []
@@ -230,7 +230,7 @@ router.post('/subscribe', jwtAuth, async (req, res, next) => {
  * @openapi
  * /api/student-subscriptions/my-subscriptions:
  *   get:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: GET /api/student-subscriptions/my-subscriptions
  *     security:
  *       - bearerAuth: []
@@ -261,7 +261,7 @@ router.get('/my-subscriptions', jwtAuth, async (req, res, next) => {
  * @openapi
  * /api/student-subscriptions/my-active:
  *   get:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: GET /api/student-subscriptions/my-active
  *     security:
  *       - bearerAuth: []
@@ -292,7 +292,7 @@ router.get('/my-active', jwtAuth, async (req, res, next) => {
  * @openapi
  * /api/student-subscriptions/cancel/{id}:
  *   post:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: POST /api/student-subscriptions/cancel/{id}
  *     security:
  *       - bearerAuth: []
@@ -336,7 +336,7 @@ router.post('/cancel/:id', jwtAuth, async (req, res, next) => {
  * @openapi
  * /api/student-subscriptions/admin/all:
  *   get:
- *     tags: [subscriptions]
+ *     tags: [student-subscriptions]
  *     summary: GET /api/student-subscriptions/admin/all
  *     security:
  *       - bearerAuth: []

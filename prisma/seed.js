@@ -417,38 +417,7 @@ async function main() {
   } catch (e) { }
   console.log('Admin role assigned');
 
-  const teacherPackagesData = [
-    { name: 'Basic Plan', nameAr: '\u0627\u0644\u062E\u0637\u0629 \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629', description: 'Basic subscription', descriptionAr: '\u0627\u0634\u062A\u0631\u0627\u0643 \u0623\u0633\u0627\u0633\u064A', price: 29.99, duration: 30, features: JSON.stringify(['Up to 10 students']), featuresAr: JSON.stringify(['\u062D\u062A\u0649 10 \u0637\u0644\u0627\u0628']), maxStudents: 10, maxCourses: 5, isActive: true, isPopular: false },
-    { name: 'Professional Plan', nameAr: '\u0627\u0644\u062E\u0637\u0629 \u0627\u0644\u0627\u062D\u062A\u0631\u0627\u0641\u064A\u0629', description: 'Professional subscription', descriptionAr: '\u0627\u0634\u062A\u0631\u0627\u0643 \u0627\u062D\u062A\u0631\u0627\u0641\u064A', price: 59.99, duration: 30, features: JSON.stringify(['Up to 50 students']), featuresAr: JSON.stringify(['\u062D\u062A\u0649 50 \u0637\u0627\u0644\u0628\u0627']), maxStudents: 50, maxCourses: 20, isActive: true, isPopular: true },
-    { name: 'Enterprise Plan', nameAr: '\u0627\u0644\u062E\u0637\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629', description: 'Enterprise subscription', descriptionAr: '\u0627\u0634\u062A\u0631\u0627\u0643 \u0645\u0624\u0633\u0633\u064A', price: 99.99, duration: 30, features: JSON.stringify(['Unlimited students']), featuresAr: JSON.stringify(['\u0637\u0644\u0627\u0628 \u063A\u064A\u0631 \u0645\u062D\u062F\u0648\u062F']), maxStudents: null, maxCourses: null, isActive: true, isPopular: false },
-  ];
-  const createdTeacherPackages = [];
-  for (const pkg of teacherPackagesData) {
-    const existing = await prisma.subscriptionPackage.findFirst({ where: { name: pkg.name } });
-    createdTeacherPackages.push(existing || await prisma.subscriptionPackage.create({ data: pkg }));
-  }
-  console.log('Teacher subscription packages created');
-
-  for (let i = 0; i < Math.min(3, createdTeachers.length); i++) {
-    const teacher = createdTeachers[i];
-    const pkg = createdTeacherPackages[i % createdTeacherPackages.length];
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + pkg.duration);
-    try {
-      await prisma.teacherSubscription.create({
-        data: {
-          teacherId: teacher.teacher.id,
-          packageId: pkg.id,
-          status: 'ACTIVE',
-          startDate,
-          endDate,
-          autoRenew: true,
-        },
-      });
-    } catch (e) { }
-  }
-  console.log('Teacher subscriptions created');
+  console.log('Teacher course subscriptions seed skipped (subscriptions are student live-session only)');
 
   const studentPackagesData = [
     {
@@ -459,6 +428,7 @@ async function main() {
       price: 19.99,
       duration: 30,
       durationMonths: 1,
+      totalSessions: 4,
       monthlyPrice: 19.99,
       yearlyPrice: 199.99,
       maxTeachers: 1,
@@ -477,6 +447,7 @@ async function main() {
       price: 49.99,
       duration: 30,
       durationMonths: 1,
+      totalSessions: 12,
       monthlyPrice: 49.99,
       yearlyPrice: 499.99,
       maxTeachers: 2,
@@ -495,6 +466,7 @@ async function main() {
       price: 89.99,
       duration: 30,
       durationMonths: 1,
+      totalSessions: 24,
       monthlyPrice: 89.99,
       yearlyPrice: 899.99,
       maxTeachers: 3,
@@ -509,7 +481,15 @@ async function main() {
   const createdStudentPackages = [];
   for (const pkg of studentPackagesData) {
     const existing = await prisma.studentSubscriptionPackage.findFirst({ where: { name: pkg.name } });
-    createdStudentPackages.push(existing || await prisma.studentSubscriptionPackage.create({ data: pkg }));
+    if (existing) {
+      const updated = await prisma.studentSubscriptionPackage.update({
+        where: { id: existing.id },
+        data: pkg,
+      });
+      createdStudentPackages.push(updated);
+    } else {
+      createdStudentPackages.push(await prisma.studentSubscriptionPackage.create({ data: pkg }));
+    }
   }
   console.log('Student subscription packages created');
 

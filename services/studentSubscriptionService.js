@@ -17,6 +17,9 @@ const DAY_ALIASES = {
 function parseFeatures(pkg) {
   if (pkg.features && typeof pkg.features === 'string') pkg.features = JSON.parse(pkg.features);
   if (pkg.featuresAr && typeof pkg.featuresAr === 'string') pkg.featuresAr = JSON.parse(pkg.featuresAr);
+  if (pkg.sessionsPerMonth === undefined) {
+    pkg.sessionsPerMonth = pkg.totalSessions ?? pkg.maxBookings ?? 0;
+  }
   return pkg;
 }
 
@@ -81,6 +84,7 @@ function normalizeSelectedSlots(selectedSlots) {
 }
 
 async function createPackage(dto, adminId) {
+  const sessionsPerMonth = dto.sessionsPerMonth ?? dto.totalSessions ?? dto.maxBookings ?? 0;
   const pkg = await prisma.studentSubscriptionPackage.create({
     data: {
       name: dto.name,
@@ -90,6 +94,7 @@ async function createPackage(dto, adminId) {
       price: dto.price,
       duration: dto.duration || 30,
       durationMonths: dto.durationMonths,
+      totalSessions: sessionsPerMonth,
       monthlyPrice: dto.monthlyPrice,
       yearlyPrice: dto.yearlyPrice,
       maxTeachers: dto.maxTeachers,
@@ -128,6 +133,8 @@ async function updatePackage(id, dto) {
   if (dto.price !== undefined) data.price = dto.price;
   if (dto.duration !== undefined) data.duration = dto.duration;
   if (dto.durationMonths !== undefined) data.durationMonths = dto.durationMonths;
+  if (dto.sessionsPerMonth !== undefined) data.totalSessions = dto.sessionsPerMonth;
+  if (dto.totalSessions !== undefined) data.totalSessions = dto.totalSessions;
   if (dto.monthlyPrice !== undefined) data.monthlyPrice = dto.monthlyPrice;
   if (dto.yearlyPrice !== undefined) data.yearlyPrice = dto.yearlyPrice;
   if (dto.maxTeachers !== undefined) data.maxTeachers = dto.maxTeachers;

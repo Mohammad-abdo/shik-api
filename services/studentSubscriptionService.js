@@ -344,6 +344,9 @@ async function subscribe(studentId, dto) {
   }
 
   const bookingStatus = amount > 0 ? 'PENDING' : 'CONFIRMED';
+  const perSessionAmount = generatedSlots.length > 0 && amount > 0
+    ? Number((amount / generatedSlots.length).toFixed(2))
+    : 0;
   let subscription = null;
   try {
     subscription = await prisma.$transaction(async (tx) => {
@@ -380,8 +383,8 @@ async function subscribe(studentId, dto) {
           startTime: slot.startTime,
           duration: SESSION_DURATION_MINUTES,
           status: bookingStatus,
-          price: 0,
-          totalPrice: 0,
+          price: perSessionAmount,
+          totalPrice: perSessionAmount,
           type: 'SUBSCRIPTION',
           subscriptionId: createdSubscription.id,
         }));

@@ -73,6 +73,81 @@ async function createStudentWallet(studentId) {
   }
 }
 
+function normalizeTime(value) {
+  return String(value || '').slice(0, 5);
+}
+
+function scheduleKey(teacherId, dayOfWeek, startTime, endTime) {
+  return `${teacherId}|${dayOfWeek}|${normalizeTime(startTime)}|${normalizeTime(endTime)}`;
+}
+
+async function ensureTeacherSchedules(teacherId, desiredSlots) {
+  const existing = await prisma.schedule.findMany({
+    where: { teacherId },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
+
+  const byKey = new Map();
+  for (const row of existing) {
+    const key = scheduleKey(row.teacherId, row.dayOfWeek, row.startTime, row.endTime);
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(row);
+  }
+
+  for (const rows of byKey.values()) {
+    if (rows.length <= 1) continue;
+    const [keeper, ...duplicates] = rows;
+    if (!keeper.isActive) {
+      await prisma.schedule.update({
+        where: { id: keeper.id },
+        data: { isActive: true },
+      });
+    }
+    if (duplicates.length > 0) {
+      await prisma.schedule.updateMany({
+        where: { id: { in: duplicates.map((d) => d.id) } },
+        data: { isActive: false },
+      });
+    }
+  }
+
+  const existingAfterDedupe = await prisma.schedule.findMany({
+    where: { teacherId },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
+
+  const firstByKey = new Map();
+  for (const row of existingAfterDedupe) {
+    const key = scheduleKey(row.teacherId, row.dayOfWeek, row.startTime, row.endTime);
+    if (!firstByKey.has(key)) firstByKey.set(key, row);
+  }
+
+  for (const slot of desiredSlots) {
+    const key = scheduleKey(teacherId, slot.dayOfWeek, slot.startTime, slot.endTime);
+    const matched = firstByKey.get(key);
+    if (matched) {
+      if (!matched.isActive) {
+        await prisma.schedule.update({
+          where: { id: matched.id },
+          data: { isActive: true },
+        });
+      }
+      continue;
+    }
+
+    const created = await prisma.schedule.create({
+      data: {
+        teacherId,
+        dayOfWeek: slot.dayOfWeek,
+        startTime: normalizeTime(slot.startTime),
+        endTime: normalizeTime(slot.endTime),
+        isActive: true,
+      },
+    });
+    firstByKey.set(key, created);
+  }
+}
+
 async function main() {
   console.log('Seeding database...');
 
@@ -240,7 +315,6 @@ async function main() {
   }
 
   const fullTeachers = createdTeachers.filter((t) => t.teacher.teacherType === 'FULL_TEACHER');
-  const schedules = [];
   if (fullTeachers.length >= 3) {
     for (let t = 0; t < Math.min(3, fullTeachers.length); t += 1) {
       const tid = fullTeachers[t].teacher.id;
@@ -264,15 +338,9 @@ async function main() {
         ],
       ];
       const slots = slotsByTeacher[t] || [];
-      slots.forEach((slot) => schedules.push({
-        teacherId: tid,
-        dayOfWeek: slot.dayOfWeek,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-      }));
+      await ensureTeacherSchedules(tid, slots);
     }
-    await prisma.schedule.createMany({ data: schedules, skipDuplicates: true });
-    console.log('Schedules created (full teachers only)');
+    console.log('Schedules synced (full teachers only, no duplicate times)');
   }
 
   const today = new Date();

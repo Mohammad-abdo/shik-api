@@ -54,6 +54,26 @@ function subtractBusyIntervals(scheduleInterval, busyIntervals) {
   return free.filter((i) => i.end > i.start);
 }
 
+function dedupeSlotsByTime(slots) {
+  const byTime = new Map();
+  for (const slot of slots || []) {
+    const key = `${slot.startTime}-${slot.endTime}`;
+    const existing = byTime.get(key);
+    if (!existing) {
+      byTime.set(key, slot);
+      continue;
+    }
+
+    // Keep a deterministic slot when duplicate times exist.
+    const existingId = String(existing.scheduleId || '');
+    const currentId = String(slot.scheduleId || '');
+    if (currentId && (!existingId || currentId.localeCompare(existingId) < 0)) {
+      byTime.set(key, slot);
+    }
+  }
+  return Array.from(byTime.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
 function teacherToSheikhListItem(teacher, lang) {
   const name = lang === 'ar'
     ? [teacher.user?.firstNameAr, teacher.user?.lastNameAr].filter(Boolean).join(' ').trim() ||
@@ -394,12 +414,22 @@ async function getSheikhAvailability(teacherId, startDate, endDate) {
       .map((b) => {
         const start = timeToMinutes(b.startTime);
         const end = start + Number(b.duration || 30);
-        return { start, end };
+        return {
+          id: b.id,
+          source: 'BOOKING',
+          status: b.status,
+          start,
+          end,
+        };
       })
       .filter((b) => Number.isFinite(b.start) && Number.isFinite(b.end));
 
     const reservationIntervals = dayReservations
       .map((r) => ({
+        id: r.id,
+        scheduleId: r.scheduleId || r.schedule?.id || null,
+        source: 'RESERVATION',
+        status: 'RESERVED',
         start: timeToMinutes(r.startTime),
         end: timeToMinutes(r.endTime),
       }))
@@ -426,13 +456,30 @@ async function getSheikhAvailability(teacherId, startDate, endDate) {
       }
     }
 
+    const bookedSlots = [...bookingIntervals, ...reservationIntervals]
+      .map((interval) => ({
+        id: interval.id,
+        scheduleId: interval.scheduleId || null,
+        source: interval.source,
+        status: interval.status || null,
+        startTime: minutesToTime(interval.start),
+        endTime: minutesToTime(interval.end),
+      }))
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    const availableSlots = dedupeSlotsByTime(availableWindows);
+
     days.push({
       date: dayStart.toISOString().split('T')[0],
       dayOfWeek,
       dayName,
-      isAvailable: availableWindows.length > 0,
-      availableWindows,
-      bookedCount: Math.max(dayBookings.length, dayReservations.length),
+      isAvailable: availableSlots.length > 0,
+      availableSlots,
+      bookedSlots,
+      availableCount: availableSlots.length,
+      bookedCount: bookedSlots.length,
+      // Backward compatibility for existing clients
+      availableWindows: availableSlots,
     });
 
     cursor.setUTCDate(cursor.getUTCDate() + 1);

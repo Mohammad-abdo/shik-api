@@ -32,6 +32,7 @@ CREATE TABLE `bookings` (
     `id` VARCHAR(191) NOT NULL,
     `studentId` VARCHAR(191) NOT NULL,
     `teacherId` VARCHAR(191) NOT NULL,
+    `scheduleId` VARCHAR(191) NULL,
     `date` DATETIME(3) NOT NULL,
     `startTime` VARCHAR(191) NOT NULL,
     `duration` INTEGER NOT NULL,
@@ -43,11 +44,15 @@ CREATE TABLE `bookings` (
     `courseId` VARCHAR(191) NULL,
     `cancelledAt` DATETIME(3) NULL,
     `cancelledBy` VARCHAR(191) NULL,
+    `type` ENUM('SINGLE', 'SUBSCRIPTION') NOT NULL DEFAULT 'SINGLE',
+    `subscriptionId` VARCHAR(191) NULL,
+    `isFeatured` BOOLEAN NOT NULL DEFAULT false,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `bookings_studentId_fkey`(`studentId`),
     INDEX `bookings_teacherId_fkey`(`teacherId`),
+    INDEX `bookings_scheduleId_fkey`(`scheduleId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -68,6 +73,20 @@ CREATE TABLE `content` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `content_teacherId_fkey`(`teacherId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `site_pages` (
+    `id` VARCHAR(191) NOT NULL,
+    `slug` VARCHAR(191) NOT NULL,
+    `title` VARCHAR(191) NOT NULL,
+    `titleAr` VARCHAR(191) NULL,
+    `body` LONGTEXT NOT NULL,
+    `bodyAr` LONGTEXT NULL,
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `site_pages_slug_key`(`slug`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -108,13 +127,16 @@ CREATE TABLE `otps` (
 -- CreateTable
 CREATE TABLE `payments` (
     `id` VARCHAR(191) NOT NULL,
-    `bookingId` VARCHAR(191) NOT NULL,
+    `bookingId` VARCHAR(191) NULL,
+    `subscriptionId` VARCHAR(191) NULL,
     `amount` DOUBLE NOT NULL,
     `currency` VARCHAR(191) NOT NULL DEFAULT 'USD',
     `status` ENUM('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
     `paymentMethod` VARCHAR(191) NULL,
     `stripePaymentId` VARCHAR(191) NULL,
     `stripeIntentId` VARCHAR(191) NULL,
+    `fawryRefNumber` VARCHAR(191) NULL,
+    `merchantRefNum` VARCHAR(191) NULL,
     `receiptUrl` VARCHAR(191) NULL,
     `refundedAt` DATETIME(3) NULL,
     `refundAmount` DOUBLE NULL,
@@ -122,8 +144,11 @@ CREATE TABLE `payments` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `payments_bookingId_key`(`bookingId`),
+    UNIQUE INDEX `payments_subscriptionId_key`(`subscriptionId`),
     UNIQUE INDEX `payments_stripePaymentId_key`(`stripePaymentId`),
     UNIQUE INDEX `payments_stripeIntentId_key`(`stripeIntentId`),
+    UNIQUE INDEX `payments_fawryRefNumber_key`(`fawryRefNumber`),
+    UNIQUE INDEX `payments_merchantRefNum_key`(`merchantRefNum`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -629,6 +654,12 @@ CREATE TABLE `student_subscription_packages` (
     `descriptionAr` LONGTEXT NULL,
     `price` DOUBLE NOT NULL,
     `duration` INTEGER NOT NULL DEFAULT 30,
+    `durationMonths` INTEGER NULL,
+    `totalSessions` INTEGER NULL DEFAULT 0,
+    `weeklyFrequency` INTEGER NULL DEFAULT 0,
+    `monthlyPrice` DOUBLE NULL,
+    `yearlyPrice` DOUBLE NULL,
+    `maxTeachers` INTEGER NULL,
     `features` LONGTEXT NULL,
     `featuresAr` LONGTEXT NULL,
     `maxBookings` INTEGER NULL,
@@ -646,7 +677,9 @@ CREATE TABLE `student_subscription_packages` (
 CREATE TABLE `student_subscriptions` (
     `id` VARCHAR(191) NOT NULL,
     `studentId` VARCHAR(191) NOT NULL,
+    `teacherId` VARCHAR(191) NOT NULL,
     `packageId` VARCHAR(191) NOT NULL,
+    `selectedSlots` JSON NULL,
     `status` ENUM('ACTIVE', 'EXPIRED', 'CANCELLED', 'SUSPENDED', 'PENDING') NOT NULL DEFAULT 'ACTIVE',
     `startDate` DATETIME(3) NOT NULL,
     `endDate` DATETIME(3) NOT NULL,
@@ -662,6 +695,25 @@ CREATE TABLE `student_subscriptions` (
     INDEX `student_subscriptions_studentId_fkey`(`studentId`),
     INDEX `student_subscriptions_packageId_fkey`(`packageId`),
     INDEX `student_subscriptions_status_idx`(`status`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `schedule_reservations` (
+    `id` VARCHAR(191) NOT NULL,
+    `scheduleId` VARCHAR(191) NOT NULL,
+    `studentId` VARCHAR(191) NOT NULL,
+    `subscriptionId` VARCHAR(191) NOT NULL,
+    `reservationDate` DATETIME(3) NOT NULL,
+    `startTime` VARCHAR(191) NOT NULL,
+    `endTime` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `schedule_reservations_studentId_fkey`(`studentId`),
+    INDEX `schedule_reservations_subscriptionId_fkey`(`subscriptionId`),
+    INDEX `schedule_reservations_date_idx`(`reservationDate`),
+    UNIQUE INDEX `schedule_reservations_slot_unique`(`scheduleId`, `reservationDate`, `startTime`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -707,6 +759,9 @@ ALTER TABLE `bookings` ADD CONSTRAINT `bookings_studentId_fkey` FOREIGN KEY (`st
 ALTER TABLE `bookings` ADD CONSTRAINT `bookings_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `teachers`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `bookings` ADD CONSTRAINT `bookings_scheduleId_fkey` FOREIGN KEY (`scheduleId`) REFERENCES `schedules`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `bookings` ADD CONSTRAINT `bookings_courseId_fkey` FOREIGN KEY (`courseId`) REFERENCES `courses`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -719,7 +774,10 @@ ALTER TABLE `notifications` ADD CONSTRAINT `notifications_userId_fkey` FOREIGN K
 ALTER TABLE `notifications` ADD CONSTRAINT `notifications_sentById_fkey` FOREIGN KEY (`sentById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `payments` ADD CONSTRAINT `payments_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `payments` ADD CONSTRAINT `payments_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `payments` ADD CONSTRAINT `payments_subscriptionId_fkey` FOREIGN KEY (`subscriptionId`) REFERENCES `student_subscriptions`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `payout_requests` ADD CONSTRAINT `payout_requests_walletId_fkey` FOREIGN KEY (`walletId`) REFERENCES `teacher_wallets`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -833,7 +891,19 @@ ALTER TABLE `teacher_subscriptions` ADD CONSTRAINT `teacher_subscriptions_packag
 ALTER TABLE `student_subscriptions` ADD CONSTRAINT `student_subscriptions_studentId_fkey` FOREIGN KEY (`studentId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `student_subscriptions` ADD CONSTRAINT `student_subscriptions_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `teachers`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `student_subscriptions` ADD CONSTRAINT `student_subscriptions_packageId_fkey` FOREIGN KEY (`packageId`) REFERENCES `student_subscription_packages`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `schedule_reservations` ADD CONSTRAINT `schedule_reservations_scheduleId_fkey` FOREIGN KEY (`scheduleId`) REFERENCES `schedules`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `schedule_reservations` ADD CONSTRAINT `schedule_reservations_studentId_fkey` FOREIGN KEY (`studentId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `schedule_reservations` ADD CONSTRAINT `schedule_reservations_subscriptionId_fkey` FOREIGN KEY (`subscriptionId`) REFERENCES `student_subscriptions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `student_wallets` ADD CONSTRAINT `student_wallets_studentId_fkey` FOREIGN KEY (`studentId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

@@ -58,6 +58,18 @@ function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function sortSlots(slots) {
+  return (slots || []).sort((a, b) => {
+    const dayA = Number.isInteger(a?.dayOfWeek) ? a.dayOfWeek : 99;
+    const dayB = Number.isInteger(b?.dayOfWeek) ? b.dayOfWeek : 99;
+    if (dayA !== dayB) return dayA - dayB;
+
+    const timeA = normalizeTime(a?.startTime) || '';
+    const timeB = normalizeTime(b?.startTime) || '';
+    return timeA.localeCompare(timeB);
+  });
+}
+
 function normalizeSelectedSlotsInput(selectedSlots) {
   if (!Array.isArray(selectedSlots)) return [];
   const seen = new Set();
@@ -96,7 +108,7 @@ function normalizeSelectedSlotsInput(selectedSlots) {
       startTime,
     });
   }
-  return normalized.sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
+  return sortSlots(normalized);
 }
 
 function resolveSelectedSlotsWithTeacher(rawSelectedSlots, teacherSchedules) {
@@ -154,7 +166,7 @@ function resolveSelectedSlotsWithTeacher(rawSelectedSlots, teacherSchedules) {
     const key = `${slot.scheduleId}:${slot.startTime}`;
     if (!dedupe.has(key)) dedupe.set(key, slot);
   }
-  return Array.from(dedupe.values()).sort((a, b) => (a.dayOfWeek - b.dayOfWeek) || a.startTime.localeCompare(b.startTime));
+  return sortSlots(Array.from(dedupe.values()));
 }
 
 async function createPackage(dto, adminId) {

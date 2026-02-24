@@ -23,6 +23,56 @@ function parseFeatures(pkg) {
   return pkg;
 }
 
+async function buildSubscriptionTimeline(subscriptionId, studentId) {
+  const [reservations, bookings] = await Promise.all([
+    prisma.scheduleReservation.findMany({
+      where: { subscriptionId, studentId },
+      orderBy: [{ reservationDate: 'asc' }, { startTime: 'asc' }],
+      select: {
+        id: true,
+        scheduleId: true,
+        reservationDate: true,
+        startTime: true,
+        endTime: true,
+      },
+    }),
+    prisma.booking.findMany({
+      where: { subscriptionId, studentId },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+      include: {
+        session: {
+          select: {
+            id: true,
+            roomId: true,
+            startedAt: true,
+            endedAt: true,
+            duration: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  return {
+    bookedSchedule: reservations.map((r) => ({
+      id: r.id,
+      scheduleId: r.scheduleId,
+      date: r.reservationDate,
+      startTime: r.startTime,
+      endTime: r.endTime,
+    })),
+    bookedSessions: bookings.map((b) => ({
+      bookingId: b.id,
+      date: b.date,
+      startTime: b.startTime,
+      duration: b.duration,
+      status: b.status,
+      subscriptionId: b.subscriptionId,
+      session: b.session,
+    })),
+  };
+}
+
 function parseDayOfWeek(value) {
   if (Number.isInteger(value) && value >= 0 && value <= 6) return value;
   if (typeof value !== 'string') return null;
@@ -406,6 +456,7 @@ async function subscribe(studentId, dto) {
     totalReservedSessions: generatedSlots.length,
     bookingStatus,
   };
+  const timeline = await buildSubscriptionTimeline(subscription.id, studentId);
 
   if (amount > 0) {
     // Create Payment Record
@@ -462,6 +513,11 @@ async function subscribe(studentId, dto) {
       return {
         subscription,
         reservation,
+        ...timeline,
+        joinPolicy: {
+          studentCanJoinBeforeStart: false,
+          note: 'Student cannot join a session before its scheduled start time.',
+        },
         paymentUrl: fawryResponse.paymentUrl,
         referenceNumber: fawryResponse.referenceNumber,
         fawryRefNumber: fawryResponse.referenceNumber, // Sometimes called this way
@@ -482,6 +538,11 @@ async function subscribe(studentId, dto) {
   return {
     subscription,
     reservation,
+    ...timeline,
+    joinPolicy: {
+      studentCanJoinBeforeStart: false,
+      note: 'Student cannot join a session before its scheduled start time.',
+    },
   };
 }
 

@@ -51,7 +51,62 @@ async function create(studentId, dto) {
     `You have a new booking request from ${booking.student.firstName} ${booking.student.lastName}`,
     { bookingId: booking.id }
   );
-  return booking;
+
+  // If the student has an active package with this teacher, return its booked timeline as well.
+  const activeSubscription = await prisma.studentSubscription.findFirst({
+    where: {
+      studentId,
+      teacherId: dto.teacherId,
+      status: { in: ['ACTIVE', 'PENDING'] },
+      endDate: { gte: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!activeSubscription) return booking;
+
+  const [packageBookings, scheduleReservations] = await Promise.all([
+    prisma.booking.findMany({
+      where: { studentId, subscriptionId: activeSubscription.id },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+      include: {
+        session: {
+          select: { id: true, roomId: true, startedAt: true, endedAt: true, duration: true },
+        },
+      },
+    }),
+    prisma.scheduleReservation.findMany({
+      where: { studentId, subscriptionId: activeSubscription.id },
+      orderBy: [{ reservationDate: 'asc' }, { startTime: 'asc' }],
+      select: { id: true, scheduleId: true, reservationDate: true, startTime: true, endTime: true },
+    }),
+  ]);
+
+  return {
+    ...booking,
+    subscriptionTimeline: {
+      subscriptionId: activeSubscription.id,
+      bookedSchedule: scheduleReservations.map((r) => ({
+        id: r.id,
+        scheduleId: r.scheduleId,
+        date: r.reservationDate,
+        startTime: r.startTime,
+        endTime: r.endTime,
+      })),
+      bookedSessions: packageBookings.map((b) => ({
+        bookingId: b.id,
+        date: b.date,
+        startTime: b.startTime,
+        duration: b.duration,
+        status: b.status,
+        session: b.session,
+      })),
+      joinPolicy: {
+        studentCanJoinBeforeStart: false,
+        note: 'Student cannot join a session before its scheduled start time.',
+      },
+    },
+  };
 }
 
 async function findOne(id, userId, userRole) {

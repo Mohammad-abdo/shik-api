@@ -1,13 +1,12 @@
 const { prisma } = require('../lib/prisma');
 const { buildRtcToken, getAgoraConfigOrThrow, sanitizeChannelName, sanitizeUid } = require('../utils/agora');
-const SESSION_DURATION_MINUTES = 120;
-
 function getBookingWindow(booking) {
   const date = new Date(booking.date);
   const [hour = '0', minute = '0'] = String(booking.startTime || '00:00').split(':');
   const startAt = new Date(date);
   startAt.setHours(parseInt(hour, 10) || 0, parseInt(minute, 10) || 0, 0, 0);
-  const endAt = new Date(startAt.getTime() + (SESSION_DURATION_MINUTES * 60 * 1000));
+  const durationMinutes = Number(booking.duration) > 0 ? Number(booking.duration) : 120;
+  const endAt = new Date(startAt.getTime() + (durationMinutes * 60 * 1000));
   return { startAt, endAt };
 }
 

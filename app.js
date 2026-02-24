@@ -5,7 +5,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
 const { connect, disconnect } = require('./lib/prisma');
-const { buildSwaggerSpec } = require('./lib/swagger');
+const { buildSwaggerSpec, buildMobileSwaggerSpec } = require('./lib/swagger');
 const { corsHandler, addCorsHeaders } = require('./middleware/corsHandler');
 const { keepAliveMiddleware, configureServer, setupGracefulShutdown, mobileHealthCheck } = require('./middleware/keepAlive');
 const responseTransform = require('./middleware/responseTransform');
@@ -17,6 +17,7 @@ const app = express();
 const PORT = process.env.PORT || 8002;
 const HOST = process.env.HOST || '0.0.0.0';
 const swaggerSpec = buildSwaggerSpec({ port: PORT });
+const mobileSwaggerSpec = buildMobileSwaggerSpec({ port: PORT });
 
 // Keep raw body for Stripe webhook verification
 app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
@@ -116,6 +117,8 @@ app.use(
     explorer: true,
     customSiteTitle: 'Shik API Docs',
     swaggerOptions: {
+      docExpansion: 'none',
+      defaultModelsExpandDepth: -1,
       persistAuthorization: true,
       displayRequestDuration: true,
     },
@@ -123,6 +126,25 @@ app.use(
 );
 app.get('/api/openapi.json', (req, res) => {
   res.json(swaggerSpec);
+});
+
+// Mobile-focused Swagger docs
+app.use(
+  '/api/mobile/docs',
+  swaggerUi.serveFiles(mobileSwaggerSpec),
+  swaggerUi.setup(mobileSwaggerSpec, {
+    explorer: true,
+    customSiteTitle: 'Shik Mobile API Docs',
+    swaggerOptions: {
+      docExpansion: 'list',
+      defaultModelsExpandDepth: -1,
+      persistAuthorization: true,
+      displayRequestDuration: true,
+    },
+  })
+);
+app.get('/api/mobile/openapi.json', (req, res) => {
+  res.json(mobileSwaggerSpec);
 });
 
 app.use('/api', routes);

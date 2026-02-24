@@ -15,7 +15,9 @@ async function createPaymentIntent(bookingId, dto) {
     include: { teacher: true, student: true },
   });
   if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
-  if (booking.status !== 'CONFIRMED') throw Object.assign(new Error('Booking must be confirmed before payment'), { statusCode: 400 });
+  if (!['PENDING', 'CONFIRMED'].includes(booking.status)) {
+    throw Object.assign(new Error('Booking must be pending or confirmed before payment'), { statusCode: 400 });
+  }
   const existingPayment = await prisma.payment.findUnique({ where: { bookingId } });
   if (existingPayment && existingPayment.status === 'COMPLETED') {
     throw Object.assign(new Error('Payment already completed'), { statusCode: 400 });
@@ -315,8 +317,8 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
       e.statusCode = 404;
       return next(e);
     }
-    if (booking.status !== 'CONFIRMED') {
-      const e = new Error('Booking must be confirmed before payment');
+    if (!['PENDING', 'CONFIRMED'].includes(booking.status)) {
+      const e = new Error('Booking must be pending or confirmed before payment');
       e.statusCode = 400;
       return next(e);
     }
@@ -482,8 +484,8 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
       e.statusCode = 404;
       return next(e);
     }
-    if (booking.status !== 'CONFIRMED') {
-      const e = new Error('Booking must be confirmed before payment');
+    if (!['PENDING', 'CONFIRMED'].includes(booking.status)) {
+      const e = new Error('Booking must be pending or confirmed before payment');
       e.statusCode = 400;
       return next(e);
     }
@@ -651,6 +653,15 @@ router.post('/fawry/webhook', async (req, res, next) => {
       },
     });
 
+    let bookingUpdateCount = 0;
+    if (newStatus === 'COMPLETED' && payment.bookingId) {
+      const bookingUpdate = await prisma.booking.updateMany({
+        where: { id: payment.bookingId, status: 'PENDING' },
+        data: { status: 'CONFIRMED' },
+      });
+      bookingUpdateCount = bookingUpdate.count;
+    }
+
     // If this payment is for a student subscription, activate it after successful payment
     if (newStatus === 'COMPLETED' && payment.subscriptionId) {
       await prisma.studentSubscription.updateMany({
@@ -664,7 +675,14 @@ router.post('/fawry/webhook', async (req, res, next) => {
       });
     }
 
-    res.status(200).send();
+    res.status(200).json({
+      received: true,
+      merchantRefNum,
+      paymentId: payment.id,
+      paymentStatus: newStatus,
+      bookingUpdated: bookingUpdateCount > 0,
+      orderStatus,
+    });
   } catch (e) {
     next(e);
   }

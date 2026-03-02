@@ -218,7 +218,26 @@ start().catch((err) => {
   console.error('Fatal error:', err);
   process.exit(1);
 });
+// After registering all routes
+function printRoutes(app) {
+  console.log('Registered Routes:');
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      console.log(`${Object.keys(middleware.route.methods)} ${middleware.route.path}`);
+    } else if (middleware.name === 'router') {
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          const path = handler.route.path;
+          const methods = Object.keys(handler.route.methods);
+          console.log(`${methods} /api/hero${path}`);
+        }
+      });
+    }
+  });
+}
 
+// Call this after all route registrations
+printRoutes(app);
 module.exports = app;
 
 

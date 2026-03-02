@@ -13,6 +13,7 @@ const sessionsRoutes = require('./sessions');
 const coursesRoutes = require('./courses');
 const lessonsRoutes = require('./lessons');
 const examsRoutes = require('./exams');
+const heroRoutes = require('./heroRoute');
 const studentSubscriptionsRoutes = require('./student-subscriptions');
 const contentRoutes = require('./content');
 const pagesRoutes = require('./pages');
@@ -43,6 +44,8 @@ router.use('/lessons', lessonsRoutes);
 router.use('/exams', examsRoutes);
 router.use('/student-subscriptions', studentSubscriptionsRoutes);
 router.use('/content', contentRoutes);
+router.use('/hero', heroRoutes);
+
 router.use('/pages', pagesRoutes);
 router.use('/certificates', certificatesRoutes);
 router.use('/finance', financeRoutes);

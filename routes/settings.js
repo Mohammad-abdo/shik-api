@@ -43,23 +43,40 @@ router.get('/', async (req, res, next) => {
 
 /**
  * PATCH /api/settings — admin only, update system settings (e.g. currency)
- * Body: { currencyCode?, currencySymbol?, currencyNameAr?, currencyNameEn? }
+ * Body: { currencyCode?, currencySymbol?, currencyNameAr?, currencyNameEn? } or { currency: { code, symbol, nameAr, nameEn } }
  */
 router.patch('/', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
-    const { currencyCode, currencySymbol, currencyNameAr, currencyNameEn } = req.body || {};
+    const body = req.body || {};
+    // Support both flat keys and nested body.currency
+    const currencyObj = body.currency && typeof body.currency === 'object' ? body.currency : body;
+    const currencyCode = currencyObj.currencyCode ?? currencyObj.code;
+    const currencySymbol = currencyObj.currencySymbol ?? currencyObj.symbol;
+    const currencyNameAr = currencyObj.currencyNameAr ?? currencyObj.nameAr;
+    const currencyNameEn = currencyObj.currencyNameEn ?? currencyObj.nameEn;
+
     const updates = [];
-    if (currencyCode != null) updates.push({ key: 'currency_code', value: String(currencyCode) });
+    if (currencyCode != null && currencyCode !== '') updates.push({ key: 'currency_code', value: String(currencyCode) });
     if (currencySymbol != null) updates.push({ key: 'currency_symbol', value: String(currencySymbol) });
     if (currencyNameAr != null) updates.push({ key: 'currency_name_ar', value: String(currencyNameAr) });
     if (currencyNameEn != null) updates.push({ key: 'currency_name_en', value: String(currencyNameEn) });
-    for (const u of updates) {
-      await prisma.systemSetting.upsert({
-        where: { key: u.key },
-        create: u,
-        update: { value: u.value },
-      });
+
+    if (updates.length === 0) {
+      const err = new Error('No currency fields to update. Send currencyCode, currencySymbol, currencyNameAr, currencyNameEn.');
+      err.statusCode = 400;
+      return next(err);
     }
+
+    await prisma.$transaction(
+      updates.map((u) =>
+        prisma.systemSetting.upsert({
+          where: { key: u.key },
+          create: { key: u.key, value: u.value },
+          update: { value: u.value },
+        })
+      )
+    );
+
     const map = await getSettingsMap();
     res.json({
       currency: {

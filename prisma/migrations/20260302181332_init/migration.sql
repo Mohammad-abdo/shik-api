@@ -92,6 +92,17 @@ CREATE TABLE `site_pages` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `system_settings` (
+    `id` VARCHAR(191) NOT NULL,
+    `key` VARCHAR(191) NOT NULL,
+    `value` LONGTEXT NOT NULL,
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `system_settings_key_key`(`key`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `notifications` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
@@ -130,10 +141,13 @@ CREATE TABLE `otps` (
 -- CreateTable
 CREATE TABLE `payments` (
     `id` VARCHAR(191) NOT NULL,
+    `paymentType` ENUM('BOOKING', 'SUBSCRIPTION', 'COURSE') NOT NULL DEFAULT 'BOOKING',
+    `userId` VARCHAR(191) NULL,
     `bookingId` VARCHAR(191) NULL,
     `subscriptionId` VARCHAR(191) NULL,
+    `courseId` VARCHAR(191) NULL,
     `amount` DOUBLE NOT NULL,
-    `currency` VARCHAR(191) NOT NULL DEFAULT 'USD',
+    `currency` VARCHAR(191) NOT NULL DEFAULT 'EGP',
     `status` ENUM('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
     `paymentMethod` VARCHAR(191) NULL,
     `stripePaymentId` VARCHAR(191) NULL,
@@ -152,6 +166,8 @@ CREATE TABLE `payments` (
     UNIQUE INDEX `payments_stripeIntentId_key`(`stripeIntentId`),
     UNIQUE INDEX `payments_fawryRefNumber_key`(`fawryRefNumber`),
     UNIQUE INDEX `payments_merchantRefNum_key`(`merchantRefNum`),
+    INDEX `payments_userId_idx`(`userId`),
+    INDEX `payments_courseId_idx`(`courseId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -859,10 +875,16 @@ ALTER TABLE `notifications` ADD CONSTRAINT `notifications_userId_fkey` FOREIGN K
 ALTER TABLE `notifications` ADD CONSTRAINT `notifications_sentById_fkey` FOREIGN KEY (`sentById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `payments` ADD CONSTRAINT `payments_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `payments` ADD CONSTRAINT `payments_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `payments` ADD CONSTRAINT `payments_subscriptionId_fkey` FOREIGN KEY (`subscriptionId`) REFERENCES `student_subscriptions`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `payments` ADD CONSTRAINT `payments_courseId_fkey` FOREIGN KEY (`courseId`) REFERENCES `courses`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `payout_requests` ADD CONSTRAINT `payout_requests_walletId_fkey` FOREIGN KEY (`walletId`) REFERENCES `teacher_wallets`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

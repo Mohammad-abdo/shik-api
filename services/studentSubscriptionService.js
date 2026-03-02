@@ -40,13 +40,18 @@ async function buildSubscriptionTimeline(subscriptionId, studentId) {
       where: { subscriptionId, studentId },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
       include: {
-        session: {
-          select: {
-            id: true,
-            roomId: true,
-            startedAt: true,
-            endedAt: true,
-            duration: true,
+        bookingSessions: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            session: {
+              select: {
+                id: true,
+                roomId: true,
+                startedAt: true,
+                endedAt: true,
+                duration: true,
+              },
+            },
           },
         },
       },
@@ -61,15 +66,18 @@ async function buildSubscriptionTimeline(subscriptionId, studentId) {
       startTime: r.startTime,
       endTime: r.endTime,
     })),
-    bookedSessions: bookings.map((b) => ({
-      bookingId: b.id,
-      date: b.date,
-      startTime: b.startTime,
-      duration: b.duration,
-      status: b.status,
-      subscriptionId: b.subscriptionId,
-      session: b.session,
-    })),
+    bookedSessions: bookings.flatMap((b) =>
+      (b.bookingSessions || []).map((bs) => ({
+        bookingSessionId: bs.id,
+        bookingId: b.id,
+        date: bs.scheduledDate || b.date,
+        startTime: bs.startTime || b.startTime,
+        duration: b.duration,
+        status: bs.status || b.status,
+        subscriptionId: b.subscriptionId,
+        session: bs.session || null,
+      }))
+    ),
   };
 }
 

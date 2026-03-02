@@ -21,8 +21,36 @@ function addMinutesToTime(timeStr, minutes) {
 }
 
 async function create(studentId, dto) {
+  const normalizedSlots = Array.isArray(dto?.slots)
+    ? dto.slots.map((slot) => ({
+        scheduleId: slot.scheduleId || slot.schedule_id,
+        scheduledDate: slot.scheduledDate || slot.scheduled_date || slot.date,
+        startTime: slot.startTime || slot.start_time,
+      }))
+    : [];
+
+  const normalizedDto = {
+    ...dto,
+    teacherId: dto?.teacherId || dto?.teacher_id || dto?.sheikhId || dto?.sheikh_id,
+    scheduleId: dto?.scheduleId || dto?.schedule_id,
+    date: dto?.date || dto?.scheduledDate || dto?.scheduled_date,
+    startTime: dto?.startTime || dto?.start_time,
+    paymentMethod: dto?.paymentMethod || dto?.payment_type,
+    packageId: dto?.packageId || dto?.package_id,
+    slots: normalizedSlots.length > 0 ? normalizedSlots : dto?.slots,
+  };
+
+  if (!normalizedDto.teacherId) {
+    throw Object.assign(
+      new Error(
+        'teacherId is required. If you are subscribing to a package, use POST /api/student-subscriptions/subscribe with packageId + teacherId.'
+      ),
+      { statusCode: 400 }
+    );
+  }
+
   const teacher = await prisma.teacher.findUnique({
-    where: { id: dto.teacherId },
+    where: { id: normalizedDto.teacherId },
     include: { user: true, schedules: { where: { isActive: true } } },
   });
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
@@ -34,7 +62,7 @@ async function create(studentId, dto) {
   const activeSubscription = await prisma.studentSubscription.findFirst({
     where: {
       studentId,
-      teacherId: dto.teacherId,
+      teacherId: normalizedDto.teacherId,
       status: { in: ['ACTIVE', 'PENDING'] },
       endDate: { gte: new Date() },
     },
@@ -48,9 +76,9 @@ async function create(studentId, dto) {
   }
 
   const duration = SESSION_DURATION_MINUTES;
-  let slots = Array.isArray(dto.slots) && dto.slots.length > 0
-    ? dto.slots
-    : [{ scheduleId: dto.scheduleId, scheduledDate: dto.date, startTime: dto.startTime }];
+  let slots = Array.isArray(normalizedDto.slots) && normalizedDto.slots.length > 0
+    ? normalizedDto.slots
+    : [{ scheduleId: normalizedDto.scheduleId, scheduledDate: normalizedDto.date, startTime: normalizedDto.startTime }];
 
   if (!slots[0].scheduleId || !slots[0].scheduledDate || !slots[0].startTime) {
     throw Object.assign(new Error('At least one slot with scheduleId, scheduledDate and startTime is required'), { statusCode: 400 });
@@ -92,7 +120,7 @@ async function create(studentId, dto) {
   const booking = await prisma.booking.create({
     data: {
       studentId,
-      teacherId: dto.teacherId,
+      teacherId: normalizedDto.teacherId,
       subscriptionId: activeSubscription.id,
       scheduleId: firstSlot.scheduleId,
       date: firstDate,
@@ -101,7 +129,7 @@ async function create(studentId, dto) {
       price: totalPrice,
       discount,
       totalPrice: finalTotal,
-      notes: dto.notes,
+      notes: normalizedDto.notes,
       status: 'PENDING',
     },
     include: {

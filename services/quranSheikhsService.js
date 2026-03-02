@@ -473,7 +473,7 @@ async function getSheikhAvailability(teacherId, startDate, endDate) {
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     const availableSlots = dedupeSlotsByTime(availableWindows);
-
+//new
     days.push({
       date: dayStart.toISOString().split('T')[0],
       dayOfWeek,

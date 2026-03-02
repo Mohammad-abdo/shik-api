@@ -694,11 +694,16 @@ model SubscriptionPackage {
   description   String?  @db.LongText
   descriptionAr String?  @db.LongText
   price         Float
-  duration      Int      @default(30)
+  packageType   String   @default("fixed") // 🆕 'fixed', 'monthly', 'weekly', 'yearly'
+  period        Int?                        // 🆕 Duration number
+  periodUnit    String?                      // 🆕 'days', 'weeks', 'months', 'years'
+  duration      Int      @default(30)        // Keep for backward compatibility
   features      String?  @db.LongText
   featuresAr    String?  @db.LongText
   maxStudents   Int?
   maxCourses    Int?
+  maxBookings   Int?                         // 🆕 Add if needed
+  sessionsPerMonth Int?                      // 🆕 Add if needed
   isActive      Boolean  @default(true)
   isPopular     Boolean  @default(false)
   createdAt     DateTime @default(now())

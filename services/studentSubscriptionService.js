@@ -465,6 +465,8 @@ async function subscribe(studentId, dto) {
     bookingStatus,
   };
   const timeline = await buildSubscriptionTimeline(subscription.id, studentId);
+  const bookingIds = [...new Set((timeline.bookedSessions || []).map((s) => s.bookingId).filter(Boolean))];
+  const firstBookingId = bookingIds[0] || null;
 
   if (amount > 0) {
     // Create Payment Record
@@ -524,6 +526,8 @@ async function subscribe(studentId, dto) {
         subscription,
         reservation,
         ...timeline,
+        bookingIds,
+        bookingId: firstBookingId,
         joinPolicy: {
           studentCanJoinBeforeStart: false,
           note: 'Student cannot join a session before its scheduled start time.',
@@ -549,6 +553,8 @@ async function subscribe(studentId, dto) {
     subscription,
     reservation,
     ...timeline,
+    bookingIds,
+    bookingId: firstBookingId,
     joinPolicy: {
       studentCanJoinBeforeStart: false,
       note: 'Student cannot join a session before its scheduled start time.',

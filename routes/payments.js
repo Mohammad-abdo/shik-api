@@ -4,6 +4,7 @@ const { prisma } = require('../lib/prisma');
 const { jwtAuth } = require('../middleware/jwtAuth');
 const Stripe = require('stripe');
 const fawryService = require('../services/fawry');
+const { getSettingsMap } = require('./settings');
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const stripe = stripeSecret ? new Stripe(stripeSecret, { apiVersion: '2023-10-16' }) : null;
@@ -22,9 +23,12 @@ async function createPaymentIntent(bookingId, dto) {
   if (existingPayment && existingPayment.status === 'COMPLETED') {
     throw Object.assign(new Error('Payment already completed'), { statusCode: 400 });
   }
+  const settings = await getSettingsMap();
+  const currencyCode = (settings.currency_code || process.env.STRIPE_CURRENCY || 'EGP').toUpperCase();
+  const stripeCurrency = (process.env.STRIPE_CURRENCY || currencyCode).toLowerCase();
   const paymentIntent = await stripe.paymentIntents.create({
     amount: Math.round(booking.totalPrice * 100),
-    currency: process.env.STRIPE_CURRENCY || 'usd',
+    currency: stripeCurrency,
     payment_method_types: ['card'],
     metadata: { bookingId: booking.id, studentId: booking.studentId, teacherId: booking.teacherId },
   });
@@ -33,7 +37,7 @@ async function createPaymentIntent(bookingId, dto) {
     create: {
       bookingId,
       amount: booking.totalPrice,
-      currency: process.env.STRIPE_CURRENCY || 'USD',
+      currency: currencyCode,
       status: 'PENDING',
       paymentMethod: dto.paymentMethod,
       stripeIntentId: paymentIntent.id,
@@ -344,13 +348,15 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
     const numericRef = () => String(Math.floor(Math.random() * 900000000) + 100000000);
     // Always generate new ref to avoid 9929 (Ticket value is invalid) if details changed
     const finalMerchantRefNum = numericRef();
+    const settings = await getSettingsMap();
+    const currencyCode = settings.currency_code || process.env.FAWRY_CURRENCY || 'EGP';
 
     const payment = await prisma.payment.upsert({
       where: { bookingId },
       create: {
         bookingId,
         amount: booking.totalPrice,
-        currency: process.env.STRIPE_CURRENCY || 'EGP',
+        currency: currencyCode,
         status: 'PENDING',
         paymentMethod: paymentMethod || 'FAWRY',
         merchantRefNum: finalMerchantRefNum,
@@ -518,13 +524,15 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
     const finalExpiryHours = expiryHours || defaultExpiryHours;
     const expiryTimestamp = Date.now() + (finalExpiryHours * 60 * 60 * 1000);
     const paymentExpiry = String(expiryTimestamp);
+    const settings = await getSettingsMap();
+    const currencyCode = settings.currency_code || process.env.FAWRY_CURRENCY || 'EGP';
 
     const payment = await prisma.payment.upsert({
       where: { bookingId },
       create: {
         bookingId,
         amount: booking.totalPrice,
-        currency: process.env.FAWRY_CURRENCY || 'EGP',
+        currency: currencyCode,
         status: 'PENDING',
         paymentMethod: 'PayAtFawry',
         merchantRefNum: finalMerchantRefNum,
@@ -573,7 +581,7 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
       merchantRefNum: finalMerchantRefNum,
       paymentId: payment.id,
       amount: booking.totalPrice,
-      currency: process.env.FAWRY_CURRENCY || 'EGP',
+      currency: currencyCode,
       expiresAt: result.expiresAt || new Date(expiryTimestamp).toISOString(),
       expiryHours: finalExpiryHours,
       instructions: {

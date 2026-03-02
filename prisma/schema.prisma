@@ -106,6 +106,15 @@ model SitePage {
   @@map("site_pages")
 }
 
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.LongText
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
 model Notification {
   id        String           @id @default(uuid())
   userId    String
@@ -148,7 +157,7 @@ model Payment {
   bookingId       String?       @unique
   subscriptionId  String?       @unique
   amount          Float
-  currency        String        @default("USD")
+  currency        String        @default("EGP")
   status          PaymentStatus @default(PENDING)
   paymentMethod   String?
   stripePaymentId String?       @unique

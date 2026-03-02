@@ -379,7 +379,7 @@ async function main() {
       paymentsData.push({
         bookingId: booking.id,
         amount: booking.totalPrice,
-        currency: 'USD',
+        currency: 'EGP',
         status: booking.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
         paymentMethod: ['stripe', 'mada', 'apple_pay'][Math.floor(Math.random() * 3)],
       });
@@ -1157,6 +1157,17 @@ async function main() {
     }
     console.log('Certificates created');
   }
+
+  // Default system settings (currency: Egyptian Pound)
+  const currencyDefaults = { currency_code: 'EGP', currency_symbol: 'ج.م', currency_name_ar: 'جنيه مصري', currency_name_en: 'Egyptian Pound' };
+  for (const [key, value] of Object.entries(currencyDefaults)) {
+    await prisma.systemSetting.upsert({
+      where: { key },
+      create: { key, value },
+      update: { value },
+    });
+  }
+  console.log('System settings (currency) seeded');
 
   console.log('\nSeeding completed.');
   console.log('Test credentials:');

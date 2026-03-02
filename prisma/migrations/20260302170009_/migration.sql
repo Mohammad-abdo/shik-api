@@ -95,10 +95,11 @@ CREATE TABLE `site_pages` (
 CREATE TABLE `notifications` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
-    `type` ENUM('BOOKING_CONFIRMED', 'BOOKING_CANCELLED', 'BOOKING_REJECTED', 'BOOKING_REQUEST', 'SESSION_REMINDER', 'PAYMENT_RECEIVED', 'TEACHER_APPROVED', 'REVIEW_RECEIVED') NOT NULL,
+    `type` ENUM('BOOKING_CONFIRMED', 'BOOKING_CANCELLED', 'BOOKING_REJECTED', 'BOOKING_REQUEST', 'SESSION_REMINDER', 'PAYMENT_RECEIVED', 'TEACHER_APPROVED', 'REVIEW_RECEIVED', 'COURSE_CREATED', 'SYSTEM') NOT NULL,
     `title` VARCHAR(191) NOT NULL,
     `message` VARCHAR(191) NOT NULL,
     `data` LONGTEXT NULL,
+    `relatedId` VARCHAR(191) NULL,
     `isRead` BOOLEAN NOT NULL DEFAULT false,
     `readAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -106,6 +107,7 @@ CREATE TABLE `notifications` (
 
     INDEX `notifications_sentById_fkey`(`sentById`),
     INDEX `notifications_userId_fkey`(`userId`),
+    INDEX `notifications_relatedId_fkey`(`relatedId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -202,17 +204,24 @@ CREATE TABLE `platform_revenue` (
 -- CreateTable
 CREATE TABLE `reviews` (
     `id` VARCHAR(191) NOT NULL,
-    `bookingId` VARCHAR(191) NOT NULL,
-    `studentId` VARCHAR(191) NOT NULL,
-    `teacherId` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
     `rating` INTEGER NOT NULL,
-    `comment` VARCHAR(191) NULL,
+    `comment` TEXT NULL,
+    `type` ENUM('SHEIKH', 'COURSE', 'BOOKING') NOT NULL,
+    `status` ENUM('ACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE',
+    `sheikhId` VARCHAR(191) NULL,
+    `courseId` VARCHAR(191) NULL,
+    `bookingId` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `reviews_bookingId_key`(`bookingId`),
-    INDEX `reviews_studentId_fkey`(`studentId`),
-    INDEX `reviews_teacherId_fkey`(`teacherId`),
+    INDEX `reviews_userId_fkey`(`userId`),
+    INDEX `reviews_sheikhId_fkey`(`sheikhId`),
+    INDEX `reviews_courseId_fkey`(`courseId`),
+    INDEX `reviews_bookingId_fkey`(`bookingId`),
+    INDEX `reviews_type_fkey`(`type`),
+    INDEX `reviews_status_fkey`(`status`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -256,9 +265,28 @@ CREATE TABLE `schedules` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `sessions` (
+CREATE TABLE `booking_sessions` (
     `id` VARCHAR(191) NOT NULL,
     `bookingId` VARCHAR(191) NOT NULL,
+    `scheduleId` VARCHAR(191) NOT NULL,
+    `scheduledDate` DATETIME(3) NOT NULL,
+    `startTime` VARCHAR(191) NOT NULL,
+    `endTime` VARCHAR(191) NOT NULL,
+    `orderIndex` INTEGER NOT NULL DEFAULT 0,
+    `status` ENUM('PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `booking_sessions_bookingId_fkey`(`bookingId`),
+    INDEX `booking_sessions_scheduleId_fkey`(`scheduleId`),
+    UNIQUE INDEX `booking_sessions_slot_unique`(`scheduleId`, `scheduledDate`, `startTime`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `sessions` (
+    `id` VARCHAR(191) NOT NULL,
+    `bookingSessionId` VARCHAR(191) NULL,
     `type` ENUM('VIDEO', 'VOICE') NOT NULL DEFAULT 'VIDEO',
     `roomId` VARCHAR(191) NOT NULL,
     `agoraToken` VARCHAR(191) NULL,
@@ -269,8 +297,9 @@ CREATE TABLE `sessions` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `sessions_bookingId_key`(`bookingId`),
+    UNIQUE INDEX `sessions_bookingSessionId_key`(`bookingSessionId`),
     UNIQUE INDEX `sessions_roomId_key`(`roomId`),
+    INDEX `sessions_bookingSessionId_fkey`(`bookingSessionId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -824,7 +853,7 @@ ALTER TABLE `bookings` ADD CONSTRAINT `bookings_courseId_fkey` FOREIGN KEY (`cou
 ALTER TABLE `content` ADD CONSTRAINT `content_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `teachers`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `notifications` ADD CONSTRAINT `notifications_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `notifications` ADD CONSTRAINT `notifications_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `notifications` ADD CONSTRAINT `notifications_sentById_fkey` FOREIGN KEY (`sentById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -842,13 +871,16 @@ ALTER TABLE `payout_requests` ADD CONSTRAINT `payout_requests_walletId_fkey` FOR
 ALTER TABLE `payout_requests` ADD CONSTRAINT `payout_requests_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `teachers`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `reviews` ADD CONSTRAINT `reviews_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `teachers`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `reviews` ADD CONSTRAINT `reviews_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `reviews` ADD CONSTRAINT `reviews_studentId_fkey` FOREIGN KEY (`studentId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `reviews` ADD CONSTRAINT `reviews_sheikhId_fkey` FOREIGN KEY (`sheikhId`) REFERENCES `teachers`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `reviews` ADD CONSTRAINT `reviews_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `reviews` ADD CONSTRAINT `reviews_courseId_fkey` FOREIGN KEY (`courseId`) REFERENCES `courses`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `reviews` ADD CONSTRAINT `reviews_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `role_permissions` ADD CONSTRAINT `role_permissions_roleId_fkey` FOREIGN KEY (`roleId`) REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -860,7 +892,13 @@ ALTER TABLE `role_permissions` ADD CONSTRAINT `role_permissions_permissionId_fke
 ALTER TABLE `schedules` ADD CONSTRAINT `schedules_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `teachers`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `sessions` ADD CONSTRAINT `sessions_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `booking_sessions` ADD CONSTRAINT `booking_sessions_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `booking_sessions` ADD CONSTRAINT `booking_sessions_scheduleId_fkey` FOREIGN KEY (`scheduleId`) REFERENCES `schedules`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `sessions` ADD CONSTRAINT `sessions_bookingSessionId_fkey` FOREIGN KEY (`bookingSessionId`) REFERENCES `booking_sessions`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `teacher_wallets` ADD CONSTRAINT `teacher_wallets_teacherId_fkey` FOREIGN KEY (`teacherId`) REFERENCES `teachers`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

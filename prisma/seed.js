@@ -411,7 +411,8 @@ async function main() {
   let sessionLoopIndex = 0;
   // First pass: create BookingSessions (slots) for every booking so each has many sessions
   for (const booking of allBookingsForSlots) {
-    const durationMinutes = booking.duration || 120;
+    // booking.duration is in hours (1, 1.5, 2); convert to minutes (min 120)
+    const durationMinutes = Math.max(120, Math.round((booking.duration || 2) * 60));
     const slotStatus = booking.status === 'COMPLETED' ? 'COMPLETED' : booking.status === 'CANCELLED' ? 'CANCELLED' : booking.status === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING';
     let firstBookingSession = null;
 

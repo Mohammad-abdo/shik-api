@@ -40,13 +40,18 @@ async function buildSubscriptionTimeline(subscriptionId, studentId) {
       where: { subscriptionId, studentId },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
       include: {
-        session: {
-          select: {
-            id: true,
-            roomId: true,
-            startedAt: true,
-            endedAt: true,
-            duration: true,
+        bookingSessions: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            session: {
+              select: {
+                id: true,
+                roomId: true,
+                startedAt: true,
+                endedAt: true,
+                duration: true,
+              },
+            },
           },
         },
       },
@@ -61,15 +66,18 @@ async function buildSubscriptionTimeline(subscriptionId, studentId) {
       startTime: r.startTime,
       endTime: r.endTime,
     })),
-    bookedSessions: bookings.map((b) => ({
-      bookingId: b.id,
-      date: b.date,
-      startTime: b.startTime,
-      duration: b.duration,
-      status: b.status,
-      subscriptionId: b.subscriptionId,
-      session: b.session,
-    })),
+    bookedSessions: bookings.flatMap((b) =>
+      (b.bookingSessions || []).map((bs) => ({
+        bookingSessionId: bs.id,
+        bookingId: b.id,
+        date: bs.scheduledDate || b.date,
+        startTime: bs.startTime || b.startTime,
+        duration: b.duration,
+        status: bs.status || b.status,
+        subscriptionId: b.subscriptionId,
+        session: bs.session || null,
+      }))
+    ),
   };
 }
 
@@ -457,6 +465,8 @@ async function subscribe(studentId, dto) {
     bookingStatus,
   };
   const timeline = await buildSubscriptionTimeline(subscription.id, studentId);
+  const bookingIds = [...new Set((timeline.bookedSessions || []).map((s) => s.bookingId).filter(Boolean))];
+  const firstBookingId = bookingIds[0] || null;
 
   if (amount > 0) {
     // Create Payment Record
@@ -516,6 +526,8 @@ async function subscribe(studentId, dto) {
         subscription,
         reservation,
         ...timeline,
+        bookingIds,
+        bookingId: firstBookingId,
         joinPolicy: {
           studentCanJoinBeforeStart: false,
           note: 'Student cannot join a session before its scheduled start time.',
@@ -541,6 +553,8 @@ async function subscribe(studentId, dto) {
     subscription,
     reservation,
     ...timeline,
+    bookingIds,
+    bookingId: firstBookingId,
     joinPolicy: {
       studentCanJoinBeforeStart: false,
       note: 'Student cannot join a session before its scheduled start time.',

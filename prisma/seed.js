@@ -495,38 +495,76 @@ async function main() {
   }
   console.log('Sessions created and wallet credits applied for COMPLETED sessions');
 
-  // Seed session details (memorization, revision, report) for some COMPLETED sessions
+  // Seed session details (memorization, revision, report) for ALL COMPLETED sessions — full details
+  const surahs = [
+    { name: 'Al-Fatiha', nameAr: 'الفاتحة', num: 1 }, { name: 'Al-Baqarah', nameAr: 'البقرة', num: 2 },
+    { name: 'Al-Imran', nameAr: 'آل عمران', num: 3 }, { name: 'An-Nisa', nameAr: 'النساء', num: 4 },
+    { name: 'Al-Maidah', nameAr: 'المائدة', num: 5 }, { name: 'Al-Anam', nameAr: 'الأنعام', num: 6 },
+  ];
+  const revisionTypes = [
+    { type: 'CLOSE', range: 'SURAH', fromS: 'Al-Fatiha', toS: 'Al-Baqarah', fromJ: null, toJ: null, fromQ: null, toQ: null, notesAr: 'مراجعة قريبة من الفاتحة إلى البقرة' },
+    { type: 'FAR', range: 'JUZ', fromS: null, toS: null, fromJ: 1, toJ: 2, fromQ: null, toQ: null, notesAr: 'مراجعة بعيدة من الجزء الأول إلى الثاني' },
+    { type: 'CLOSE', range: 'QUARTER', fromS: null, toS: null, fromJ: null, toJ: null, fromQ: '1', toQ: '2', notesAr: 'مراجعة ربعين متتاليين' },
+  ];
+  const reportTemplates = [
+    'تقرير الجلسة: الطالب أتم حفظ الصفحة الأولى من البقرة بإتقان. التلاوة سليمة والمخارج واضحة. يُنصح بمراجعة يومية.',
+    'تقييم الجلسة: أداء ممتاز في المراجعة القريبة. الحفظ ثابت. نوصي بزيادة عدد الصفحات الجديدة في الجلسة القادمة.',
+    'ملخص الجلسة: تمت مراجعة جزء كامل. الطالب جاهز للانتقال إلى الحفظ الجديد. تقييم ٥/٥.',
+  ];
   const completedSessions = await prisma.session.findMany({
     where: { endedAt: { not: null } },
     include: { booking: { select: { studentId: true, teacherId: true } } },
-    take: 3,
   });
-  for (const sess of completedSessions) {
+  for (let idx = 0; idx < completedSessions.length; idx++) {
+    const sess = completedSessions[idx];
     if (!sess.booking) continue;
     const { studentId, teacherId } = sess.booking;
+    const s1 = surahs[idx % surahs.length];
+    const s2 = surahs[(idx + 1) % surahs.length];
     try {
       await prisma.sessionMemorization.create({
         data: {
           sessionId: sess.id,
-          surahName: 'Al-Baqarah',
-          surahNameAr: 'البقرة',
-          surahNumber: 2,
+          surahName: s1.name,
+          surahNameAr: s1.nameAr,
+          surahNumber: s1.num,
           fromAyah: 1,
-          toAyah: 10,
-          isFullSurah: false,
-          notes: 'Seed: new memorization from session',
+          toAyah: Math.min(10 + (idx % 5), 20),
+          isFullSurah: s1.num === 1,
+          notes: `Seed: حفظ جديد من ${s1.name} (${s1.nameAr}).`,
         },
       });
     } catch (e) { /* skip if exists */ }
+    if (idx % 2 === 0) {
+      try {
+        await prisma.sessionMemorization.create({
+          data: {
+            sessionId: sess.id,
+            surahName: s2.name,
+            surahNameAr: s2.nameAr,
+            surahNumber: s2.num,
+            fromAyah: 1,
+            toAyah: 5,
+            isFullSurah: false,
+            notes: `Seed: مراجعة حفظ ${s2.nameAr}.`,
+          },
+        });
+      } catch (e) { /* skip */ }
+    }
+    const rev = revisionTypes[idx % revisionTypes.length];
     try {
       await prisma.sessionRevision.create({
         data: {
           sessionId: sess.id,
-          revisionType: 'CLOSE',
-          rangeType: 'SURAH',
-          fromSurah: 'Al-Fatiha',
-          toSurah: 'Al-Baqarah',
-          notes: 'Seed: close revision',
+          revisionType: rev.type,
+          rangeType: rev.range,
+          fromSurah: rev.fromS,
+          toSurah: rev.toS,
+          fromJuz: rev.fromJ,
+          toJuz: rev.toJ,
+          fromQuarter: rev.fromQ,
+          toQuarter: rev.toQ,
+          notes: rev.notesAr,
         },
       });
     } catch (e) { /* skip */ }
@@ -538,13 +576,13 @@ async function main() {
           sessionId: sess.id,
           teacherId,
           studentId,
-          content: 'تقرير تقييم الجلسة: أداء الطالب جيد في الحفظ والمراجعة. يُنصح بالمتابعة. Seed report.',
-          rating: 5,
+          content: reportTemplates[idx % reportTemplates.length],
+          rating: 4 + (idx % 2),
         },
       });
     } catch (e) { /* skip */ }
   }
-  console.log('Session memorization, revision, and report seed created');
+  console.log('Session memorization, revision, and report seed created (all completed sessions)');
 
   const superAdminRole = await prisma.role.upsert({
     where: { name: 'SUPER_ADMIN' },
@@ -639,17 +677,18 @@ async function main() {
     {
       name: 'Quran Live Lite',
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0627\u064A\u062A',
-      description: '4 live sessions per month with Quran sheikhs.',
-      descriptionAr: '\u0623\u0631\u0628\u0639 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0634\u064A\u0648\u062E \u0627\u0644\u0642\u0631\u0622\u0646.',
+      description: '4 live sessions per month with Quran sheikhs. Ideal for beginners.',
+      descriptionAr: '\u0623\u0631\u0628\u0639 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0634\u064A\u0648\u062E \u0627\u0644\u0642\u0631\u0622\u0646. \u0645\u062B\u0627\u0644\u064A\u0629 \u0644\u0644\u0645\u0628\u062A\u062F\u0626\u064A\u0646.',
       price: 19.99,
       duration: 30,
       durationMonths: 1,
       totalSessions: 4,
+      weeklyFrequency: 1,
       monthlyPrice: 19.99,
       yearlyPrice: 199.99,
       maxTeachers: 1,
-      features: JSON.stringify(['4 live sessions monthly', 'Session recording access']),
-      featuresAr: JSON.stringify(['4 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u0625\u0645\u0643\u0627\u0646\u064A\u0629 \u0631\u062C\u0648\u0639 \u0644\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062D\u0644\u0642\u0629']),
+      features: JSON.stringify(['4 live sessions monthly', 'Session recording access', 'Progress reports']),
+      featuresAr: JSON.stringify(['4 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u0625\u0645\u0643\u0627\u0646\u064A\u0629 \u0631\u062C\u0648\u0639 \u0644\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062D\u0644\u0642\u0629', '\u062A\u0642\u0627\u0631\u064A\u0631 \u0627\u0644\u062A\u0642\u062F\u0645']),
       maxBookings: 4,
       maxCourses: 2,
       isActive: true,
@@ -658,17 +697,18 @@ async function main() {
     {
       name: 'Quran Live Plus',
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0644\u0633',
-      description: '12 live sessions per month with priority booking slots.',
-      descriptionAr: '\u0627\u062B\u0646\u062A\u0627 \u0639\u0634\u0631\u0629 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0623\u0648\u0644\u0648\u064A\u0629 \u0627\u0644\u062D\u062C\u0632.',
+      description: '12 live sessions per month with priority booking slots. Best value.',
+      descriptionAr: '\u0627\u062B\u0646\u062A\u0627 \u0639\u0634\u0631\u0629 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0623\u0648\u0644\u0648\u064A\u0629 \u0627\u0644\u062D\u062C\u0632. \u0623\u0641\u0636\u0644 \u0627\u0644\u0623\u0633\u0639\u0627\u0631.',
       price: 49.99,
       duration: 30,
       durationMonths: 1,
       totalSessions: 12,
+      weeklyFrequency: 3,
       monthlyPrice: 49.99,
       yearlyPrice: 499.99,
       maxTeachers: 2,
-      features: JSON.stringify(['12 live sessions monthly', 'Priority support', 'Flexible rescheduling']),
-      featuresAr: JSON.stringify(['12 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u062F\u0639\u0645 \u0633\u0631\u064A\u0639', '\u0645\u0631\u0648\u0646\u0629 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062C\u062F\u0648\u0644\u0629']),
+      features: JSON.stringify(['12 live sessions monthly', 'Priority support', 'Flexible rescheduling', 'Memorization & revision reports']),
+      featuresAr: JSON.stringify(['12 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u062F\u0639\u0645 \u0633\u0631\u064A\u0639', '\u0645\u0631\u0648\u0646\u0629 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062C\u062F\u0648\u0644\u0629', '\u062A\u0642\u0627\u0631\u064A\u0631 \u062D\u0641\u0638 \u0648\u0645\u0631\u0627\u062C\u0639\u0629']),
       maxBookings: 12,
       maxCourses: 5,
       isActive: true,
@@ -677,17 +717,18 @@ async function main() {
     {
       name: 'Quran Live Family',
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0627\u0644\u0639\u0627\u0626\u0644\u064A\u0629',
-      description: '24 live sessions monthly for family plans and multiple learners.',
-      descriptionAr: '\u0623\u0631\u0628\u0639 \u0648\u0639\u0634\u0631\u0648\u0646 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0644\u062E\u0637\u0637 \u0627\u0644\u0639\u0627\u0626\u0644\u0629 \u0648\u062A\u0639\u062F\u062F \u0627\u0644\u0645\u062A\u0639\u0644\u0645\u064A\u0646.',
+      description: '24 live sessions monthly for family plans and multiple learners. Full support.',
+      descriptionAr: '\u0623\u0631\u0628\u0639 \u0648\u0639\u0634\u0631\u0648\u0646 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0644\u062E\u0637\u0637 \u0627\u0644\u0639\u0627\u0626\u0644\u0629 \u0648\u062A\u0639\u062F\u062F \u0627\u0644\u0645\u062A\u0639\u0644\u0645\u064A\u0646. \u062F\u0639\u0645 \u0643\u0627\u0645\u0644.',
       price: 89.99,
       duration: 30,
       durationMonths: 1,
       totalSessions: 24,
+      weeklyFrequency: 6,
       monthlyPrice: 89.99,
       yearlyPrice: 899.99,
       maxTeachers: 3,
-      features: JSON.stringify(['24 live sessions monthly', 'Family dashboard', 'Progress reports']),
-      featuresAr: JSON.stringify(['24 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 \u0639\u0627\u0626\u0644\u064A\u0629', '\u062A\u0642\u0627\u0631\u064A\u0631 \u062A\u0642\u062F\u0645']),
+      features: JSON.stringify(['24 live sessions monthly', 'Family dashboard', 'Progress reports', 'Dedicated support']),
+      featuresAr: JSON.stringify(['24 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 \u0639\u0627\u0626\u0644\u064A\u0629', '\u062A\u0642\u0627\u0631\u064A\u0631 \u062A\u0642\u062F\u0645', '\u062F\u0639\u0645 \u0645\u062E\u0635\u0635']),
       maxBookings: 24,
       maxCourses: 8,
       isActive: true,
@@ -709,28 +750,37 @@ async function main() {
   }
   console.log('Student subscription packages created');
 
-  for (let i = 0; i < Math.min(3, createdStudents.length); i++) {
-    const student = createdStudents[i];
-    const pkg = createdStudentPackages[i % createdStudentPackages.length];
-    const sheikh = fullTeachers[i % fullTeachers.length];
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + pkg.duration);
-    try {
-      await prisma.studentSubscription.create({
-        data: {
-          studentId: student.id,
-          teacherId: sheikh.teacher.id,
-          packageId: pkg.id,
-          status: 'ACTIVE',
-          startDate,
-          endDate,
-          autoRenew: true,
-        },
+  // إنشاء اشتراك باقة لكل زوج (طالب، شيخ) حتى يكون لكل حجز باقة مرتبطة — لا يبقى أي حجز بدون باقة
+  const subscriptionByStudentTeacher = new Map();
+  for (let si = 0; si < createdStudents.length; si++) {
+    for (let ti = 0; ti < fullTeachers.length; ti++) {
+      const student = createdStudents[si];
+      const sheikh = fullTeachers[ti];
+      const key = `${student.id}|${sheikh.teacher.id}`;
+      let sub = await prisma.studentSubscription.findFirst({
+        where: { studentId: student.id, teacherId: sheikh.teacher.id },
       });
-    } catch (e) { }
+      if (!sub) {
+        const pkg = createdStudentPackages[(si + ti) % createdStudentPackages.length];
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(startDate.getDate() + (pkg.duration || 30));
+        sub = await prisma.studentSubscription.create({
+          data: {
+            studentId: student.id,
+            teacherId: sheikh.teacher.id,
+            packageId: pkg.id,
+            status: 'ACTIVE',
+            startDate,
+            endDate,
+            autoRenew: true,
+          },
+        });
+      }
+      subscriptionByStudentTeacher.set(key, sub.id);
+    }
   }
-  console.log('Student subscriptions created');
+  console.log('Student subscriptions created (one per student–sheikh pair so every booking can be linked)');
 
   // Create sample schedule reservations for active student subscriptions
   const activeStudentSubscriptions = await prisma.studentSubscription.findMany({
@@ -773,24 +823,20 @@ async function main() {
   }
   console.log('Schedule reservations created');
 
-  // Link some bookings to subscriptions so booking details show package/slots
-  for (const sub of activeStudentSubscriptions) {
-    const toLink = await prisma.booking.findMany({
-      where: {
-        studentId: sub.studentId,
-        teacherId: sub.teacherId,
-        subscriptionId: null,
-      },
-      take: 3,
-    });
-    for (const b of toLink) {
+  // ربط كل حجز بباقة اشتراك — لا يبقى أي حجز بدون subscriptionId و type SUBSCRIPTION
+  const allBookings = await prisma.booking.findMany({ select: { id: true, studentId: true, teacherId: true } });
+  let linkedCount = 0;
+  for (const b of allBookings) {
+    const subId = subscriptionByStudentTeacher.get(`${b.studentId}|${b.teacherId}`);
+    if (subId) {
       await prisma.booking.update({
         where: { id: b.id },
-        data: { subscriptionId: sub.id },
+        data: { subscriptionId: subId, type: 'SUBSCRIPTION' },
       });
+      linkedCount += 1;
     }
   }
-  console.log('Subscription-linked bookings updated');
+  console.log(`All bookings linked to a package: ${linkedCount}/${allBookings.length} (type SUBSCRIPTION)`);
 
   const courseOnlyTeachers = createdTeachers.filter((t) => t.teacher.teacherType === 'COURSE_SHEIKH');
   const createdCourses = [];

@@ -266,7 +266,8 @@ async function getBookingDetails(bookingId, userId, userRole) {
     },
   });
   if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
-  if (userRole !== 'ADMIN' && booking.studentId !== userId && booking.teacher?.userId !== userId) {
+  const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+  if (!isAdmin && booking.studentId !== userId && booking.teacher?.userId !== userId) {
     throw Object.assign(new Error('You do not have access to this booking'), { statusCode: 403 });
   }
 
@@ -401,13 +402,30 @@ async function getBookingDetails(bookingId, userId, userRole) {
     console.error('getBookingDetails upcoming/past sessions failed:', listErr?.message || listErr);
   }
 
+  // Avoid circular reference and ensure JSON-serializable response (session.booking can cause 500)
+  if (booking.session && typeof booking.session === 'object') {
+    const s = { ...booking.session };
+    delete s.booking;
+    booking = { ...booking, session: s };
+  }
+  const safeUpcoming = (upcomingBookings || []).map((b) => {
+    const out = { ...b };
+    if (out.session && typeof out.session === 'object') delete out.session.booking;
+    return out;
+  });
+  const safePast = (pastSessionsWithSession || []).map((b) => {
+    const out = { ...b };
+    if (out.session && typeof out.session === 'object') delete out.session.booking;
+    return out;
+  });
+
   return {
     ...booking,
     subscription,
     scheduleReservations,
     totalSessionsWithTeacher,
-    upcomingBookings,
-    pastSessions: pastSessionsWithSession,
+    upcomingBookings: safeUpcoming,
+    pastSessions: safePast,
   };
 }
 

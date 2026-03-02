@@ -547,11 +547,23 @@ async function subscribe(studentId, dto) {
 }
 
 async function getMySubscriptions(studentId) {
-  return prisma.studentSubscription.findMany({
+  const list = await prisma.studentSubscription.findMany({
     where: { studentId },
-    include: { package: true },
+    include: { package: true, teacher: { include: { user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true } } } } },
     orderBy: { createdAt: 'desc' },
   });
+  const withCounts = await Promise.all(
+    list.map(async (sub) => {
+      const bookedSessionsCount = await prisma.booking.count({
+        where: { subscriptionId: sub.id, status: { in: ['CONFIRMED', 'COMPLETED'] } },
+      });
+      const completedSessionsCount = await prisma.booking.count({
+        where: { subscriptionId: sub.id, status: 'COMPLETED' },
+      });
+      return { ...sub, bookedSessionsCount, completedSessionsCount };
+    })
+  );
+  return withCounts;
 }
 
 async function getMyActive(studentId) {

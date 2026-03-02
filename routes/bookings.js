@@ -150,6 +150,8 @@ router.get('/:id/details', async (req, res, next) => {
     const booking = await bookingService.getBookingDetails(req.params.id, req.user.id, req.user.role);
     res.json(booking);
   } catch (e) {
+    if (e.statusCode && e.statusCode < 500) return next(e);
+    console.error('GET /bookings/:id/details error:', e?.message || e, e?.stack);
     next(e);
   }
 });

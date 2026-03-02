@@ -1,0 +1,1 @@
+ALTER TABLE `teacher_wallets` ADD COLUMN `totalHours` DOUBLE NOT NULL DEFAULT 0;

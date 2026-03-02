@@ -398,6 +398,154 @@ async function main() {
   }
   console.log('Payments created');
 
+  // ── Sessions & Wallet Credits ────────────────────────────────────────────────
+  // Create Sessions for CONFIRMED and COMPLETED bookings of FULL_TEACHER teachers.
+  // For COMPLETED bookings: also credit the teacher's wallet immediately.
+  const platformFee = parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '20');
+  const bookingsForSessions = await prisma.booking.findMany({
+    where: {
+      status: { in: ['CONFIRMED', 'COMPLETED'] },
+      teacher: { teacherType: 'FULL_TEACHER' },
+    },
+    include: { teacher: true },
+    orderBy: { date: 'asc' },
+  });
+
+  for (const booking of bookingsForSessions) {
+    // Skip if session already exists
+    const existing = await prisma.session.findUnique({ where: { bookingId: booking.id } });
+    if (existing) continue;
+
+    // Build startedAt from booking date + startTime
+    const [hh, mm] = (booking.startTime || '09:00').split(':').map(Number);
+    const startedAt = new Date(booking.date);
+    startedAt.setHours(hh, mm, 0, 0);
+
+    // Duration in minutes (booking.duration is in hours × minutes based on creation; default 120 min)
+    const durationMinutes = booking.duration || 120;
+    const endedAt = new Date(startedAt.getTime() + durationMinutes * 60 * 1000);
+
+    const roomId = `room_${booking.id}_seed`;
+
+    const sessionData = {
+      bookingId: booking.id,
+      type: 'VIDEO',
+      roomId,
+      startedAt,
+      duration: durationMinutes,
+    };
+
+    if (booking.status === 'COMPLETED') {
+      sessionData.endedAt = endedAt;
+    }
+
+    try {
+      await prisma.session.create({ data: sessionData });
+    } catch (e) {
+      // skip if duplicate roomId
+      continue;
+    }
+
+    // Credit wallet for COMPLETED sessions
+    if (booking.status === 'COMPLETED' && booking.teacher?.hourlyRate > 0) {
+      const hours = durationMinutes / 60;
+      const gross = hours * booking.teacher.hourlyRate;
+      const fee = (gross * platformFee) / 100;
+      const teacherEarning = gross - fee;
+
+      try {
+        // Ensure wallet exists
+        let wallet = await prisma.teacherWallet.findUnique({ where: { teacherId: booking.teacherId } });
+        if (!wallet) {
+          wallet = await prisma.teacherWallet.create({
+            data: { teacherId: booking.teacherId, balance: 0, pendingBalance: 0, totalEarned: 0, totalHours: 0 },
+          });
+        }
+
+        await prisma.teacherWallet.update({
+          where: { id: wallet.id },
+          data: {
+            balance: { increment: teacherEarning },
+            totalEarned: { increment: teacherEarning },
+            totalHours: { increment: hours },
+          },
+        });
+
+        await prisma.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            type: 'SESSION_EARNING',
+            amount: teacherEarning,
+            description: `Seed: session earning ${hours.toFixed(2)}h × ${booking.teacher.hourlyRate}/h (booking ${booking.id})`,
+            bookingId: booking.id,
+          },
+        });
+
+        // Record platform revenue (avoid duplicate)
+        const existingRev = await prisma.platformRevenue.findUnique({ where: { bookingId: booking.id } });
+        if (!existingRev && gross > 0) {
+          await prisma.platformRevenue.create({
+            data: { bookingId: booking.id, amount: fee, teacherEarning },
+          });
+        }
+      } catch (e) {
+        // skip wallet errors silently in seed
+      }
+    }
+  }
+  console.log('Sessions created and wallet credits applied for COMPLETED sessions');
+
+  // Seed session details (memorization, revision, report) for some COMPLETED sessions
+  const completedSessions = await prisma.session.findMany({
+    where: { endedAt: { not: null } },
+    include: { booking: { select: { studentId: true, teacherId: true } } },
+    take: 3,
+  });
+  for (const sess of completedSessions) {
+    if (!sess.booking) continue;
+    const { studentId, teacherId } = sess.booking;
+    try {
+      await prisma.sessionMemorization.create({
+        data: {
+          sessionId: sess.id,
+          surahName: 'Al-Baqarah',
+          surahNameAr: 'البقرة',
+          surahNumber: 2,
+          fromAyah: 1,
+          toAyah: 10,
+          isFullSurah: false,
+          notes: 'Seed: new memorization from session',
+        },
+      });
+    } catch (e) { /* skip if exists */ }
+    try {
+      await prisma.sessionRevision.create({
+        data: {
+          sessionId: sess.id,
+          revisionType: 'CLOSE',
+          rangeType: 'SURAH',
+          fromSurah: 'Al-Fatiha',
+          toSurah: 'Al-Baqarah',
+          notes: 'Seed: close revision',
+        },
+      });
+    } catch (e) { /* skip */ }
+    try {
+      await prisma.sessionReport.upsert({
+        where: { sessionId: sess.id },
+        update: {},
+        create: {
+          sessionId: sess.id,
+          teacherId,
+          studentId,
+          content: 'تقرير تقييم الجلسة: أداء الطالب جيد في الحفظ والمراجعة. يُنصح بالمتابعة. Seed report.',
+          rating: 5,
+        },
+      });
+    } catch (e) { /* skip */ }
+  }
+  console.log('Session memorization, revision, and report seed created');
+
   const superAdminRole = await prisma.role.upsert({
     where: { name: 'SUPER_ADMIN' },
     update: {},
@@ -624,6 +772,25 @@ async function main() {
     await prisma.scheduleReservation.createMany({ data: reservationSeedData, skipDuplicates: true });
   }
   console.log('Schedule reservations created');
+
+  // Link some bookings to subscriptions so booking details show package/slots
+  for (const sub of activeStudentSubscriptions) {
+    const toLink = await prisma.booking.findMany({
+      where: {
+        studentId: sub.studentId,
+        teacherId: sub.teacherId,
+        subscriptionId: null,
+      },
+      take: 3,
+    });
+    for (const b of toLink) {
+      await prisma.booking.update({
+        where: { id: b.id },
+        data: { subscriptionId: sub.id },
+      });
+    }
+  }
+  console.log('Subscription-linked bookings updated');
 
   const courseOnlyTeachers = createdTeachers.filter((t) => t.teacher.teacherType === 'COURSE_SHEIKH');
   const createdCourses = [];

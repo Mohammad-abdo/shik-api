@@ -127,6 +127,35 @@ router.get('/teacher/:teacherId/subscription-packages', async (req, res, next) =
 
 /**
  * @openapi
+ * /api/bookings/{id}/details:
+ *   get:
+ *     tags: [bookings]
+ *     summary: Get rich booking details (package, student, session with memorization/revision/report, history)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Booking details
+ *       404:
+ *         description: Not found
+ */
+router.get('/:id/details', async (req, res, next) => {
+  try {
+    const booking = await bookingService.getBookingDetails(req.params.id, req.user.id, req.user.role);
+    res.json(booking);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
  * /api/bookings/{id}:
  *   get:
  *     tags: [bookings]

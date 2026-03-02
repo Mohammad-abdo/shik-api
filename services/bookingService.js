@@ -22,6 +22,23 @@ async function create(studentId, dto) {
   if (teacher.teacherType !== 'FULL_TEACHER') {
     throw Object.assign(new Error('Bookings are only available with Quran live-session sheikhs'), { statusCode: 400 });
   }
+
+  const activeSubscription = await prisma.studentSubscription.findFirst({
+    where: {
+      studentId,
+      teacherId: dto.teacherId,
+      status: { in: ['ACTIVE', 'PENDING'] },
+      endDate: { gte: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!activeSubscription) {
+    throw Object.assign(
+      new Error('You must subscribe to a package with this teacher before booking. لا يتم أي حجز إلا بعد الاشتراك في باقة.'),
+      { statusCode: 400 }
+    );
+  }
+
   const duration = SESSION_DURATION_MINUTES;
   const price = teacher.hourlyRate * duration;
   const discount = dto.discount || 0;
@@ -30,6 +47,7 @@ async function create(studentId, dto) {
     data: {
       studentId,
       teacherId: dto.teacherId,
+      subscriptionId: activeSubscription.id,
       date: new Date(dto.date),
       startTime: dto.startTime,
       duration,
@@ -51,19 +69,6 @@ async function create(studentId, dto) {
     `You have a new booking request from ${booking.student.firstName} ${booking.student.lastName}`,
     { bookingId: booking.id }
   );
-
-  // If the student has an active package with this teacher, return its booked timeline as well.
-  const activeSubscription = await prisma.studentSubscription.findFirst({
-    where: {
-      studentId,
-      teacherId: dto.teacherId,
-      status: { in: ['ACTIVE', 'PENDING'] },
-      endDate: { gte: new Date() },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  if (!activeSubscription) return booking;
 
   const [packageBookings, scheduleReservations] = await Promise.all([
     prisma.booking.findMany({
@@ -236,6 +241,176 @@ async function reject(bookingId, teacherId, userId) {
   return updated;
 }
 
+/**
+ * Rich booking details for FULL_TEACHER: package stats, student, session (memorizations, revisions, report), schedule, history.
+ */
+async function getBookingDetails(bookingId, userId, userRole) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true, phone: true, avatar: true } },
+      teacher: {
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true, phone: true, avatar: true } },
+        },
+      },
+      payment: true,
+      session: {
+        include: {
+          memorizations: { orderBy: { createdAt: 'asc' } },
+          revisions: { orderBy: { createdAt: 'asc' } },
+          report: true,
+        },
+      },
+      review: true,
+    },
+  });
+  if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
+  if (userRole !== 'ADMIN' && booking.studentId !== userId && booking.teacher?.userId !== userId) {
+    throw Object.assign(new Error('You do not have access to this booking'), { statusCode: 403 });
+  }
+
+  const teacherId = booking.teacherId;
+  const studentId = booking.studentId;
+  let subscriptionId = booking.subscriptionId || null;
+
+  let subscription = null;
+  let scheduleReservations = [];
+  let usedSessions = 0;
+  let totalSessions = 0;
+  let remainingSessions = 0;
+
+  // If this booking has no subscriptionId, try to find active subscription for same student+teacher so sheikh still sees package
+  let sub = null;
+  try {
+    if (subscriptionId) {
+      sub = await prisma.studentSubscription.findUnique({
+        where: { id: subscriptionId },
+        include: {
+          package: true,
+          teacher: {
+            include: {
+              schedules: { where: { isActive: true }, orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }] },
+            },
+          },
+        },
+      });
+    }
+    if (!sub) {
+      sub = await prisma.studentSubscription.findFirst({
+        where: {
+          studentId,
+          teacherId,
+          status: { in: ['ACTIVE', 'PENDING'] },
+          endDate: { gte: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          package: true,
+          teacher: {
+            include: {
+              schedules: { where: { isActive: true }, orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }] },
+            },
+          },
+        },
+      });
+      if (sub) subscriptionId = sub.id;
+    }
+
+    if (sub) {
+      subscription = {
+        id: sub.id,
+        packageName: sub.package?.name || null,
+        packageNameAr: sub.package?.nameAr || null,
+        totalSessions: sub.package?.totalSessions ?? 0,
+        startDate: sub.startDate,
+        endDate: sub.endDate,
+        status: sub.status,
+        selectedSlots: parseJsonSafe(sub.selectedSlots),
+      };
+      totalSessions = subscription.totalSessions;
+      usedSessions = await prisma.booking.count({
+        where: { subscriptionId: sub.id, status: 'COMPLETED' },
+      });
+      remainingSessions = Math.max(0, totalSessions - usedSessions);
+      subscription.usedSessions = usedSessions;
+      subscription.remainingSessions = remainingSessions;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      scheduleReservations = await prisma.scheduleReservation.findMany({
+        where: { subscriptionId: sub.id, reservationDate: { gte: today } },
+        orderBy: [{ reservationDate: 'asc' }, { startTime: 'asc' }],
+        take: 50,
+      });
+      subscription.bookedSlotsCount = scheduleReservations.length;
+      subscription.availableSlots = (sub.teacher?.schedules || []).map((s) => ({
+        dayOfWeek: s.dayOfWeek,
+        startTime: s.startTime,
+        endTime: s.endTime,
+      }));
+    }
+  } catch (subErr) {
+    console.error('getBookingDetails subscription load failed:', subErr?.message || subErr);
+    subscription = null;
+    scheduleReservations = [];
+  }
+
+  let totalSessionsWithTeacher = 0;
+  let upcomingBookings = [];
+  let pastSessionsWithSession = [];
+
+  try {
+    totalSessionsWithTeacher = await prisma.booking.count({
+      where: { studentId, teacherId, status: 'COMPLETED' },
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    upcomingBookings = await prisma.booking.findMany({
+      where: {
+        studentId,
+        teacherId,
+        status: { in: ['CONFIRMED', 'PENDING'] },
+        date: { gte: today },
+      },
+      include: {
+        session: { select: { id: true, startedAt: true, endedAt: true, duration: true } },
+      },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+      take: 10,
+    });
+
+    const pastSessions = await prisma.booking.findMany({
+      where: { studentId, teacherId, status: 'COMPLETED' },
+      include: {
+        session: {
+          include: {
+            memorizations: { orderBy: { createdAt: 'asc' } },
+            revisions: { orderBy: { createdAt: 'asc' } },
+            report: true,
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+      take: 20,
+    });
+
+    pastSessionsWithSession = pastSessions.filter((b) => b.session != null && b.session.endedAt != null);
+  } catch (listErr) {
+    console.error('getBookingDetails upcoming/past sessions failed:', listErr?.message || listErr);
+  }
+
+  return {
+    ...booking,
+    subscription,
+    scheduleReservations,
+    totalSessionsWithTeacher,
+    upcomingBookings,
+    pastSessions: pastSessionsWithSession,
+  };
+}
+
 async function getSubscriptionPackagesForStudent(studentId, teacherId) {
   const teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
@@ -299,6 +474,7 @@ async function getSubscriptionPackagesForStudent(studentId, teacherId) {
 module.exports = {
   create,
   findOne,
+  getBookingDetails,
   findByStudent,
   findByTeacher,
   confirm,

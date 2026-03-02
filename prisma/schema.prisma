@@ -58,17 +58,18 @@ model Booking {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  student User     @relation("StudentBookings", fields: [studentId], references: [id])
-  teacher Teacher  @relation("TeacherBookings", fields: [teacherId], references: [id])
+  student  User      @relation("StudentBookings", fields: [studentId], references: [id])
+  teacher  Teacher   @relation("TeacherBookings", fields: [teacherId], references: [id])
   schedule Schedule? @relation("ScheduleBookings", fields: [scheduleId], references: [id])
-  course  Course?  @relation("CourseBookings", fields: [courseId], references: [id])
-  payment Payment?
-  session Session?
-  review  Review?
+  course   Course?   @relation("CourseBookings", fields: [courseId], references: [id])
+  payment  Payment?
+  session  Session?
+  review   Review?
 
   @@index([studentId], map: "bookings_studentId_fkey")
   @@index([teacherId], map: "bookings_teacherId_fkey")
   @@index([scheduleId], map: "bookings_scheduleId_fkey")
+  @@index([courseId], map: "bookings_courseId_fkey")
   @@map("bookings")
 }
 
@@ -266,8 +267,8 @@ model Schedule {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  teacher Teacher @relation("TeacherSchedules", fields: [teacherId], references: [id])
-  bookings Booking[] @relation("ScheduleBookings")
+  teacher      Teacher               @relation("TeacherSchedules", fields: [teacherId], references: [id])
+  bookings     Booking[]             @relation("ScheduleBookings")
   reservations ScheduleReservation[] @relation("ScheduleReservations")
 
   @@index([teacherId], map: "schedules_teacherId_fkey")
@@ -287,7 +288,10 @@ model Session {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  booking Booking @relation(fields: [bookingId], references: [id])
+  booking       Booking               @relation(fields: [bookingId], references: [id])
+  memorizations SessionMemorization[]
+  revisions     SessionRevision[]
+  report        SessionReport?
 
   @@map("sessions")
 }
@@ -298,6 +302,7 @@ model TeacherWallet {
   balance        Float    @default(0)
   pendingBalance Float    @default(0)
   totalEarned    Float    @default(0)
+  totalHours     Float    @default(0)
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -774,13 +779,14 @@ model StudentSubscription {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
-  student User                       @relation("StudentSubscriptions", fields: [studentId], references: [id], onDelete: Cascade)
-  teacher Teacher                    @relation("TeacherStudentSubscriptions", fields: [teacherId], references: [id])
-  package StudentSubscriptionPackage @relation("StudentPackageSubscriptions", fields: [packageId], references: [id])
-  payment Payment?
-  reservations ScheduleReservation[] @relation("SubscriptionScheduleReservations")
+  student      User                       @relation("StudentSubscriptions", fields: [studentId], references: [id], onDelete: Cascade)
+  teacher      Teacher                    @relation("TeacherStudentSubscriptions", fields: [teacherId], references: [id])
+  package      StudentSubscriptionPackage @relation("StudentPackageSubscriptions", fields: [packageId], references: [id])
+  payment      Payment?
+  reservations ScheduleReservation[]      @relation("SubscriptionScheduleReservations")
 
   @@index([studentId], map: "student_subscriptions_studentId_fkey")
+  @@index([teacherId], map: "student_subscriptions_teacherId_fkey")
   @@index([packageId], map: "student_subscriptions_packageId_fkey")
   @@index([status])
   @@map("student_subscriptions")
@@ -982,4 +988,70 @@ enum CourseLevel {
 enum VideoStatus {
   WATCHING
   COMPLETED
+}
+
+model SessionMemorization {
+  id          String   @id @default(uuid())
+  sessionId   String
+  surahName   String
+  surahNameAr String?
+  surahNumber Int?
+  fromAyah    Int?
+  toAyah      Int?
+  isFullSurah Boolean  @default(false)
+  notes       String?  @db.LongText
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("session_memorizations")
+}
+
+model SessionRevision {
+  id           String        @id @default(uuid())
+  sessionId    String
+  revisionType RevisionType
+  rangeType    RevisionRange
+  fromSurah    String?
+  toSurah      String?
+  fromJuz      Int?
+  toJuz        Int?
+  fromQuarter  String?
+  toQuarter    String?
+  notes        String?       @db.LongText
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("session_revisions")
+}
+
+model SessionReport {
+  id        String   @id @default(uuid())
+  sessionId String   @unique
+  teacherId String
+  studentId String
+  content   String   @db.LongText
+  rating    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_reports")
+}
+
+enum RevisionType {
+  CLOSE
+  FAR
+}
+
+enum RevisionRange {
+  SURAH
+  JUZ
+  QUARTER
 }

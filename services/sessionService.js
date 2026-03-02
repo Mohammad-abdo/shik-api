@@ -1,5 +1,6 @@
 const { prisma } = require('../lib/prisma');
 const { buildRtcToken } = require('../utils/agora');
+const walletService = require('./walletService');
 
 async function create(bookingId, dto) {
   const booking = await prisma.booking.findUnique({
@@ -76,8 +77,18 @@ async function endSession(bookingId, recordingUrl) {
     where: { id: bookingId },
     data: { status: 'COMPLETED' },
   });
+
+  // Automatically credit teacher wallet based on actual session duration × hourly rate
+  try {
+    await walletService.creditFromSession(bookingId);
+  } catch (err) {
+    // Log but never block the session-end response
+    console.error(`[session] Failed to credit wallet for booking ${bookingId}:`, err.message);
+  }
+
   return updated;
 }
+
 
 /** List sessions for current user (as teacher or student) */
 async function getMySessions(userId, page = 1, limit = 20) {

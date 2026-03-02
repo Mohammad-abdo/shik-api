@@ -213,6 +213,46 @@ async function getAllBookingsWithFilters(filters = {}) {
   return { bookings, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 }
 
+/**
+ * Report: Booking Teachers wallet summary (معلمين الحجوزات فقط).
+ * Only FULL_TEACHER, only COMPLETED bookings, duration in minutes -> hours, totalEarned = hours * hourlyRate.
+ */
+async function getBookingTeachersWalletReport() {
+  const bookingTeachers = await prisma.teacher.findMany({
+    where: { teacherType: 'FULL_TEACHER' },
+    select: { id: true, hourlyRate: true, user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true } } },
+  });
+  const teacherIds = bookingTeachers.map((t) => t.id);
+  if (teacherIds.length === 0) return [];
+
+  const aggregated = await prisma.booking.groupBy({
+    by: ['teacherId'],
+    where: { status: 'COMPLETED', teacherId: { in: teacherIds } },
+    _sum: { duration: true },
+  });
+
+  const sumByTeacherId = new Map(aggregated.map((a) => [a.teacherId, a._sum.duration || 0]));
+  const teachersById = new Map(bookingTeachers.map((t) => [t.id, t]));
+
+  return bookingTeachers.map((t) => {
+    const totalMinutes = sumByTeacherId.get(t.id) || 0;
+    const totalWorkedHours = totalMinutes / 60;
+    const hourPrice = Number(t.hourlyRate) || 0;
+    const totalEarned = totalWorkedHours * hourPrice;
+    const teacherName =
+      [t.user?.firstName, t.user?.lastName].filter(Boolean).join(' ') ||
+      [t.user?.firstNameAr, t.user?.lastNameAr].filter(Boolean).join(' ') ||
+      '';
+    return {
+      teacherId: t.id,
+      teacherName: teacherName.trim() || null,
+      totalWorkedHours: Math.round(totalWorkedHours * 100) / 100,
+      hourPrice,
+      totalEarned: Math.round(totalEarned * 100) / 100,
+    };
+  });
+}
+
 async function getAllPayments(page = 1, limit = 20, status) {
   const where = {};
   if (status) where.status = status;
@@ -437,10 +477,10 @@ async function createTeacher(dto, adminId) {
     },
     include: { user: { select: { id: true, email: true, firstName: true, firstNameAr: true, lastName: true, lastNameAr: true, phone: true, avatar: true } } },
   });
-  
+
   // إنشاء محفظة الشيخ
   await prisma.teacherWallet.create({ data: { teacherId: teacher.id, balance: 0, pendingBalance: 0, totalEarned: 0 } });
-  
+
   // إضافة مواعيد العمل (للمشايخ الكاملين فقط)
   if (teacherType === 'FULL_TEACHER' && dto.schedules && Array.isArray(dto.schedules) && dto.schedules.length > 0) {
     const scheduleData = dto.schedules.map(schedule => ({
@@ -450,7 +490,7 @@ async function createTeacher(dto, adminId) {
       endTime: schedule.endTime,
       isActive: true
     }));
-    
+
     await prisma.schedule.createMany({
       data: scheduleData
     });
@@ -920,7 +960,53 @@ async function getTeacherWallet(teacherId) {
     },
   });
   if (!wallet) throw Object.assign(new Error('Wallet not found'), { statusCode: 404 });
-  return wallet;
+
+  // totalHours from completed sessions (tracked live by walletService.creditFromSession)
+  const sessionTotalHours = Math.round((wallet.totalHours || 0) * 100) / 100;
+
+  // Also derive from booking durations as a fallback/cross-check
+  const aggregated = await prisma.booking.aggregate({
+    where: { teacherId, status: 'COMPLETED' },
+    _sum: { duration: true },
+  });
+  const totalMinutes = aggregated._sum.duration || 0;
+  const totalWorkedHours = Math.round((totalMinutes / 60) * 100) / 100;
+
+  const hourPrice = Number(wallet.teacher?.hourlyRate) || 0;
+  const totalEarnedFromBookings = Math.round(totalWorkedHours * hourPrice * 100) / 100;
+
+  const plain = JSON.parse(JSON.stringify(wallet));
+  // Primary: session-based hours (reflects actual session start/end times)
+  plain.totalHours = sessionTotalHours;
+  // Secondary: booking-duration-based (used as cross-check)
+  plain.totalWorkedHours = totalWorkedHours;
+  plain.hourlyRate = hourPrice;
+  // Alias for legacy compatibility
+  plain.hourPrice = hourPrice;
+  plain.totalEarnedFromBookings = totalEarnedFromBookings;
+  return plain;
+}
+
+/**
+ * Paginated teacher wallet transactions for admin view.
+ * @param {string} teacherId
+ * @param {number} page
+ * @param {number} limit
+ */
+async function getTeacherWalletTransactions(teacherId, page = 1, limit = 50) {
+  const wallet = await prisma.teacherWallet.findUnique({ where: { teacherId }, select: { id: true } });
+  if (!wallet) throw Object.assign(new Error('Wallet not found for this teacher'), { statusCode: 404 });
+  const skip = (page - 1) * limit;
+  const [transactions, total] = await Promise.all([
+    prisma.walletTransaction.findMany({
+      where: { walletId: wallet.id },
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.walletTransaction.count({ where: { walletId: wallet.id } }),
+  ]);
+  return { transactions, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 }
 
 async function sendMoneyToTeacher(teacherId, amount, paymentMethod, description, adminId) {
@@ -1098,7 +1184,7 @@ async function processStudentPayment(dto, adminId) {
     await prisma.studentSubscription.updateMany({
       where: { id: dto.relatedId },
       data: { paymentId: transaction.id },
-    }).catch(() => {});
+    }).catch(() => { });
   }
   await auditService.log(adminId, 'PROCESS_STUDENT_PAYMENT', 'StudentWallet', wallet.id, { studentId: dto.studentId, amount: dto.amount, paymentType: dto.paymentType, relatedId: dto.relatedId });
   return { wallet: updated, transaction };
@@ -1143,6 +1229,7 @@ module.exports = {
   getAllUsersWithFilters,
   getAllTeachers,
   getAllBookingsWithFilters,
+  getBookingTeachersWalletReport,
   getAllPayments,
   updateUserStatus,
   deleteUser,
@@ -1170,6 +1257,7 @@ module.exports = {
   getAllTeacherWallets,
   syncPaymentsToWallets,
   getTeacherWallet,
+  getTeacherWalletTransactions,
   sendMoneyToTeacher,
   createWalletForTeacher,
   disableWallet,

@@ -147,9 +147,11 @@ router.get('/bookings', permissions(['bookings.manage']), async (req, res, next)
     res.json(result);
   } catch (e) {
     if (e.code === 'P2022' || (e.meta?.column) || (e.message && /Unknown column|does not exist/i.test(e.message))) {
+      console.error('[admin/bookings] Database schema error:', e.code, e.message, e.meta);
       return res.status(503).json({
         message: 'Database schema is out of date. Run in backend folder: npx prisma migrate deploy',
         code: 'MIGRATION_NEEDED',
+        detail: process.env.NODE_ENV !== 'production' ? (e.message || String(e)) : undefined,
       });
     }
     next(e);
@@ -251,6 +253,27 @@ router.get('/bookings/export', permissions(['bookings.manage']), async (req, res
     };
     const csv = await adminService.exportBookingsCSV(filters);
     res.type('text/csv').send(csv);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/admin/bookings/teachers-wallet-report:
+ *   get:
+ *     tags: [admin]
+ *     summary: GET booking teachers wallet report (محافظ معلمين الحجوزات)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of { teacherId, teacherName, totalWorkedHours, hourPrice, totalEarned }
+ */
+router.get('/bookings/teachers-wallet-report', permissions(['bookings.manage']), async (req, res, next) => {
+  try {
+    const report = await adminService.getBookingTeachersWalletReport();
+    res.json(report);
   } catch (e) {
     next(e);
   }
@@ -1386,6 +1409,91 @@ router.get('/wallets/:id', permissions(['payments.view']), async (req, res, next
     next(e);
   }
 });
+
+/**
+ * @openapi
+ * /api/admin/teachers/{teacherId}/wallet:
+ *   get:
+ *     tags: [admin]
+ *     summary: GET teacher wallet by teacherId (with totalHours, hourlyRate, balance, earnings)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: teacherId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Teacher wallet with session-based earnings summary
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       404:
+ *         description: Wallet not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
+router.get('/teachers/:teacherId/wallet', permissions(['payments.view']), async (req, res, next) => {
+  try {
+    const result = await adminService.getTeacherWallet(req.params.teacherId);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/admin/teachers/{teacherId}/wallet/transactions:
+ *   get:
+ *     tags: [admin]
+ *     summary: GET paginated wallet transactions for a teacher (includes SESSION_EARNING entries)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: teacherId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Paginated transactions list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       404:
+ *         description: Wallet not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
+router.get('/teachers/:teacherId/wallet/transactions', permissions(['payments.view']), async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const result = await adminService.getTeacherWalletTransactions(req.params.teacherId, page, limit);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
 
 /**
  * @openapi

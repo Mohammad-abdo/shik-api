@@ -1,9 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const sessionService = require('../services/sessionService');
+const sessionReportService = require('../services/sessionReportService');
+const { prisma } = require('../lib/prisma');
 const { jwtAuth } = require('../middleware/jwtAuth');
 
 router.use(jwtAuth);
+
+async function getSessionAndCheckAccess(sessionId, userId) {
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: { booking: { include: { student: true, teacher: { include: { user: true } } } } },
+  });
+  if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
+  const isStudent = session.booking.studentId === userId;
+  const isTeacher = session.booking.teacher?.userId === userId;
+  if (!isStudent && !isTeacher) throw Object.assign(new Error('You do not have access to this session'), { statusCode: 403 });
+  return { session, isTeacher };
+}
 
 /**
  * @openapi
@@ -192,6 +206,84 @@ router.post('/bookings/:bookingId/end', async (req, res, next) => {
   try {
     const session = await sessionService.endSession(req.params.bookingId, req.body.recordingUrl);
     res.json(session);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ─── Session memorization, revision, report (by sessionId) ───────────────────
+
+router.get('/:sessionId/details', async (req, res, next) => {
+  try {
+    const { session } = await getSessionAndCheckAccess(req.params.sessionId, req.user.id);
+    const details = await sessionReportService.getSessionDetails(req.params.sessionId);
+    res.json(details);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:sessionId/memorization', async (req, res, next) => {
+  try {
+    await getSessionAndCheckAccess(req.params.sessionId, req.user.id);
+    const record = await sessionReportService.saveMemorization(req.params.sessionId, req.body);
+    res.status(201).json(record);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:sessionId/memorization', async (req, res, next) => {
+  try {
+    await getSessionAndCheckAccess(req.params.sessionId, req.user.id);
+    const list = await sessionReportService.getMemorizations(req.params.sessionId);
+    res.json(list);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:sessionId/revision', async (req, res, next) => {
+  try {
+    await getSessionAndCheckAccess(req.params.sessionId, req.user.id);
+    const record = await sessionReportService.saveRevision(req.params.sessionId, req.body);
+    res.status(201).json(record);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:sessionId/revisions', async (req, res, next) => {
+  try {
+    await getSessionAndCheckAccess(req.params.sessionId, req.user.id);
+    const list = await sessionReportService.getRevisions(req.params.sessionId);
+    res.json(list);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:sessionId/report', async (req, res, next) => {
+  try {
+    const { session, isTeacher } = await getSessionAndCheckAccess(req.params.sessionId, req.user.id);
+    if (!isTeacher) throw Object.assign(new Error('Only the teacher can submit the session report'), { statusCode: 403 });
+    const record = await sessionReportService.saveReport(
+      req.params.sessionId,
+      session.booking.teacherId,
+      session.booking.studentId,
+      req.body
+    );
+    res.json(record);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:sessionId/report', async (req, res, next) => {
+  try {
+    await getSessionAndCheckAccess(req.params.sessionId, req.user.id);
+    const report = await sessionReportService.getReport(req.params.sessionId);
+    res.json(report || {});
   } catch (e) {
     next(e);
   }

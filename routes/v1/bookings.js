@@ -86,6 +86,20 @@ router.post('/', jwtAuth, async (req, res, next) => {
       err.statusCode = 400;
       return next(err);
     }
+    const activeSubscription = await prisma.studentSubscription.findFirst({
+      where: {
+        studentId: req.user.id,
+        teacherId: sheikh_id,
+        status: { in: ['ACTIVE', 'PENDING'] },
+        endDate: { gte: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!activeSubscription) {
+      const err = new Error('You must subscribe to a package with this teacher before booking. لا يتم أي حجز إلا بعد الاشتراك في باقة.');
+      err.statusCode = 400;
+      return next(err);
+    }
     let startTime = '08:00';
     let duration = 60;
     let date = new Date();
@@ -146,6 +160,7 @@ router.post('/', jwtAuth, async (req, res, next) => {
       .map((d) => ({
         studentId: req.user.id,
         teacherId: sheikh_id,
+        subscriptionId: activeSubscription.id,
         scheduleId: package_id || null,
         date: d,
         startTime,

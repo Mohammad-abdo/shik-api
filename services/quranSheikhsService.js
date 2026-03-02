@@ -250,7 +250,7 @@ async function getSheikhById(id, studentId, lang = 'en') {
   const packages = buildPackagesFromSchedules(teacher.schedules, teacher, lang);
 
   const reviewsSummary = await prisma.review.aggregate({
-    where: { teacherId: teacher.id },
+    where: { sheikhId: teacher.id },
     _count: true,
     _avg: { rating: true },
   });
@@ -275,17 +275,22 @@ async function getSheikhById(id, studentId, lang = 'en') {
   };
 
   if (is_subscribed && studentId) {
-    const nextBooking = await prisma.booking.findFirst({
-      where: { studentId, teacherId: teacher.id, status: 'CONFIRMED', date: { gte: new Date() } },
-      orderBy: { date: 'asc' },
+    const nextSlot = await prisma.bookingSession.findFirst({
+      where: {
+        status: 'CONFIRMED',
+        scheduledDate: { gte: new Date() },
+        booking: { studentId, teacherId: teacher.id, status: 'CONFIRMED' },
+      },
+      orderBy: [{ scheduledDate: 'asc' }, { startTime: 'asc' }],
       include: { session: true },
     });
-    if (nextBooking) {
+    if (nextSlot) {
+      const roomId = nextSlot.session?.roomId;
       base.next_session = {
-        date: nextBooking.date.toISOString().split('T')[0],
-        time: nextBooking.startTime,
+        date: nextSlot.scheduledDate.toISOString().split('T')[0],
+        time: nextSlot.startTime,
         is_active_now: false,
-        meeting_link: nextBooking.session?.roomId ? `https://meet.example.com/${nextBooking.session.roomId}` : null,
+        meeting_link: roomId ? `https://meet.example.com/${roomId}` : null,
       };
     }
     const activeBooking = await prisma.booking.findFirst({
@@ -313,17 +318,17 @@ async function getSheikhReviews(teacherId, page = 1, limit = 10, lang = 'en') {
 
   const skip = (page - 1) * limit;
   const reviews = await prisma.review.findMany({
-    where: { teacherId },
+    where: { sheikhId: teacherId },
     skip,
     take: limit,
-    include: { student: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true } } },
+    include: { user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true } } },
     orderBy: { createdAt: 'desc' },
   });
   return reviews.map((r) => {
+    const u = r.user;
     const user_name = lang === 'ar'
-      ? [r.student?.firstNameAr, r.student?.lastNameAr].filter(Boolean).join(' ').trim() ||
-        [r.student?.firstName, r.student?.lastName].filter(Boolean).join(' ').trim()
-      : [r.student?.firstName, r.student?.lastName].filter(Boolean).join(' ').trim();
+      ? [u?.firstNameAr, u?.lastNameAr].filter(Boolean).join(' ').trim() || [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim()
+      : [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
     return {
       id: r.id,
       user_name: user_name || '—',
@@ -347,7 +352,7 @@ async function addSheikhReview(teacherId, studentId, body) {
   });
   if (!booking) throw Object.assign(new Error('Only subscribed students can add a review. No completed booking found.'), { statusCode: 403 });
   const existing = await prisma.review.findFirst({
-    where: { teacherId, studentId },
+    where: { sheikhId: teacherId, userId: studentId },
   });
   if (existing) throw Object.assign(new Error('You have already reviewed this sheikh'), { statusCode: 400 });
   const reviewService = require('./reviewService');

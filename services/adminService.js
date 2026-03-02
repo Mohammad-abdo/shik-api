@@ -154,15 +154,19 @@ async function getAllTeachers(page = 1, limit = 20, isApproved, teacherType) {
 }
 
 async function getPaymentStats() {
-  const [totalRevenue, pendingPayments, completedPayments] = await Promise.all([
+  const [totalRevenue, pendingCount, completedCount, failedCount] = await Promise.all([
     prisma.payment.aggregate({ where: { status: 'COMPLETED' }, _sum: { amount: true } }),
     prisma.payment.count({ where: { status: 'PENDING' } }),
     prisma.payment.count({ where: { status: 'COMPLETED' } }),
+    prisma.payment.count({ where: { status: 'FAILED' } }),
   ]);
   return {
     totalRevenue: totalRevenue._sum?.amount || 0,
-    pendingPayments,
-    completedPayments,
+    pendingPayments: pendingCount,
+    completedPayments: completedCount,
+    successfulCount: completedCount,
+    pendingCount,
+    failedCount,
   };
 }
 
@@ -204,7 +208,7 @@ async function getAllBookingsWithFilters(filters = {}) {
         student: { select: { id: true, firstName: true, lastName: true, email: true } },
         teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
         payment: true,
-        session: true,
+        bookingSessions: { orderBy: { orderIndex: 'asc' }, include: { session: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -253,9 +257,14 @@ async function getBookingTeachersWalletReport() {
   });
 }
 
-async function getAllPayments(page = 1, limit = 20, status) {
+async function getAllPayments(page = 1, limit = 20, status, type) {
   const where = {};
-  if (status) where.status = status;
+  if (status) {
+    where.status = status === 'SUCCEEDED' ? 'COMPLETED' : status;
+  }
+  if (type && ['BOOKING', 'SUBSCRIPTION', 'COURSE'].includes(type)) {
+    where.paymentType = type;
+  }
   const skip = (page - 1) * limit;
   const [payments, total] = await Promise.all([
     prisma.payment.findMany({
@@ -263,18 +272,40 @@ async function getAllPayments(page = 1, limit = 20, status) {
       skip,
       take: limit,
       include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
         booking: {
           include: {
             student: { select: { id: true, firstName: true, lastName: true, email: true } },
             teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
           },
         },
+        subscription: { select: { id: true, status: true, package: { select: { name: true } } } },
+        course: { select: { id: true, title: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.payment.count({ where }),
   ]);
   return { payments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+}
+
+async function getPaymentById(paymentId) {
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      booking: {
+        include: {
+          student: { select: { id: true, firstName: true, lastName: true, email: true } },
+          teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
+        },
+      },
+      subscription: { select: { id: true, status: true, package: { select: { name: true } } } },
+      course: { select: { id: true, title: true } },
+    },
+  });
+  if (!payment) return null;
+  return payment;
 }
 
 async function updateUserStatus(userId, status) {
@@ -322,7 +353,7 @@ async function forceConfirmBooking(bookingId, adminId) {
 async function sendGlobalNotification(adminId, title, message) {
   const users = await prisma.user.findMany({ select: { id: true } });
   for (const u of users) {
-    await notificationService.createNotification(u.id, 'SESSION_REMINDER', title, message, {}, adminId);
+    await notificationService.createNotification(u.id, 'SESSION_REMINDER', title, message, {}, null, adminId);
   }
   await auditService.log(adminId, 'SEND_GLOBAL_NOTIFICATION', 'Notification', null, { title, recipients: users.length });
   return { sent: users.length };
@@ -763,16 +794,21 @@ async function getSessionReportsForAdmin(startDate, endDate, page = 1, limit = 5
     prisma.session.findMany({
       where: {
         endedAt: { not: null },
-        booking: {
+        bookingSession: {
           status: 'COMPLETED',
-          date: { gte: start, lte: end },
+          scheduledDate: { gte: start, lte: end },
+          booking: { status: 'COMPLETED' },
         },
       },
       include: {
-        booking: {
+        bookingSession: {
           include: {
-            teacher: { include: { user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
-            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+            booking: {
+              include: {
+                teacher: { include: { user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
+                student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+              },
+            },
           },
         },
       },
@@ -783,24 +819,26 @@ async function getSessionReportsForAdmin(startDate, endDate, page = 1, limit = 5
     prisma.session.count({
       where: {
         endedAt: { not: null },
-        booking: {
+        bookingSession: {
           status: 'COMPLETED',
-          date: { gte: start, lte: end },
+          scheduledDate: { gte: start, lte: end },
+          booking: { status: 'COMPLETED' },
         },
       },
     }),
   ]);
   const list = sessions.map((s) => {
-    const b = s.booking;
+    const b = s.bookingSession?.booking;
     const teacher = b?.teacher?.user;
     const student = b?.student;
     const teacherName = teacher ? [teacher.firstName, teacher.lastName].filter(Boolean).join(' ').trim() || [teacher.firstNameAr, teacher.lastNameAr].filter(Boolean).join(' ').trim() : '—';
     const studentName = student ? [student.firstName, student.lastName].filter(Boolean).join(' ').trim() || [student.firstNameAr, student.lastNameAr].filter(Boolean).join(' ').trim() : '—';
+    const slotDate = s.bookingSession?.scheduledDate ?? b?.date;
     return {
       id: s.id,
       sessionId: s.id,
       bookingId: b?.id,
-      date: b?.date?.toISOString?.()?.split('T')[0],
+      date: slotDate?.toISOString?.()?.split('T')[0],
       endedAt: s.endedAt?.toISOString?.()?.split('T')[0],
       teacherName,
       teacherEmail: teacher?.email,
@@ -823,7 +861,7 @@ async function getAllSessionsForAdmin(filters = {}) {
   const skip = (page - 1) * limit;
   const where = {};
 
-  if (filters.bookingId) where.bookingId = filters.bookingId;
+  if (filters.bookingSessionId) where.bookingSessionId = filters.bookingSessionId;
   if (filters.roomId) where.roomId = { contains: filters.roomId };
   if (filters.status === 'active') {
     where.startedAt = { not: null };
@@ -831,13 +869,17 @@ async function getAllSessionsForAdmin(filters = {}) {
   } else if (filters.status === 'ended') {
     where.endedAt = { not: null };
   }
-  if (filters.dateFrom || filters.dateTo) {
-    where.booking = { date: {} };
-    if (filters.dateFrom) where.booking.date.gte = new Date(filters.dateFrom);
-    if (filters.dateTo) {
-      const end = new Date(filters.dateTo);
-      end.setHours(23, 59, 59, 999);
-      where.booking.date.lte = end;
+  if (filters.bookingId || filters.dateFrom || filters.dateTo) {
+    where.bookingSession = {};
+    if (filters.bookingId) where.bookingSession.bookingId = filters.bookingId;
+    if (filters.dateFrom || filters.dateTo) {
+      where.bookingSession.scheduledDate = {};
+      if (filters.dateFrom) where.bookingSession.scheduledDate.gte = new Date(filters.dateFrom);
+      if (filters.dateTo) {
+        const end = new Date(filters.dateTo);
+        end.setHours(23, 59, 59, 999);
+        where.bookingSession.scheduledDate.lte = end;
+      }
     }
   }
 
@@ -847,10 +889,14 @@ async function getAllSessionsForAdmin(filters = {}) {
       skip,
       take: limit,
       include: {
-        booking: {
+        bookingSession: {
           include: {
-            teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
-            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+            booking: {
+              include: {
+                teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
+                student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+              },
+            },
           },
         },
       },
@@ -975,6 +1021,11 @@ async function getTeacherWallet(teacherId) {
   const hourPrice = Number(wallet.teacher?.hourlyRate) || 0;
   const totalEarnedFromBookings = Math.round(totalWorkedHours * hourPrice * 100) / 100;
 
+  // صافي أرباح الجلسات من سجل المعاملات (يتطابق مع قائمة المعاملات)
+  const totalEarnedFromSessions = (wallet.transactions || [])
+    .filter((t) => t.type === 'SESSION_EARNING')
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
   const plain = JSON.parse(JSON.stringify(wallet));
   // Primary: session-based hours (reflects actual session start/end times)
   plain.totalHours = sessionTotalHours;
@@ -984,6 +1035,7 @@ async function getTeacherWallet(teacherId) {
   // Alias for legacy compatibility
   plain.hourPrice = hourPrice;
   plain.totalEarnedFromBookings = totalEarnedFromBookings;
+  plain.totalEarnedFromSessions = Math.round(totalEarnedFromSessions * 100) / 100;
   return plain;
 }
 
@@ -1231,6 +1283,7 @@ module.exports = {
   getAllBookingsWithFilters,
   getBookingTeachersWalletReport,
   getAllPayments,
+  getPaymentById,
   updateUserStatus,
   deleteUser,
   banUser,

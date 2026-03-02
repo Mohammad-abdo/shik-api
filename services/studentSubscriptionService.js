@@ -468,6 +468,8 @@ async function subscribe(studentId, dto) {
     const payment = await prisma.payment.create({
       data: {
         id: paymentId,
+        paymentType: 'SUBSCRIPTION',
+        userId: subscription.studentId,
         subscriptionId: subscription.id,
         amount: amount,
         currency: 'EGP',

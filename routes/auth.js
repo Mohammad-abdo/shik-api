@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authService = require('../services/authService');
+const rbacService = require('../services/rbacService');
 const fileUploadService = require('../services/fileUploadService');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -36,7 +37,8 @@ const { jwtAuth } = require('../middleware/jwtAuth');
  */
 router.post('/signup', async (req, res, next) => {
   try {
-    const result = await authService.signUp(req.body);
+    const body = req.body || {};
+    const result = await authService.signUp(body);
     res.status(201).json(result);
   } catch (e) {
     next(e);
@@ -72,10 +74,17 @@ router.post('/signup', async (req, res, next) => {
  */
 router.post('/login', async (req, res, next) => {
   try {
-    const result = req.body.user_type
-      ? await authService.mobileLogin(req.body)
-      : await authService.login(req.body);
-    res.json(result);
+    const body = req.body || {};
+    const result = body.user_type
+      ? await authService.mobileLogin(body)
+      : await authService.login(body);
+    if (result.user && !body.user_type) {
+      const perms = result.user.role === 'SUPER_ADMIN' || result.user.role === 'ADMIN'
+        ? ['*']
+        : await rbacService.getUserPermissions(result.user.id);
+      result.user.permissions = perms;
+    }
+    res.status(200).json(result);
   } catch (e) {
     next(e);
   }
@@ -419,8 +428,41 @@ router.post('/resend-otp', async (req, res, next) => {
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
-router.get('/me', jwtAuth, (req, res) => {
-  res.json(req.user);
+router.get('/me', jwtAuth, async (req, res, next) => {
+  try {
+    let permissions = [];
+    if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'ADMIN') {
+      permissions = ['*'];
+    } else {
+      permissions = await rbacService.getUserPermissions(req.user.id);
+    }
+    res.json({ ...req.user, permissions });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * للتطوير فقط: تعيين كلمة مرور جديدة لحساب موجود بالبريد (لا يعمل في production)
+ * POST /api/auth/dev-set-password
+ * Body: { "email": "student@example.com", "newPassword": "P@ssw0rd123" }
+ */
+router.post('/dev-set-password', async (req, res, next) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || newPassword == null || newPassword === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'email and newPassword are required',
+        data: null,
+        statusCode: 400,
+      });
+    }
+    const result = await authService.devSetPassword(email, newPassword);
+    res.json({ success: true, message: result.message, data: null });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // Mobile auth - POST /auth/register (same prefix)

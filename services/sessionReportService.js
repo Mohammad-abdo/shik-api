@@ -10,10 +10,14 @@ async function getSessionDetails(sessionId) {
             memorizations: { orderBy: { createdAt: 'asc' } },
             revisions: { orderBy: { createdAt: 'asc' } },
             report: true,
-            booking: {
+            bookingSession: {
                 include: {
-                    student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true, phone: true, avatar: true } },
-                    teacher: { include: { user: { select: { id: true, firstName: true, lastName: true } } } },
+                    booking: {
+                        include: {
+                            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true, phone: true, avatar: true } },
+                            teacher: { include: { user: { select: { id: true, firstName: true, lastName: true } } } },
+                        },
+                    },
                 },
             },
         },

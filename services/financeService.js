@@ -1,22 +1,26 @@
 const { prisma } = require('../lib/prisma');
 
 async function getStatistics() {
-  const [totalRevenue, pendingPayouts, completedPayouts, walletBalance] = await Promise.all([
+  const [totalRevenue, pendingCount, completedCount, completedPayoutsSum, walletBalance] = await Promise.all([
     prisma.payment.aggregate({ where: { status: 'COMPLETED' }, _sum: { amount: true } }),
     prisma.payoutRequest.count({ where: { status: 'PENDING' } }),
     prisma.payoutRequest.count({ where: { status: 'COMPLETED' } }),
+    prisma.payoutRequest.aggregate({ where: { status: 'COMPLETED' }, _sum: { amount: true } }),
     prisma.teacherWallet.aggregate({ _sum: { balance: true } }),
   ]);
   return {
     totalRevenue: totalRevenue._sum?.amount || 0,
-    pendingPayouts,
-    completedPayouts,
+    pendingPayouts: pendingCount,
+    completedPayouts: completedCount,
+    totalPayouts: completedPayoutsSum._sum?.amount || 0,
     walletBalance: walletBalance._sum?.balance || 0,
   };
 }
 
-async function getPayouts(page = 1, limit = 20, status) {
-  const where = status ? { status } : {};
+async function getPayouts(page = 1, limit = 20, status, teacherId) {
+  const where = {};
+  if (status) where.status = status;
+  if (teacherId) where.teacherId = teacherId;
   const skip = (page - 1) * limit;
   const [payouts, total] = await Promise.all([
     prisma.payoutRequest.findMany({

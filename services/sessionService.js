@@ -2,31 +2,36 @@ const { prisma } = require('../lib/prisma');
 const { buildRtcToken } = require('../utils/agora');
 const walletService = require('./walletService');
 
-async function create(bookingId, dto) {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: { teacher: true, student: true },
+async function create(bookingSessionId, dto) {
+  const bookingSession = await prisma.bookingSession.findUnique({
+    where: { id: bookingSessionId },
+    include: { booking: { include: { teacher: true, student: true } } },
   });
-  if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
+  if (!bookingSession) throw Object.assign(new Error('Booking session not found'), { statusCode: 404 });
+  const booking = bookingSession.booking;
   if (booking.status !== 'CONFIRMED') throw Object.assign(new Error('Booking must be confirmed before creating session'), { statusCode: 400 });
-  const payment = await prisma.payment.findUnique({ where: { bookingId } });
+  const payment = await prisma.payment.findUnique({ where: { bookingId: booking.id } });
   if (!payment || payment.status !== 'COMPLETED') throw Object.assign(new Error('Payment must be completed before creating session'), { statusCode: 400 });
-  const existingSession = await prisma.session.findUnique({ where: { bookingId } });
+  const existingSession = await prisma.session.findUnique({ where: { bookingSessionId } });
   if (existingSession) return existingSession;
-  const roomId = `room_${bookingId}_${Date.now()}`;
+  const roomId = `room_${bookingSessionId}_${Date.now()}`;
   const { token: agoraToken } = buildRtcToken(roomId, dto.userId);
   const session = await prisma.session.create({
     data: {
-      bookingId,
+      bookingSessionId,
       type: dto.type || 'VIDEO',
       roomId,
       agoraToken,
     },
     include: {
-      booking: {
+      bookingSession: {
         include: {
-          teacher: { include: { user: true } },
-          student: true,
+          booking: {
+            include: {
+              teacher: { include: { user: true } },
+              student: true,
+            },
+          },
         },
       },
     },
@@ -34,79 +39,101 @@ async function create(bookingId, dto) {
   return session;
 }
 
-async function getSession(bookingId, userId) {
+async function getSession(bookingSessionId, userId) {
   const session = await prisma.session.findUnique({
-    where: { bookingId },
+    where: { bookingSessionId },
     include: {
-      booking: {
+      bookingSession: {
         include: {
-          teacher: { include: { user: true } },
-          student: true,
+          booking: {
+            include: {
+              teacher: { include: { user: true } },
+              student: true,
+            },
+          },
         },
       },
     },
   });
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
-  if (session.booking.studentId !== userId && session.booking.teacher.userId !== userId) {
+  const booking = session.bookingSession?.booking;
+  if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
+  if (booking.studentId !== userId && booking.teacher.userId !== userId) {
     throw Object.assign(new Error('You do not have access to this session'), { statusCode: 403 });
   }
   const { token: agoraToken } = buildRtcToken(session.roomId, userId);
   return { ...session, agoraToken };
 }
 
-async function startSession(bookingId) {
-  const session = await prisma.session.findUnique({ where: { bookingId } });
+async function startSession(bookingSessionId) {
+  const session = await prisma.session.findUnique({ where: { bookingSessionId } });
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
   return prisma.session.update({
-    where: { bookingId },
+    where: { bookingSessionId },
     data: { startedAt: new Date() },
   });
 }
 
-async function endSession(bookingId, recordingUrl) {
-  const session = await prisma.session.findUnique({ where: { bookingId } });
+async function endSession(bookingSessionId, recordingUrl) {
+  const session = await prisma.session.findUnique({
+    where: { bookingSessionId },
+    include: { bookingSession: { include: { booking: true } } },
+  });
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
   const startedAt = session.startedAt || new Date();
   const endedAt = new Date();
   const duration = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000 / 60);
   const updated = await prisma.session.update({
-    where: { bookingId },
+    where: { bookingSessionId },
     data: { endedAt, recordingUrl, duration },
   });
-  await prisma.booking.update({
-    where: { id: bookingId },
+  await prisma.bookingSession.update({
+    where: { id: bookingSessionId },
     data: { status: 'COMPLETED' },
   });
 
-  // Automatically credit teacher wallet based on actual session duration × hourly rate
+  const allSlots = await prisma.bookingSession.findMany({
+    where: { bookingId: session.bookingSession.bookingId },
+    select: { status: true },
+  });
+  const allCompleted = allSlots.length > 0 && allSlots.every((s) => s.status === 'COMPLETED');
+  if (allCompleted) {
+    await prisma.booking.update({
+      where: { id: session.bookingSession.bookingId },
+      data: { status: 'COMPLETED' },
+    });
+  }
+
   try {
-    await walletService.creditFromSession(bookingId);
+    await walletService.creditFromSession(updated.id);
   } catch (err) {
-    // Log but never block the session-end response
-    console.error(`[session] Failed to credit wallet for booking ${bookingId}:`, err.message);
+    console.error(`[session] Failed to credit wallet for session ${updated.id}:`, err.message);
   }
 
   return updated;
 }
-
 
 /** List sessions for current user (as teacher or student) */
 async function getMySessions(userId, page = 1, limit = 20) {
   const skip = (page - 1) * limit;
   const teacher = await prisma.teacher.findUnique({ where: { userId }, select: { id: true } });
   const where = teacher
-    ? { booking: { teacherId: teacher.id } }
-    : { booking: { studentId: userId } };
+    ? { bookingSession: { booking: { teacherId: teacher.id } } }
+    : { bookingSession: { booking: { studentId: userId } } };
   const [sessions, total] = await Promise.all([
     prisma.session.findMany({
       where,
       skip,
       take: limit,
       include: {
-        booking: {
+        bookingSession: {
           include: {
-            teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
-            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+            booking: {
+              include: {
+                teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
+                student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+              },
+            },
           },
         },
       },

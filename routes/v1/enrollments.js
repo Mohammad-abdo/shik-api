@@ -1,5 +1,10 @@
 const express = require('express');
-const { enrollInCourse, getStudentEnrollments, checkEnrollment } = require('../../services/enrollmentService');
+const {
+  enrollInCourse,
+  createCourseFawryReference,
+  getStudentEnrollments,
+  checkEnrollment
+} = require('../../services/enrollmentService');
 const { startLesson, completeLesson, getCourseProgress } = require('../../services/videoProgressService');
 const { authenticateToken } = require('../../middleware/auth');
 const { sendResponse, sendErrorResponse } = require('../../utils/response');
@@ -17,16 +22,21 @@ const router = express.Router();
  * /api/v1/enrollments/{courseId}/enroll:
  *   post:
  *     tags: [enrollments]
- *     summary: POST /api/v1/enrollments/{courseId}/enroll
+ *     summary: Subscribe student to the full course (الدورة كاملة)
+ *     description: الاشتراك هنا يكون للدورة كاملة (الكورس كله) وليس لدرس منفصل.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             additionalProperties: true
+ *             properties:
+ *               sheikId:
+ *                 type: string
+ *                 description: Optional sheikh/teacher identifier in this course.
+ *                 example: clxsheikh123
  *     parameters:
  *       - in: path
  *         name: courseId
@@ -52,13 +62,85 @@ router.post('/:courseId/enroll', authenticateToken, async (req, res) => {
     const { courseId } = req.params;
     const { sheikId } = req.body;
     const studentId = req.user.id;
+    const bypassPayment = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
 
-    const enrollment = await enrollInCourse(courseId, studentId, sheikId);
+    const enrollment = await enrollInCourse(courseId, studentId, sheikId, { bypassPayment });
 
     sendResponse(res, 201, 'Successfully enrolled in course', enrollment);
   } catch (error) {
     console.error('Enroll in course error:', error);
     sendErrorResponse(res, error.statusCode || 500, error.message || 'Failed to enroll in course');
+  }
+});
+
+/**
+ * @route POST /api/v1/enrollments/:courseId/fawry/reference-number
+ * @desc Create Fawry reference number for course enrollment
+ * @access Private (Student)
+ */
+/**
+ * @openapi
+ * /api/v1/enrollments/{courseId}/fawry/reference-number:
+ *   post:
+ *     tags: [enrollments]
+ *     summary: Create Fawry reference for full-course subscription (اشتراك دورة)
+ *     description: ينشئ رقم فوري لدفع اشتراك الدورة كاملة (الكورس كامل) وليس درسًا منفردًا.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               expiryHours:
+ *                 type: integer
+ *                 example: 24
+ *               language:
+ *                 type: string
+ *                 enum: [ar-eg, en-gb]
+ *                 example: ar-eg
+ *     responses:
+ *       201:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ *       402:
+ *         description: Payment required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiError"
+ */
+router.post('/:courseId/fawry/reference-number', authenticateToken, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { expiryHours, language } = req.body || {};
+
+    const result = await createCourseFawryReference(courseId, req.user, { expiryHours, language });
+    sendResponse(res, 201, 'Course Fawry payment initialized successfully', result);
+  } catch (error) {
+    console.error('Create course Fawry reference error:', error);
+    sendErrorResponse(
+      res,
+      error.statusCode || 500,
+      error.message || 'Failed to initialize Fawry payment for course'
+    );
   }
 });
 
@@ -179,16 +261,21 @@ router.get('/:courseId/status', authenticateToken, async (req, res) => {
  * /api/v1/enrollments/lessons/{lessonId}/start:
  *   post:
  *     tags: [enrollments]
- *     summary: POST /api/v1/enrollments/lessons/{lessonId}/start
+ *     summary: Start watching lesson inside an already subscribed course
+ *     description: هذا endpoint لتتبع التقدم فقط، ويتطلب اشتراكًا مسبقًا في الدورة كاملة.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             additionalProperties: true
+ *             properties:
+ *               videoId:
+ *                 type: string
+ *                 description: Optional video id if lesson contains multiple videos.
+ *                 example: clxvideo123
  *     parameters:
  *       - in: path
  *         name: lessonId
@@ -235,16 +322,25 @@ router.post('/lessons/:lessonId/start', authenticateToken, async (req, res) => {
  * /api/v1/enrollments/lessons/{lessonId}/complete:
  *   post:
  *     tags: [enrollments]
- *     summary: POST /api/v1/enrollments/lessons/{lessonId}/complete
+ *     summary: Mark lesson as completed inside an already subscribed course
+ *     description: هذا endpoint لتسجيل إنهاء الدرس ضمن دورة مشترك فيها مسبقًا.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             additionalProperties: true
+ *             properties:
+ *               videoId:
+ *                 type: string
+ *                 description: Optional video id if lesson contains multiple videos.
+ *                 example: clxvideo123
+ *               watchDurationSeconds:
+ *                 type: integer
+ *                 description: Optional watched duration in seconds.
+ *                 example: 1800
  *     parameters:
  *       - in: path
  *         name: lessonId

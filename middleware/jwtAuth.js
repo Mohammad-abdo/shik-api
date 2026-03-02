@@ -1,26 +1,25 @@
-const jwt = require('jsonwebtoken');
+const jwtLib = require('../lib/jwt');
 const { prisma } = require('../lib/prisma');
-
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.warn('JWT_SECRET is not set - auth will fail');
-}
 
 async function jwtAuth(req, res, next) {
   try {
-    // Skip authentication for CORS preflight requests
     if (req.method === 'OPTIONS') {
       return next();
     }
-    
+
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       const err = new Error('Unauthorized');
       err.statusCode = 401;
       return next(err);
     }
-    const token = authHeader.slice(7);
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const token = authHeader.slice(7).trim();
+    if (!token) {
+      const err = new Error('Token is required');
+      err.statusCode = 401;
+      return next(err);
+    }
+    const decoded = jwtLib.verify(token);
     const user = await prisma.user.findUnique({
       where: { id: decoded.sub },
       select: {
@@ -51,8 +50,18 @@ async function jwtAuth(req, res, next) {
     req.user = user;
     next();
   } catch (e) {
-    const err = new Error('Invalid or expired token');
-    err.statusCode = 401;
+    const isExpired = e.name === 'TokenExpiredError';
+    const isInvalid = e.name === 'JsonWebTokenError';
+    const message =
+      e.statusCode === 500
+        ? e.message
+        : isExpired
+          ? 'Token expired'
+          : isInvalid
+            ? 'Invalid token'
+            : 'Invalid or expired token';
+    const err = new Error(message);
+    err.statusCode = e.statusCode || 401;
     next(err);
   }
 }
@@ -64,8 +73,9 @@ async function optionalJwtAuth(req, res, next) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return next();
     }
-    const token = authHeader.slice(7);
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const token = authHeader.slice(7).trim();
+    if (!token) return next();
+    const decoded = jwtLib.verify(token);
     const user = await prisma.user.findUnique({
       where: { id: decoded.sub },
       select: {

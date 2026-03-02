@@ -3,6 +3,60 @@ const router = express.Router();
 const courseV1Service = require('../../services/courseV1Service');
 const { jwtAuth } = require('../../middleware/jwtAuth');
 
+// Endpoint 0: GET /v1/courses — قائمة جميع الدورات (يجب أن يكون قبل /:courseId)
+/**
+ * @openapi
+ * /api/v1/courses:
+ *   get:
+ *     tags: [courses]
+ *     summary: GET /api/v1/courses — قائمة جميع الدورات
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [DRAFT, PUBLISHED, ARCHIVED]
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ApiSuccess"
+ *       400:
+ *         description: Error
+ */
+router.get('/', jwtAuth, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const result = await courseV1Service.getAllCourses({
+      page: parseInt(page, 10) || 1,
+      limit: parseInt(limit, 10) || 20,
+      status: status || undefined
+    });
+
+    res.status(200).json({
+      status: true,
+      message: 'تم جلب قائمة الدورات بنجاح',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Endpoint 1: GET /v1/courses/{courseId}
 // تفاصيل الدورة + قائمة المشايخ مع عدد الدروس لكل شيخ
 /**

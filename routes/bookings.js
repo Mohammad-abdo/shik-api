@@ -150,6 +150,8 @@ router.get('/:id/details', async (req, res, next) => {
     const booking = await bookingService.getBookingDetails(req.params.id, req.user.id, req.user.role);
     res.json(booking);
   } catch (e) {
+    if (e.statusCode && e.statusCode < 500) return next(e);
+    console.error('GET /bookings/:id/details error:', e?.message || e, e?.stack);
     next(e);
   }
 });
@@ -310,6 +312,55 @@ router.post('/:id/reject', async (req, res, next) => {
     const booking = await bookingService.reject(req.params.id, teacher.id, req.user.id);
     res.json(booking);
   } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/bookings/{id}/sessions/{sessionId}:
+ *   patch:
+ *     tags: [bookings]
+ *     summary: Update a booking session (slot) - date, time, status
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         description: bookingSessionId
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               scheduledDate: { type: string, format: date }
+ *               startTime: { type: string }
+ *               endTime: { type: string }
+ *               status: { type: string, enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED] }
+ *     responses:
+ *       200:
+ *         description: Updated booking session
+ *       403:
+ *         description: Forbidden
+ */
+router.patch('/:id/sessions/:sessionId', async (req, res, next) => {
+  try {
+    const updated = await bookingService.updateBookingSession(
+      req.params.sessionId,
+      req.body,
+      req.user.id,
+      req.user.role
+    );
+    res.json(updated);
+  } catch (e) {
+    if (e.statusCode && e.statusCode < 500) return next(e);
     next(e);
   }
 });

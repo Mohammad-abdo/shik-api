@@ -4,7 +4,7 @@ const adminService = require('../services/adminService');
 const { prisma } = require('../lib/prisma');
 const { jwtAuth } = require('../middleware/jwtAuth');
 const permissions = require('../middleware/permissions');
-const roles = require('../middleware/roles');
+const { requireSuperAdmin } = require('../middleware/requireSuperAdmin');
 
 router.use(jwtAuth);
 
@@ -182,7 +182,7 @@ router.get('/payments', async (req, res, next) => {
   try {
     const page = req.query.page ? parseInt(req.query.page) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit) : 20;
-    const result = await adminService.getAllPayments(page, limit, req.query.status);
+    const result = await adminService.getAllPayments(page, limit, req.query.status, req.query.type);
     res.json(result);
   } catch (e) {
     next(e);
@@ -215,6 +215,20 @@ router.get('/payments/stats', permissions(['reports.view']), async (req, res, ne
   try {
     const stats = await adminService.getPaymentStats();
     res.json(stats);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/payments/:id', permissions(['payments.view']), async (req, res, next) => {
+  try {
+    const payment = await adminService.getPaymentById(req.params.id);
+    if (!payment) {
+      const e = new Error('Payment not found');
+      e.statusCode = 404;
+      return next(e);
+    }
+    res.json(payment);
   } catch (e) {
     next(e);
   }
@@ -477,7 +491,18 @@ router.delete('/users/:id', permissions(['users.write']), async (req, res, next)
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.post('/users', permissions(['users.write']), async (req, res, next) => {
+/** Create user with email, password, role, and optional roleIds — Super Admin only */
+router.post('/users', requireSuperAdmin, async (req, res, next) => {
+  try {
+    const user = await adminService.createUser(req.body, req.user.id);
+    res.status(201).json(user);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Alias for dashboard: POST /admin/create-user (Super Admin only) */
+router.post('/create-user', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await adminService.createUser(req.body, req.user.id);
     res.status(201).json(user);

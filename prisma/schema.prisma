@@ -58,13 +58,13 @@ model Booking {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  student  User      @relation("StudentBookings", fields: [studentId], references: [id])
-  teacher  Teacher   @relation("TeacherBookings", fields: [teacherId], references: [id])
-  schedule Schedule? @relation("ScheduleBookings", fields: [scheduleId], references: [id])
-  course   Course?   @relation("CourseBookings", fields: [courseId], references: [id])
-  payment  Payment?
-  session  Session?
-  review   Review?
+  student         User            @relation("StudentBookings", fields: [studentId], references: [id])
+  teacher         Teacher         @relation("TeacherBookings", fields: [teacherId], references: [id])
+  schedule        Schedule?       @relation("ScheduleBookings", fields: [scheduleId], references: [id])
+  course          Course?         @relation("CourseBookings", fields: [courseId], references: [id])
+  payment         Payment?
+  bookingSessions BookingSession[] @relation("BookingBookingSessions")
+  review          Review?
 
   @@index([studentId], map: "bookings_studentId_fkey")
   @@index([teacherId], map: "bookings_teacherId_fkey")
@@ -106,6 +106,15 @@ model SitePage {
   @@map("site_pages")
 }
 
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.LongText
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
 model Notification {
   id        String           @id @default(uuid())
   userId    String
@@ -113,16 +122,18 @@ model Notification {
   title     String
   message   String
   data      String?          @db.LongText
+  relatedId String?
   isRead    Boolean          @default(false)
   readAt    DateTime?
   createdAt DateTime         @default(now())
   sentById  String?
 
-  user   User  @relation("UserNotifications", fields: [userId], references: [id])
-  sentBy User? @relation("SentNotifications", fields: [sentById], references: [id])
+  user   User  @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  sentBy User? @relation("SentNotifications", fields: [sentById], references: [id], onDelete: SetNull)
 
   @@index([sentById], map: "notifications_sentById_fkey")
   @@index([userId], map: "notifications_userId_fkey")
+  @@index([relatedId], map: "notifications_relatedId_fkey")
   @@map("notifications")
 }
 
@@ -143,10 +154,13 @@ model Otp {
 
 model Payment {
   id              String        @id @default(uuid())
+  paymentType     PaymentType   @default(BOOKING)
+  userId          String?
   bookingId       String?       @unique
   subscriptionId  String?       @unique
+  courseId        String?
   amount          Float
-  currency        String        @default("USD")
+  currency        String        @default("EGP")
   status          PaymentStatus @default(PENDING)
   paymentMethod   String?
   stripePaymentId String?       @unique
@@ -159,9 +173,13 @@ model Payment {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  booking      Booking?             @relation(fields: [bookingId], references: [id])
-  subscription StudentSubscription? @relation(fields: [subscriptionId], references: [id])
+  user          User?                  @relation("UserPayments", fields: [userId], references: [id])
+  booking       Booking?               @relation(fields: [bookingId], references: [id])
+  subscription  StudentSubscription?   @relation(fields: [subscriptionId], references: [id])
+  course        Course?                 @relation("CoursePayments", fields: [courseId], references: [id])
 
+  @@index([userId])
+  @@index([courseId])
   @@map("payments")
 }
 
@@ -212,21 +230,29 @@ model PlatformRevenue {
 }
 
 model Review {
-  id        String   @id @default(uuid())
-  bookingId String   @unique
-  studentId String
-  teacherId String
+  id        String       @id @default(uuid())
+  userId    String
   rating    Int
-  comment   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  comment   String?      @db.Text
+  type      ReviewType
+  status    ReviewStatus @default(ACTIVE)
+  sheikhId  String?
+  courseId  String?
+  bookingId String?      @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  teacher Teacher @relation("TeacherReviews", fields: [teacherId], references: [id])
-  student User    @relation("StudentReviews", fields: [studentId], references: [id])
-  booking Booking @relation(fields: [bookingId], references: [id])
+  user    User     @relation("UserReviews", fields: [userId], references: [id], onDelete: Cascade)
+  teacher Teacher? @relation("TeacherReviews", fields: [sheikhId], references: [id], onDelete: SetNull)
+  course  Course?  @relation("CourseReviews", fields: [courseId], references: [id], onDelete: SetNull)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
-  @@index([studentId], map: "reviews_studentId_fkey")
-  @@index([teacherId], map: "reviews_teacherId_fkey")
+  @@index([userId], map: "reviews_userId_fkey")
+  @@index([sheikhId], map: "reviews_sheikhId_fkey")
+  @@index([courseId], map: "reviews_courseId_fkey")
+  @@index([bookingId], map: "reviews_bookingId_fkey")
+  @@index([type], map: "reviews_type_fkey")
+  @@index([status], map: "reviews_status_fkey")
   @@map("reviews")
 }
 
@@ -267,32 +293,56 @@ model Schedule {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  teacher      Teacher               @relation("TeacherSchedules", fields: [teacherId], references: [id])
-  bookings     Booking[]             @relation("ScheduleBookings")
-  reservations ScheduleReservation[] @relation("ScheduleReservations")
+  teacher         Teacher               @relation("TeacherSchedules", fields: [teacherId], references: [id])
+  bookings        Booking[]             @relation("ScheduleBookings")
+  bookingSessions BookingSession[]      @relation("ScheduleBookingSessions")
+  reservations    ScheduleReservation[] @relation("ScheduleReservations")
 
   @@index([teacherId], map: "schedules_teacherId_fkey")
   @@map("schedules")
 }
 
+model BookingSession {
+  id             String               @id @default(uuid())
+  bookingId      String
+  scheduleId     String
+  scheduledDate  DateTime
+  startTime      String
+  endTime        String
+  orderIndex     Int                  @default(0)
+  status         BookingSessionStatus  @default(PENDING)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  booking Booking  @relation("BookingBookingSessions", fields: [bookingId], references: [id], onDelete: Cascade)
+  schedule Schedule @relation("ScheduleBookingSessions", fields: [scheduleId], references: [id], onDelete: Restrict)
+  session  Session? @relation("BookingSessionLiveMeeting")
+
+  @@unique([scheduleId, scheduledDate, startTime], map: "booking_sessions_slot_unique")
+  @@index([bookingId], map: "booking_sessions_bookingId_fkey")
+  @@index([scheduleId], map: "booking_sessions_scheduleId_fkey")
+  @@map("booking_sessions")
+}
+
 model Session {
-  id           String      @id @default(uuid())
-  bookingId    String      @unique
-  type         SessionType @default(VIDEO)
-  roomId       String      @unique
-  agoraToken   String?
-  startedAt    DateTime?
-  endedAt      DateTime?
-  recordingUrl String?
-  duration     Int?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id                String      @id @default(uuid())
+  bookingSessionId  String?     @unique
+  type              SessionType @default(VIDEO)
+  roomId            String      @unique
+  agoraToken        String?
+  startedAt         DateTime?
+  endedAt           DateTime?
+  recordingUrl      String?
+  duration          Int?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
-  booking       Booking               @relation(fields: [bookingId], references: [id])
-  memorizations SessionMemorization[]
-  revisions     SessionRevision[]
-  report        SessionReport?
+  bookingSession    BookingSession?      @relation("BookingSessionLiveMeeting", fields: [bookingSessionId], references: [id], onDelete: SetNull)
+  memorizations     SessionMemorization[]
+  revisions         SessionRevision[]
+  report            SessionReport?
 
+  @@index([bookingSessionId], map: "sessions_bookingSessionId_fkey")
   @@map("sessions")
 }
 
@@ -403,13 +453,14 @@ model User {
   userRoles              UserRole[]            @relation("UserRoles")
   notifications          Notification[]        @relation("UserNotifications")
   sentNotifications      Notification[]        @relation("SentNotifications")
-  studentReviews         Review[]              @relation("StudentReviews")
+  reviews                Review[]              @relation("UserReviews")
   studentExamSubmissions ExamSubmission[]      @relation("StudentExamSubmissions")
   certificates           Certificate[]         @relation("StudentCertificates")
   courseEnrollments      CourseEnrollment[]    @relation("StudentCourseEnrollments")
   studentSubscriptions   StudentSubscription[] @relation("StudentSubscriptions")
   scheduleReservations   ScheduleReservation[] @relation("StudentScheduleReservations")
   studentWallet          StudentWallet?        @relation("StudentWallet")
+  payments               Payment[]             @relation("UserPayments")
   videoProgress          VideoProgress[]       @relation("UserVideoProgress")
   auditLogs              AuditLog[]            @relation("UserAuditLogs")
 
@@ -487,6 +538,8 @@ model Course {
   videoProgress  VideoProgress[]    @relation("CourseVideoProgress")
   bookings       Booking[]          @relation("CourseBookings")
   courseTeachers CourseTeacher[]    @relation("CourseTeachers")
+  reviews        Review[]           @relation("CourseReviews")
+  payments       Payment[]         @relation("CoursePayments")
 
   @@index([teacherId], map: "courses_teacherId_fkey")
   @@index([status])
@@ -862,6 +915,8 @@ enum NotificationType {
   PAYMENT_RECEIVED
   TEACHER_APPROVED
   REVIEW_RECEIVED
+  COURSE_CREATED
+  SYSTEM
 
   @@map("notifications_type")
 }
@@ -887,6 +942,14 @@ enum PaymentStatus {
   @@map("payments_status")
 }
 
+enum PaymentType {
+  BOOKING
+  SUBSCRIPTION
+  COURSE
+
+  @@map("payment_type")
+}
+
 enum PayoutStatus {
   PENDING
   APPROVED
@@ -906,6 +969,15 @@ enum BookingStatus {
   REJECTED
 
   @@map("bookings_status")
+}
+
+enum BookingSessionStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+
+  @@map("booking_sessions_status")
 }
 
 enum ContentType {
@@ -988,6 +1060,17 @@ enum CourseLevel {
   BEGINNER
   INTERMEDIATE
   ADVANCED
+}
+
+enum ReviewType {
+  SHEIKH
+  COURSE
+  BOOKING
+}
+
+enum ReviewStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 enum VideoStatus {

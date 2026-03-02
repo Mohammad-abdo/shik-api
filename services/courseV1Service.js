@@ -1,6 +1,115 @@
 const { prisma } = require('../lib/prisma');
 
 /**
+ * getAllCourses
+ * جلب قائمة جميع الدورات مع pagination (مناسب لـ v1)
+ */
+async function getAllCourses(options = {}) {
+  const { page = 1, limit = 20, status } = options;
+  const skip = (page - 1) * limit;
+
+  const where = {};
+  if (status) where.status = status;
+
+  const [courses, total] = await Promise.all([
+    prisma.course.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                firstNameAr: true,
+                lastName: true,
+                lastNameAr: true,
+                avatar: true
+              }
+            }
+          }
+        },
+        courseTeachers: {
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    firstNameAr: true,
+                    lastName: true,
+                    lastNameAr: true,
+                    avatar: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      _count: {
+        select: {
+          enrollments: true,
+          lessons: true
+        }
+      }
+    }),
+    prisma.course.count({ where })
+  ]);
+
+  const items = courses.map((course) => {
+    const sheikhs = [];
+    const seenIds = new Set();
+    if (course.teacher) {
+      const user = course.teacher.user;
+      const name = (user.firstNameAr && user.lastNameAr)
+        ? `${user.firstNameAr} ${user.lastNameAr}`.trim()
+        : `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      sheikhs.push({ id: course.teacher.id, name });
+      seenIds.add(course.teacher.id);
+    }
+    for (const ct of course.courseTeachers) {
+      if (!seenIds.has(ct.teacher.id)) {
+        const user = ct.teacher.user;
+        const name = (user.firstNameAr && user.lastNameAr)
+          ? `${user.firstNameAr} ${user.lastNameAr}`.trim()
+          : `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+        sheikhs.push({ id: ct.teacher.id, name });
+        seenIds.add(ct.teacher.id);
+      }
+    }
+    return {
+      id: course.id,
+      name: course.titleAr || course.title,
+      description: course.descriptionAr || course.description || '',
+      image: course.image,
+      price: `${course.price} جنيه`,
+      duration: course.duration ? `${course.duration} أسابيع` : null,
+      lessonsCount: course._count.lessons,
+      studentsCount: course._count.enrollments,
+      rating: course.rating,
+      sheikhs
+    };
+  });
+
+  return {
+    courses: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: page * limit < total,
+      hasPrevPage: page > 1
+    }
+  };
+}
+
+/**
  * Endpoint 1: getCourseWithSheikhs
  * جلب تفاصيل الدورة مع قائمة المشايخ وعدد الدروس لكل شيخ في الدورة
  */
@@ -272,11 +381,11 @@ async function getSheikhInCourseContext(courseId, sheikhId) {
  */
 async function getTeacherReviews(teacherId, limit = 10) {
   const reviews = await prisma.review.findMany({
-    where: { teacherId },
+    where: { sheikhId: teacherId },
     take: limit,
     orderBy: { createdAt: 'desc' },
     include: {
-      student: {
+      user: {
         select: {
           firstName: true,
           firstNameAr: true,
@@ -290,10 +399,10 @@ async function getTeacherReviews(teacherId, limit = 10) {
 
   return reviews.map(review => ({
     id: review.id,
-    user: (review.student.firstNameAr && review.student.lastNameAr)
-      ? `${review.student.firstNameAr} ${review.student.lastNameAr}`.trim()
-      : `${review.student.firstName || ''} ${review.student.lastName || ''}`.trim(),
-    userImage: review.student.avatar,
+    user: (review.user?.firstNameAr && review.user?.lastNameAr)
+      ? `${review.user.firstNameAr} ${review.user.lastNameAr}`.trim()
+      : `${(review.user?.firstName || '')} ${(review.user?.lastName || '')}`.trim(),
+    userImage: review.user?.avatar,
     rating: review.rating,
     comment: review.comment || '',
     date: review.createdAt,
@@ -378,19 +487,22 @@ async function getSheikhLessonsInCourse(courseId, sheikhId, options) {
   // تنسيق الدروس
   const formattedLessons = lessons.map(lesson => {
     const firstVideo = lesson.videos[0];
+    const isPurchased = !!isEnrolled;
+    const isLocked = !isPurchased;
     
     return {
       id: lesson.id,
       title: lesson.titleAr || lesson.title,
       description: lesson.descriptionAr || lesson.description || '',
-      videoUrl: firstVideo?.videoUrl || '',
+      videoUrl: isLocked ? '' : (firstVideo?.videoUrl || ''),
       duration: firstVideo 
         ? `${Math.floor(firstVideo.durationSeconds / 60)}:${String(firstVideo.durationSeconds % 60).padStart(2, '0')}` 
         : `${lesson.durationMinutes}:00`,
       thumbnail: firstVideo?.thumbnailUrl || '',
       price: '0 جنيه', // سعر الدرس - حالياً 0 لأنه part of course
       order: lesson.order,
-      isPurchased: !!isEnrolled, // إذا كان enrolled في الدورة يعتبر purchased
+      isPurchased, // إذا كان enrolled في الدورة يعتبر purchased
+      isLocked,
       isFree: lesson.isFree,
       viewsCount: 0, // يمكن إضافة view tracking لاحقاً
       rating: 0, // يمكن إضافة rating للدرس لاحقاً
@@ -450,6 +562,7 @@ async function getSheikhLessonsInCourse(courseId, sheikhId, options) {
 }
 
 module.exports = {
+  getAllCourses,
   getCourseWithSheikhs,
   getSheikhInCourseContext,
   getSheikhLessonsInCourse

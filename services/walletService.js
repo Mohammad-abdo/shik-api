@@ -55,29 +55,33 @@ async function creditWallet(teacherId, amount, bookingId, paymentId) {
  * Credit teacher wallet based on actual session duration x hourly rate.
  * Called automatically when a session is marked as completed (endSession).
  *
- * @param {string} bookingId
+ * @param {string} sessionId - Session (live meeting) id
  * @returns {Promise<object>} updated wallet
  */
-async function creditFromSession(bookingId) {
-  // Load session and teacher info
+async function creditFromSession(sessionId) {
   const session = await prisma.session.findUnique({
-    where: { bookingId },
+    where: { id: sessionId },
     include: {
-      booking: {
+      bookingSession: {
         include: {
-          teacher: true,
+          booking: {
+            include: {
+              teacher: true,
+            },
+          },
         },
       },
     },
   });
 
   if (!session) {
-    console.warn(`[wallet] creditFromSession: no session found for bookingId=${bookingId}`);
+    console.warn(`[wallet] creditFromSession: no session found for sessionId=${sessionId}`);
     return null;
   }
 
-  const { startedAt, endedAt, booking } = session;
-  const teacher = booking?.teacher;
+  const { startedAt, endedAt, bookingSession } = session;
+  const teacher = bookingSession?.booking?.teacher;
+  const bookingId = bookingSession?.bookingId ?? null;
 
   if (!startedAt || !endedAt) {
     console.warn(`[wallet] creditFromSession: session ${session.id} missing start/endedAt`);
@@ -85,7 +89,7 @@ async function creditFromSession(bookingId) {
   }
 
   if (!teacher) {
-    console.warn(`[wallet] creditFromSession: no teacher found for bookingId=${bookingId}`);
+    console.warn(`[wallet] creditFromSession: no teacher found for sessionId=${sessionId}`);
     return null;
   }
 
@@ -111,23 +115,25 @@ async function creditFromSession(bookingId) {
     },
   });
 
-  // Record transaction
+  // Record transaction (bookingId optional for link to booking)
   await prisma.walletTransaction.create({
     data: {
       walletId: wallet.id,
       type: 'SESSION_EARNING',
       amount: teacherEarning,
-      description: `Session earning: ${hours.toFixed(2)}h × ${hourlyRate}/h (booking ${bookingId})`,
+      description: `Session earning: ${hours.toFixed(2)}h × ${hourlyRate}/h (session ${sessionId}${bookingId ? `, booking ${bookingId}` : ''})`,
       bookingId,
     },
   });
 
   // Record platform revenue (only if not already recorded for this booking)
-  const existingRevenue = await prisma.platformRevenue.findUnique({ where: { bookingId } });
-  if (!existingRevenue && grossAmount > 0) {
-    await prisma.platformRevenue.create({
-      data: { bookingId, amount: platformFee, teacherEarning },
-    });
+  if (bookingId && grossAmount > 0) {
+    const existingRevenue = await prisma.platformRevenue.findUnique({ where: { bookingId } });
+    if (!existingRevenue) {
+      await prisma.platformRevenue.create({
+        data: { bookingId, amount: platformFee, teacherEarning },
+      });
+    }
   }
 
   console.log(

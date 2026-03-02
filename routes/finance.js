@@ -61,7 +61,7 @@ router.get('/payouts', jwtAuth, async (req, res, next) => {
   try {
     const page = req.query.page ? parseInt(req.query.page) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit) : 20;
-    const result = await financeService.getPayouts(page, limit, req.query.status);
+    const result = await financeService.getPayouts(page, limit, req.query.status, req.query.teacherId);
     res.json(result);
   } catch (e) {
     next(e);

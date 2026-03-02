@@ -24,6 +24,7 @@ const auditRoutes = require('./audit');
 const videoRoutes = require('./video');
 const v1Routes = require('./v1');
 const mobileRoutes = require('./mobile');
+const settingsRoutes = require('./settings');
 
 const router = express.Router();
 
@@ -53,5 +54,6 @@ router.use('/audit', auditRoutes);
 router.use('/video', videoRoutes);
 router.use('/v1', v1Routes);
 router.use('/mobile', mobileRoutes);
+router.use('/settings', settingsRoutes);
 
 module.exports = router;

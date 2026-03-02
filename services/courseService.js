@@ -1,4 +1,5 @@
 const { prisma } = require('../lib/prisma');
+const notificationService = require('./notificationService');
 
 async function findAll(page = 1, limit = 20, status, teacherId, isFeatured) {
   const skip = (page - 1) * limit;
@@ -225,13 +226,22 @@ async function create(dto, adminId) {
     });
   }
 
+  notificationService.notifyAdmins(
+    'COURSE_CREATED',
+    'New Course Created',
+    `New course "${course.title}" was created.`,
+    { courseId: course.id },
+    course.id,
+    adminId
+  ).catch(() => {});
+
   return course;
 }
 
 async function createTeacherCourse(dto, userId) {
   const teacher = await prisma.teacher.findUnique({ where: { userId } });
   if (!teacher) throw Object.assign(new Error('Teacher profile not found'), { statusCode: 404 });
-  return prisma.course.create({
+  const course = await prisma.course.create({
     data: {
       title: dto.title,
       titleAr: dto.titleAr,
@@ -248,6 +258,15 @@ async function createTeacherCourse(dto, userId) {
     },
     include: { teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } }, _count: { select: { enrollments: true } } },
   });
+  notificationService.notifyAdmins(
+    'COURSE_CREATED',
+    'New Course Created',
+    `New course "${course.title}" was created by a teacher.`,
+    { courseId: course.id },
+    course.id,
+    userId
+  ).catch(() => {});
+  return course;
 }
 
 async function update(id, dto) {

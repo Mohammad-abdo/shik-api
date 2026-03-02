@@ -1,12 +1,7 @@
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const jwtLib = require('../lib/jwt');
 const { prisma } = require('../lib/prisma');
 const otpService = require('./otpService');
-
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || JWT_SECRET;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
-const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
 function sanitizeUser(user) {
   const { password, ...rest } = user;
@@ -32,35 +27,72 @@ function sanitizeMobileUser(user) {
 
 async function generateTokens(userId, email, role) {
   const payload = { sub: userId, email, role };
-  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-  const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN });
+  const accessToken = jwtLib.sign(payload);
+  const refreshToken = jwtLib.signRefresh(payload);
   return { accessToken, refreshToken };
 }
 
+/** البحث عن مستخدم بالبريد (دون تمييز بين أحرف كبيرة/صغيرة) */
+async function findUserByEmail(email) {
+  const normalized = (email || '').trim().toLowerCase();
+  let user = await prisma.user.findUnique({ where: { email: normalized } });
+  if (!user) {
+    const rows = await prisma.$queryRawUnsafe(
+      'SELECT id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1',
+      normalized
+    );
+    if (rows && rows.length > 0) {
+      user = await prisma.user.findUnique({ where: { id: rows[0].id } });
+    }
+  }
+  return user;
+}
+
 async function signUp(dto) {
-  const existingUser = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { email: (dto.email || '').trim().toLowerCase() },
-        ...(dto.phone ? [{ phone: dto.phone }] : []),
-      ],
-    },
+  const email = typeof dto.email === 'string' ? dto.email.trim() : '';
+  const phone = typeof dto.phone === 'string' ? dto.phone.trim() : '';
+  const normalizedEmail = email.toLowerCase();
+
+  if (!email) {
+    const err = new Error('Email is required');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!dto.password || typeof dto.password !== 'string' || dto.password.trim().length === 0) {
+    const err = new Error('Password is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const existingByEmail = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
   });
-  if (existingUser) {
+  if (existingByEmail) {
     const err = new Error('User with this email or phone already exists');
     err.statusCode = 409;
     throw err;
   }
+  if (phone.length > 0) {
+    const existingByPhone = await prisma.user.findFirst({
+      where: { phone },
+    });
+    if (existingByPhone) {
+      const err = new Error('User with this email or phone already exists');
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
   let userRole = dto.role || 'STUDENT';
   if (dto.user_type === 'sheikh' || dto.user_type === 'teacher') userRole = 'TEACHER';
-  const hashedPassword = await bcrypt.hash(dto.password, 10);
+  const hashedPassword = await bcrypt.hash(dto.password.trim(), 10);
   const user = await prisma.user.create({
     data: {
-      email: (dto.email || '').trim().toLowerCase(),
+      email: normalizedEmail,
       password: hashedPassword,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
+      firstName: dto.firstName || '',
+      lastName: dto.lastName || '',
+      phone: phone.length > 0 ? phone : undefined,
       role: userRole,
       status: 'ACTIVE',
     },
@@ -87,14 +119,32 @@ async function signUp(dto) {
 }
 
 async function login(dto) {
-  const normalizedEmail = (dto.email || '').trim().toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  const email = typeof dto.email === 'string' ? dto.email.trim() : '';
+  const password = typeof dto.password === 'string' ? dto.password.trim() : '';
+
+  if (!email) {
+    const err = new Error('Email is required');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!password) {
+    const err = new Error('Password is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const user = await findUserByEmail(email);
   if (!user) {
     const err = new Error('Invalid credentials');
     err.statusCode = 401;
     throw err;
   }
-  const isValid = await bcrypt.compare(dto.password, user.password);
+  if (!user.password) {
+    const err = new Error('Invalid credentials');
+    err.statusCode = 401;
+    throw err;
+  }
+  const isValid = await bcrypt.compare(password, user.password);
   if (!isValid) {
     const err = new Error('Invalid credentials');
     err.statusCode = 401;
@@ -110,13 +160,33 @@ async function login(dto) {
 }
 
 async function mobileSignUp(dto, profileImageUrl) {
-  const existingUser = await prisma.user.findFirst({
-    where: { OR: [{ email: dto.email }, { student_phone: dto.student_phone }] },
+  const email = typeof dto.email === 'string' ? dto.email.trim() : '';
+  const normalizedEmail = email.toLowerCase();
+  const studentPhone = typeof dto.student_phone === 'string' ? dto.student_phone.trim() : '';
+
+  if (!email) {
+    const err = new Error('Email is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const existingByEmail = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
   });
-  if (existingUser) {
+  if (existingByEmail) {
     const err = new Error('البريد الإلكتروني أو رقم الهاتف مستخدم بالفعل');
     err.statusCode = 409;
     throw err;
+  }
+  if (studentPhone.length > 0) {
+    const existingByPhone = await prisma.user.findFirst({
+      where: { student_phone: studentPhone },
+    });
+    if (existingByPhone) {
+      const err = new Error('البريد الإلكتروني أو رقم الهاتف مستخدم بالفعل');
+      err.statusCode = 409;
+      throw err;
+    }
   }
   const hashedPassword = await bcrypt.hash(dto.password, 10);
   const nameParts = (dto.name || '').trim().split(' ');
@@ -124,7 +194,7 @@ async function mobileSignUp(dto, profileImageUrl) {
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
   const user = await prisma.user.create({
     data: {
-      email: dto.email,
+      email: normalizedEmail,
       password: hashedPassword,
       firstName,
       lastName,
@@ -132,7 +202,7 @@ async function mobileSignUp(dto, profileImageUrl) {
       age: dto.age,
       gender: dto.gender ? dto.gender.toUpperCase() : null,
       memorized_parts: dto.memorized_parts,
-      student_phone: dto.student_phone,
+      student_phone: studentPhone.length > 0 ? studentPhone : null,
       parent_phone: dto.parent_phone,
       avatar: profileImageUrl,
       status: 'ACTIVE',
@@ -147,12 +217,24 @@ async function mobileSignUp(dto, profileImageUrl) {
 }
 
 async function mobileLogin(dto) {
-  const normalizedEmail = (dto.email || '').trim().toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  const email = typeof dto.email === 'string' ? dto.email.trim() : '';
+  const password = typeof dto.password === 'string' ? dto.password.trim() : '';
+
+  if (!email) {
+    const err = new Error('Email is required');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!password) {
+    const err = new Error('Password is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const user = await findUserByEmail(email);
   if (!user) {
     const err = new Error('بيانات الدخول غير صحيحة');
     err.statusCode = 401;
-    err.response = { success: false, message: '\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629', errors: { credentials: ['\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629'] } };
     throw err;
   }
   const expectedRole = dto.user_type === 'sheikh' ? 'TEACHER' : 'STUDENT';
@@ -161,9 +243,19 @@ async function mobileLogin(dto) {
     err.statusCode = 401;
     throw err;
   }
-  const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+  if (!user.password) {
+    const err = new Error('بيانات الدخول غير صحيحة');
+    err.statusCode = 401;
+    throw err;
+  }
+  const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
     const err = new Error('بيانات الدخول غير صحيحة');
+    err.statusCode = 401;
+    throw err;
+  }
+  if (user.status !== 'ACTIVE') {
+    const err = new Error('Account is not active');
     err.statusCode = 401;
     throw err;
   }
@@ -179,9 +271,10 @@ async function loginMulti(dto) {
   let user;
   if (dto.method === 'EMAIL_PASSWORD') {
     if (!dto.email || !dto.password) throw Object.assign(new Error('Email and password are required'), { statusCode: 400 });
-    user = await prisma.user.findUnique({ where: { email: dto.email } });
+    user = await findUserByEmail(dto.email);
     if (!user) throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
-    const isValid = await bcrypt.compare(dto.password, user.password);
+    const password = typeof dto.password === 'string' ? dto.password.trim() : '';
+    const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
   } else if (dto.method === 'PHONE_OTP') {
     if (!dto.phone || !dto.otp) throw Object.assign(new Error('Phone and OTP are required'), { statusCode: 400 });
@@ -266,7 +359,7 @@ async function verifyPhoneOtp(dto) {
 
 async function refreshToken(dto) {
   try {
-    const payload = jwt.verify(dto.refreshToken, JWT_REFRESH_SECRET);
+    const payload = jwtLib.verifyRefresh(dto.refreshToken);
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || user.status !== 'ACTIVE') throw new Error('Invalid token');
     return await generateTokens(user.id, user.email, user.role);
@@ -335,6 +428,24 @@ async function mobileResetPassword(dto) {
   };
 }
 
+/** للتطوير فقط: تعيين كلمة مرور جديدة لحساب بالبريد (لا يعمل في production) */
+async function devSetPassword(email, newPassword) {
+  if (process.env.NODE_ENV === 'production') {
+    const err = new Error('Not available in production');
+    err.statusCode = 404;
+    throw err;
+  }
+  const user = await findUserByEmail(email);
+  if (!user) {
+    const err = new Error('User not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  const hashed = await bcrypt.hash(newPassword.trim(), 10);
+  await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+  return { message: 'Password updated. You can now login with this email and the new password.' };
+}
+
 module.exports = {
   signUp,
   login,
@@ -350,6 +461,7 @@ module.exports = {
   validateUser,
   mobileForgotPassword,
   mobileResetPassword,
+  devSetPassword,
   sanitizeUser,
   sanitizeMobileUser,
 };

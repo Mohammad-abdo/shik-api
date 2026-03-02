@@ -11,7 +11,7 @@ async function getLessonPlayAccess(lessonId, userId) {
   const enrollment = await prisma.courseEnrollment.findUnique({
     where: { courseId_studentId: { courseId: lesson.courseId, studentId: userId } },
   });
-  const hasAccess = lesson.isFree || !!enrollment;
+  const hasAccess = !!enrollment;
   if (!hasAccess) throw Object.assign(new Error('You do not have access to this lesson'), { statusCode: 403, error_code: 'LESSON_LOCKED' });
   const videoUrl = firstVideo.videoUrl;
   const format = videoUrl && videoUrl.includes('.m3u8') ? 'hls' : 'mp4';

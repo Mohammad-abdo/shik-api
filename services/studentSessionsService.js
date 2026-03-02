@@ -24,7 +24,10 @@ async function getMySessions(studentId, month, year, lang = 'en') {
     },
     include: {
       teacher: { include: { user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true } } } },
-      session: true,
+      bookingSessions: {
+        orderBy: { orderIndex: 'asc' },
+        include: { session: true },
+      },
     },
     orderBy: { date: 'asc' },
   });
@@ -37,43 +40,63 @@ async function getMySessions(studentId, month, year, lang = 'en') {
       : [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
   };
 
-  return bookings.map((b) => ({
-    id: b.session?.id || b.id,
-    sheikh_name: sheikhName(b.teacher),
-    date: b.date.toISOString().split('T')[0],
-    day: getDayName(b.date.getDay(), lang),
-    time: b.startTime,
-    status: mapBookingStatus(b.status),
-    report_available: b.status === 'COMPLETED' && !!b.session?.endedAt,
-  }));
+  return bookings.flatMap((b) =>
+    (b.bookingSessions || []).length > 0
+      ? b.bookingSessions.map((bs) => ({
+          id: bs.session?.id || bs.id,
+          sheikh_name: sheikhName(b.teacher),
+          date: bs.scheduledDate.toISOString().split('T')[0],
+          day: getDayName(bs.scheduledDate.getDay(), lang),
+          time: bs.startTime,
+          status: mapBookingStatus(bs.status),
+          report_available: bs.status === 'COMPLETED' && !!bs.session?.endedAt,
+        }))
+      : [{
+          id: b.id,
+          sheikh_name: sheikhName(b.teacher),
+          date: b.date.toISOString().split('T')[0],
+          day: getDayName(b.date.getDay(), lang),
+          time: b.startTime,
+          status: mapBookingStatus(b.status),
+          report_available: false,
+        }]
+  );
 }
 
-async function getSessionReport(sessionOrBookingId, studentId, lang = 'en') {
+async function getSessionReport(sessionOrBookingSessionId, studentId, lang = 'en') {
   let session = await prisma.session.findUnique({
-    where: { id: sessionOrBookingId },
+    where: { id: sessionOrBookingSessionId },
     include: {
-      booking: {
+      bookingSession: {
         include: {
-          student: true,
-          teacher: true,
+          booking: {
+            include: {
+              student: true,
+              teacher: true,
+            },
+          },
         },
       },
     },
   });
   if (!session) {
     session = await prisma.session.findUnique({
-      where: { bookingId: sessionOrBookingId },
-      include: { booking: { include: { student: true, teacher: true } } },
+      where: { bookingSessionId: sessionOrBookingSessionId },
+      include: {
+        bookingSession: { include: { booking: { include: { student: true, teacher: true } } } },
+      },
     });
   }
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
-  if (session.booking.studentId !== studentId) throw Object.assign(new Error('You do not have access to this session report'), { statusCode: 403 });
-  if (session.booking.status !== 'COMPLETED') throw Object.assign(new Error('Session not completed yet'), { statusCode: 400 });
+  const booking = session.bookingSession?.booking;
+  if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
+  if (booking.studentId !== studentId) throw Object.assign(new Error('You do not have access to this session report'), { statusCode: 403 });
+  if (booking.status !== 'COMPLETED') throw Object.assign(new Error('Session not completed yet'), { statusCode: 400 });
 
-  // Placeholder report - backend can later add SessionReport table with attendance_status, quran_progress, notes, next_homework
+  const slotDate = session.bookingSession?.scheduledDate ?? booking.date;
   const report = {
     session_id: session.id,
-    date: session.booking.date.toISOString().split('T')[0],
+    date: slotDate.toISOString ? slotDate.toISOString().split('T')[0] : new Date(slotDate).toISOString().split('T')[0],
     attendance_status: session.endedAt ? 'present' : 'absent',
     quran_progress: {
       surah: lang === 'ar' ? 'البقرة' : 'Al-Baqarah',
@@ -95,17 +118,23 @@ async function getMyReports(studentId, page = 1, limit = 20, lang = 'en') {
   const sessions = await prisma.session.findMany({
     where: {
       endedAt: { not: null },
-      booking: {
-        studentId,
-        status: 'COMPLETED',
+      bookingSession: {
+        booking: {
+          studentId,
+          status: 'COMPLETED',
+        },
       },
     },
     include: {
-      booking: {
+      bookingSession: {
         include: {
-          teacher: {
+          booking: {
             include: {
-              user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, avatar: true } },
+              teacher: {
+                include: {
+                  user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, avatar: true } },
+                },
+              },
             },
           },
         },
@@ -128,8 +157,8 @@ async function getMyReports(studentId, page = 1, limit = 20, lang = 'en') {
 
   const withReports = await Promise.all(
     sessions.map(async (s) => {
-      const b = s.booking;
-      const teacher = b.teacher;
+      const b = s.bookingSession?.booking;
+      const teacher = b?.teacher;
       let reportPayload = {
         overall_rating: 7.5,
         rating_label: lang === 'ar' ? 'جيد جداً' : 'Very Good',
@@ -149,18 +178,20 @@ async function getMyReports(studentId, page = 1, limit = 20, lang = 'en') {
           notes: r.notes || '',
         };
       } catch (_) {}
+      const slotDate = s.bookingSession?.scheduledDate ?? b?.date;
+      const slotTime = s.bookingSession?.startTime ?? b?.startTime;
       return {
         sheikh: {
-          id: teacher.id,
+          id: teacher?.id,
           name: sheikhName(teacher),
-          image: teacher.image || teacher.user?.avatar || null,
-          specialization: lang === 'ar' ? (teacher.specialtiesAr || teacher.specialties) : (teacher.specialties || teacher.specialtiesAr) || '—',
+          image: teacher?.image || teacher?.user?.avatar || null,
+          specialization: teacher ? (lang === 'ar' ? (teacher.specialtiesAr || teacher.specialties) : (teacher.specialties || teacher.specialtiesAr) || '—') : '—',
         },
         session: {
           id: s.id,
-          date: b.date.toISOString().split('T')[0],
-          day_name: dayName(b.date.getDay()),
-          time: b.startTime,
+          date: slotDate?.toISOString?.()?.split('T')[0] ?? '',
+          day_name: slotDate ? dayName(slotDate.getDay()) : '',
+          time: slotTime ?? '',
         },
         report: reportPayload,
       };

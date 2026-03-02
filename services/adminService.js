@@ -204,7 +204,7 @@ async function getAllBookingsWithFilters(filters = {}) {
         student: { select: { id: true, firstName: true, lastName: true, email: true } },
         teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
         payment: true,
-        session: true,
+        bookingSessions: { orderBy: { orderIndex: 'asc' }, include: { session: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -763,16 +763,21 @@ async function getSessionReportsForAdmin(startDate, endDate, page = 1, limit = 5
     prisma.session.findMany({
       where: {
         endedAt: { not: null },
-        booking: {
+        bookingSession: {
           status: 'COMPLETED',
-          date: { gte: start, lte: end },
+          scheduledDate: { gte: start, lte: end },
+          booking: { status: 'COMPLETED' },
         },
       },
       include: {
-        booking: {
+        bookingSession: {
           include: {
-            teacher: { include: { user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
-            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+            booking: {
+              include: {
+                teacher: { include: { user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
+                student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+              },
+            },
           },
         },
       },
@@ -783,24 +788,26 @@ async function getSessionReportsForAdmin(startDate, endDate, page = 1, limit = 5
     prisma.session.count({
       where: {
         endedAt: { not: null },
-        booking: {
+        bookingSession: {
           status: 'COMPLETED',
-          date: { gte: start, lte: end },
+          scheduledDate: { gte: start, lte: end },
+          booking: { status: 'COMPLETED' },
         },
       },
     }),
   ]);
   const list = sessions.map((s) => {
-    const b = s.booking;
+    const b = s.bookingSession?.booking;
     const teacher = b?.teacher?.user;
     const student = b?.student;
     const teacherName = teacher ? [teacher.firstName, teacher.lastName].filter(Boolean).join(' ').trim() || [teacher.firstNameAr, teacher.lastNameAr].filter(Boolean).join(' ').trim() : '—';
     const studentName = student ? [student.firstName, student.lastName].filter(Boolean).join(' ').trim() || [student.firstNameAr, student.lastNameAr].filter(Boolean).join(' ').trim() : '—';
+    const slotDate = s.bookingSession?.scheduledDate ?? b?.date;
     return {
       id: s.id,
       sessionId: s.id,
       bookingId: b?.id,
-      date: b?.date?.toISOString?.()?.split('T')[0],
+      date: slotDate?.toISOString?.()?.split('T')[0],
       endedAt: s.endedAt?.toISOString?.()?.split('T')[0],
       teacherName,
       teacherEmail: teacher?.email,
@@ -823,7 +830,7 @@ async function getAllSessionsForAdmin(filters = {}) {
   const skip = (page - 1) * limit;
   const where = {};
 
-  if (filters.bookingId) where.bookingId = filters.bookingId;
+  if (filters.bookingSessionId) where.bookingSessionId = filters.bookingSessionId;
   if (filters.roomId) where.roomId = { contains: filters.roomId };
   if (filters.status === 'active') {
     where.startedAt = { not: null };
@@ -831,13 +838,17 @@ async function getAllSessionsForAdmin(filters = {}) {
   } else if (filters.status === 'ended') {
     where.endedAt = { not: null };
   }
-  if (filters.dateFrom || filters.dateTo) {
-    where.booking = { date: {} };
-    if (filters.dateFrom) where.booking.date.gte = new Date(filters.dateFrom);
-    if (filters.dateTo) {
-      const end = new Date(filters.dateTo);
-      end.setHours(23, 59, 59, 999);
-      where.booking.date.lte = end;
+  if (filters.bookingId || filters.dateFrom || filters.dateTo) {
+    where.bookingSession = {};
+    if (filters.bookingId) where.bookingSession.bookingId = filters.bookingId;
+    if (filters.dateFrom || filters.dateTo) {
+      where.bookingSession.scheduledDate = {};
+      if (filters.dateFrom) where.bookingSession.scheduledDate.gte = new Date(filters.dateFrom);
+      if (filters.dateTo) {
+        const end = new Date(filters.dateTo);
+        end.setHours(23, 59, 59, 999);
+        where.bookingSession.scheduledDate.lte = end;
+      }
     }
   }
 
@@ -847,10 +858,14 @@ async function getAllSessionsForAdmin(filters = {}) {
       skip,
       take: limit,
       include: {
-        booking: {
+        bookingSession: {
           include: {
-            teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
-            student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+            booking: {
+              include: {
+                teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } } } },
+                student: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, email: true } },
+              },
+            },
           },
         },
       },

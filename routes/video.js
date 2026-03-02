@@ -34,7 +34,9 @@ const { jwtAuth } = require('../middleware/jwtAuth');
  */
 router.post('/session/create', jwtAuth, async (req, res, next) => {
   try {
-    const session = await videoService.createSession(req.body.bookingId, req.user.id);
+    const bookingSessionId = req.body.bookingSessionId || req.body.bookingId;
+    if (!bookingSessionId) throw Object.assign(new Error('bookingSessionId is required'), { statusCode: 400 });
+    const session = await videoService.createSession(bookingSessionId, req.user.id);
     res.json(session);
   } catch (e) {
     next(e);
@@ -43,35 +45,27 @@ router.post('/session/create', jwtAuth, async (req, res, next) => {
 
 /**
  * @openapi
- * /api/video/session/token/{bookingId}:
+ * /api/video/session/token/{bookingSessionId}:
  *   get:
  *     tags: [video]
- *     summary: GET /api/video/session/token/{bookingId}
+ *     summary: GET /api/video/session/token/{bookingSessionId}
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: bookingId
+ *         name: bookingSessionId
  *         required: true
  *         schema:
  *           type: string
  *     responses:
  *       200:
  *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/ApiSuccess"
  *       400:
  *         description: Error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/ApiError"
  */
-router.get('/session/token/:bookingId', jwtAuth, async (req, res, next) => {
+router.get('/session/token/:bookingSessionId', jwtAuth, async (req, res, next) => {
   try {
-    const session = await videoService.getSessionToken(req.params.bookingId, req.user.id);
+    const session = await videoService.getSessionToken(req.params.bookingSessionId, req.user.id);
     res.json(session);
   } catch (e) {
     next(e);
@@ -109,7 +103,9 @@ router.get('/session/token/:bookingId', jwtAuth, async (req, res, next) => {
  */
 router.post('/session/end', jwtAuth, async (req, res, next) => {
   try {
-    const session = await videoService.endSession(req.body.bookingId, req.user.id);
+    const bookingSessionId = req.body.bookingSessionId || req.body.bookingId;
+    if (!bookingSessionId) throw Object.assign(new Error('bookingSessionId is required'), { statusCode: 400 });
+    const session = await videoService.endSession(bookingSessionId, req.user.id);
     res.json(session);
   } catch (e) {
     next(e);
@@ -140,7 +136,9 @@ router.post('/session/end', jwtAuth, async (req, res, next) => {
  */
 router.get('/session/history', jwtAuth, async (req, res, next) => {
   try {
-    const session = await videoService.getSessionHistory(req.query.bookingId, req.user.id);
+    const bookingSessionId = req.query.bookingSessionId || req.query.bookingId;
+    if (!bookingSessionId) throw Object.assign(new Error('bookingSessionId is required'), { statusCode: 400 });
+    const session = await videoService.getSessionHistory(bookingSessionId, req.user.id);
     res.json(session);
   } catch (e) {
     next(e);

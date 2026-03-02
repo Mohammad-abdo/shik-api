@@ -12,10 +12,18 @@ function parseJsonSafe(value) {
   }
 }
 
+function addMinutesToTime(timeStr, minutes) {
+  const [h, m] = (timeStr || '09:00').split(':').map(Number);
+  const totalM = (h * 60 + (m || 0)) + minutes;
+  const nh = Math.floor(totalM / 60) % 24;
+  const nm = totalM % 60;
+  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+}
+
 async function create(studentId, dto) {
   const teacher = await prisma.teacher.findUnique({
     where: { id: dto.teacherId },
-    include: { user: true },
+    include: { user: true, schedules: { where: { isActive: true } } },
   });
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
   if (!teacher.isApproved) throw Object.assign(new Error('Teacher is not approved'), { statusCode: 400 });
@@ -40,20 +48,59 @@ async function create(studentId, dto) {
   }
 
   const duration = SESSION_DURATION_MINUTES;
-  const price = teacher.hourlyRate * duration;
+  let slots = Array.isArray(dto.slots) && dto.slots.length > 0
+    ? dto.slots
+    : [{ scheduleId: dto.scheduleId, scheduledDate: dto.date, startTime: dto.startTime }];
+
+  if (!slots[0].scheduleId || !slots[0].scheduledDate || !slots[0].startTime) {
+    throw Object.assign(new Error('At least one slot with scheduleId, scheduledDate and startTime is required'), { statusCode: 400 });
+  }
+
+  const scheduleIds = [...new Set(slots.map((s) => s.scheduleId))];
+  const schedules = await prisma.schedule.findMany({
+    where: { id: { in: scheduleIds }, teacherId: teacher.id, isActive: true },
+  });
+  if (schedules.length !== scheduleIds.length) {
+    throw Object.assign(new Error('All slot scheduleIds must belong to the teacher and be active'), { statusCode: 400 });
+  }
+
+  for (const slot of slots) {
+    const existing = await prisma.bookingSession.findUnique({
+      where: {
+        scheduleId_scheduledDate_startTime: {
+          scheduleId: slot.scheduleId,
+          scheduledDate: new Date(slot.scheduledDate),
+          startTime: slot.startTime,
+        },
+      },
+    });
+    if (existing) {
+      throw Object.assign(
+        new Error(`Slot ${slot.scheduledDate} ${slot.startTime} is already booked`),
+        { statusCode: 400 }
+      );
+    }
+  }
+
+  const firstSlot = slots[0];
+  const firstDate = new Date(firstSlot.scheduledDate);
+  const pricePerSession = (teacher.hourlyRate || 0) * (duration / 60);
+  const totalPrice = pricePerSession * slots.length;
   const discount = dto.discount || 0;
-  const totalPrice = price - discount;
+  const finalTotal = totalPrice - discount;
+
   const booking = await prisma.booking.create({
     data: {
       studentId,
       teacherId: dto.teacherId,
       subscriptionId: activeSubscription.id,
-      date: new Date(dto.date),
-      startTime: dto.startTime,
+      scheduleId: firstSlot.scheduleId,
+      date: firstDate,
+      startTime: firstSlot.startTime,
       duration,
-      price,
+      price: totalPrice,
       discount,
-      totalPrice,
+      totalPrice: finalTotal,
       notes: dto.notes,
       status: 'PENDING',
     },
@@ -62,6 +109,26 @@ async function create(studentId, dto) {
       teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } } },
     },
   });
+
+  const scheduleById = Object.fromEntries(schedules.map((s) => [s.id, s]));
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i];
+    const schedule = scheduleById[slot.scheduleId];
+    const scheduledDate = new Date(slot.scheduledDate);
+    const endTime = addMinutesToTime(slot.startTime, duration);
+    await prisma.bookingSession.create({
+      data: {
+        bookingId: booking.id,
+        scheduleId: slot.scheduleId,
+        scheduledDate,
+        startTime: slot.startTime,
+        endTime: schedule ? schedule.endTime : endTime,
+        orderIndex: i + 1,
+        status: 'PENDING',
+      },
+    });
+  }
+
   await notificationService.createNotification(
     teacher.userId,
     'BOOKING_REQUEST',
@@ -80,13 +147,14 @@ async function create(studentId, dto) {
     null
   );
 
-  const [packageBookings, scheduleReservations] = await Promise.all([
+  const [packageBookings, scheduleReservations, bookingSessions] = await Promise.all([
     prisma.booking.findMany({
       where: { studentId, subscriptionId: activeSubscription.id },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
       include: {
-        session: {
-          select: { id: true, roomId: true, startedAt: true, endedAt: true, duration: true },
+        bookingSessions: {
+          orderBy: { orderIndex: 'asc' },
+          include: { session: { select: { id: true, roomId: true, startedAt: true, endedAt: true, duration: true } } },
         },
       },
     }),
@@ -95,10 +163,16 @@ async function create(studentId, dto) {
       orderBy: [{ reservationDate: 'asc' }, { startTime: 'asc' }],
       select: { id: true, scheduleId: true, reservationDate: true, startTime: true, endTime: true },
     }),
+    prisma.bookingSession.findMany({
+      where: { bookingId: booking.id },
+      orderBy: { orderIndex: 'asc' },
+      include: { session: { select: { id: true, roomId: true, startedAt: true, endedAt: true, duration: true } } },
+    }),
   ]);
 
   return {
     ...booking,
+    bookingSessions,
     subscriptionTimeline: {
       subscriptionId: activeSubscription.id,
       bookedSchedule: scheduleReservations.map((r) => ({
@@ -108,14 +182,17 @@ async function create(studentId, dto) {
         startTime: r.startTime,
         endTime: r.endTime,
       })),
-      bookedSessions: packageBookings.map((b) => ({
-        bookingId: b.id,
-        date: b.date,
-        startTime: b.startTime,
-        duration: b.duration,
-        status: b.status,
-        session: b.session,
-      })),
+      bookedSessions: packageBookings.flatMap((b) =>
+        (b.bookingSessions || []).map((bs) => ({
+          bookingSessionId: bs.id,
+          bookingId: b.id,
+          scheduledDate: bs.scheduledDate,
+          startTime: bs.startTime,
+          duration,
+          status: bs.status,
+          session: bs.session,
+        }))
+      ),
       joinPolicy: {
         studentCanJoinBeforeStart: false,
         note: 'Student cannot join a session before its scheduled start time.',
@@ -131,7 +208,10 @@ async function findOne(id, userId, userRole) {
       student: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, phone: true } },
       teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, phone: true } } } },
       payment: true,
-      session: true,
+      bookingSessions: {
+        orderBy: { orderIndex: 'asc' },
+        include: { session: true },
+      },
       review: true,
     },
   });
@@ -150,7 +230,10 @@ async function findByStudent(studentId, status) {
     include: {
       teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } } },
       payment: true,
-      session: true,
+      bookingSessions: {
+        orderBy: { orderIndex: 'asc' },
+        include: { session: true },
+      },
     },
     orderBy: { date: 'desc' },
   });
@@ -164,7 +247,10 @@ async function findByTeacher(teacherId, status) {
     include: {
       student: { select: { id: true, firstName: true, lastName: true, avatar: true, email: true } },
       payment: true,
-      session: true,
+      bookingSessions: {
+        orderBy: { orderIndex: 'asc' },
+        include: { session: true },
+      },
     },
     orderBy: { date: 'desc' },
   });
@@ -180,6 +266,10 @@ async function confirm(bookingId, teacherId, userId) {
     throw Object.assign(new Error('You can only confirm your own bookings'), { statusCode: 403 });
   }
   if (booking.status !== 'PENDING') throw Object.assign(new Error('Booking is not in pending status'), { statusCode: 400 });
+  await prisma.bookingSession.updateMany({
+    where: { bookingId },
+    data: { status: 'CONFIRMED' },
+  });
   const updated = await prisma.booking.update({
     where: { id: bookingId },
     data: { status: 'CONFIRMED' },
@@ -209,6 +299,10 @@ async function cancel(bookingId, userId, userRole) {
   if (booking.status === 'COMPLETED' || booking.status === 'CANCELLED') {
     throw Object.assign(new Error('Cannot cancel this booking'), { statusCode: 400 });
   }
+  await prisma.bookingSession.updateMany({
+    where: { bookingId },
+    data: { status: 'CANCELLED' },
+  });
   const updated = await prisma.booking.update({
     where: { id: bookingId },
     data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledBy: userId },
@@ -240,6 +334,10 @@ async function reject(bookingId, teacherId, userId) {
     throw Object.assign(new Error('You can only reject your own bookings'), { statusCode: 403 });
   }
   if (booking.status !== 'PENDING') throw Object.assign(new Error('Booking is not in pending status'), { statusCode: 400 });
+  await prisma.bookingSession.updateMany({
+    where: { bookingId },
+    data: { status: 'CANCELLED' },
+  });
   const updated = await prisma.booking.update({
     where: { id: bookingId },
     data: { status: 'REJECTED', cancelledAt: new Date(), cancelledBy: userId },
@@ -257,6 +355,84 @@ async function reject(bookingId, teacherId, userId) {
   return updated;
 }
 
+const BOOKING_SESSION_STATUSES = ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+
+/**
+ * Update a single booking session (slot). Allowed: scheduledDate, startTime, endTime, status.
+ * Teacher of the booking or admin only.
+ */
+async function updateBookingSession(bookingSessionId, data, userId, userRole) {
+  const bookingSession = await prisma.bookingSession.findUnique({
+    where: { id: bookingSessionId },
+    include: {
+      booking: { include: { teacher: true } },
+      schedule: true,
+    },
+  });
+  if (!bookingSession) throw Object.assign(new Error('Booking session not found'), { statusCode: 404 });
+  const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+  if (!isAdmin && bookingSession.booking.teacher.userId !== userId) {
+    throw Object.assign(new Error('You can only edit sessions for your own bookings'), { statusCode: 403 });
+  }
+  const updateData = {};
+  if (data.status != null) {
+    if (!BOOKING_SESSION_STATUSES.includes(data.status)) {
+      throw Object.assign(new Error('Invalid status'), { statusCode: 400 });
+    }
+    updateData.status = data.status;
+  }
+  const scheduledDate = data.scheduledDate != null && data.scheduledDate !== '' ? new Date(data.scheduledDate) : null;
+  const startTime = data.startTime != null && String(data.startTime).trim() !== '' ? String(data.startTime).trim() : null;
+  const endTime = data.endTime != null && String(data.endTime).trim() !== '' ? String(data.endTime).trim() : null;
+  if (scheduledDate != null || startTime != null || endTime != null) {
+    const finalDate = scheduledDate || bookingSession.scheduledDate;
+    const finalStart = startTime ?? bookingSession.startTime;
+    const finalEnd = endTime ?? bookingSession.endTime ?? addMinutesToTime(finalStart, SESSION_DURATION_MINUTES);
+    const dayOfWeek = finalDate.getDay();
+    let schedule = await prisma.schedule.findFirst({
+      where: { teacherId: bookingSession.booking.teacherId, dayOfWeek, startTime: finalStart, isActive: true },
+    });
+    if (!schedule) {
+      schedule = await prisma.schedule.create({
+        data: {
+          teacherId: bookingSession.booking.teacherId,
+          dayOfWeek,
+          startTime: finalStart,
+          endTime: finalEnd,
+          isActive: true,
+        },
+      });
+    }
+    const existingSlot = await prisma.bookingSession.findFirst({
+      where: {
+        scheduleId: schedule.id,
+        scheduledDate: finalDate,
+        startTime: finalStart,
+        id: { not: bookingSessionId },
+      },
+    });
+    if (existingSlot) {
+      throw Object.assign(new Error('This date and time slot is already taken'), { statusCode: 400 });
+    }
+    updateData.scheduleId = schedule.id;
+    updateData.scheduledDate = finalDate;
+    updateData.startTime = finalStart;
+    updateData.endTime = finalEnd;
+  }
+  if (Object.keys(updateData).length === 0) {
+    return prisma.bookingSession.findUnique({
+      where: { id: bookingSessionId },
+      include: { session: true, schedule: true },
+    });
+  }
+  const updated = await prisma.bookingSession.update({
+    where: { id: bookingSessionId },
+    data: updateData,
+    include: { session: true, schedule: true },
+  });
+  return updated;
+}
+
 /**
  * Rich booking details for FULL_TEACHER: package stats, student, session (memorizations, revisions, report), schedule, history.
  */
@@ -271,11 +447,16 @@ async function getBookingDetails(bookingId, userId, userRole) {
         },
       },
       payment: true,
-      session: {
+      bookingSessions: {
+        orderBy: { orderIndex: 'asc' },
         include: {
-          memorizations: { orderBy: { createdAt: 'asc' } },
-          revisions: { orderBy: { createdAt: 'asc' } },
-          report: true,
+          session: {
+            include: {
+              memorizations: { orderBy: { createdAt: 'asc' } },
+              revisions: { orderBy: { createdAt: 'asc' } },
+              report: true,
+            },
+          },
         },
       },
       review: true,
@@ -392,7 +573,10 @@ async function getBookingDetails(bookingId, userId, userRole) {
         date: { gte: today },
       },
       include: {
-        session: { select: { id: true, startedAt: true, endedAt: true, duration: true } },
+        bookingSessions: {
+          orderBy: { orderIndex: 'asc' },
+          include: { session: { select: { id: true, startedAt: true, endedAt: true, duration: true } } },
+        },
       },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
       take: 10,
@@ -401,11 +585,16 @@ async function getBookingDetails(bookingId, userId, userRole) {
     const pastSessions = await prisma.booking.findMany({
       where: { studentId, teacherId, status: 'COMPLETED' },
       include: {
-        session: {
+        bookingSessions: {
+          orderBy: { orderIndex: 'asc' },
           include: {
-            memorizations: { orderBy: { createdAt: 'asc' } },
-            revisions: { orderBy: { createdAt: 'asc' } },
-            report: true,
+            session: {
+              include: {
+                memorizations: { orderBy: { createdAt: 'asc' } },
+                revisions: { orderBy: { createdAt: 'asc' } },
+                report: true,
+              },
+            },
           },
         },
       },
@@ -413,30 +602,47 @@ async function getBookingDetails(bookingId, userId, userRole) {
       take: 20,
     });
 
-    pastSessionsWithSession = pastSessions.filter((b) => b.session != null && b.session.endedAt != null);
+    pastSessionsWithSession = pastSessions.filter((b) =>
+      (b.bookingSessions || []).some((bs) => bs.session != null && bs.session.endedAt != null)
+    );
   } catch (listErr) {
     console.error('getBookingDetails upcoming/past sessions failed:', listErr?.message || listErr);
   }
 
-  // Avoid circular reference and ensure JSON-serializable response (session.booking can cause 500)
-  if (booking.session && typeof booking.session === 'object') {
-    const s = { ...booking.session };
-    delete s.booking;
-    booking = { ...booking, session: s };
+  // Avoid circular reference and ensure JSON-serializable response
+  const safeBooking = { ...booking };
+  if (safeBooking.bookingSessions) {
+    safeBooking.bookingSessions = safeBooking.bookingSessions.map((bs) => {
+      const out = { ...bs };
+      if (out.session && typeof out.session === 'object') delete out.session.bookingSession;
+      return out;
+    });
   }
   const safeUpcoming = (upcomingBookings || []).map((b) => {
     const out = { ...b };
-    if (out.session && typeof out.session === 'object') delete out.session.booking;
+    if (out.bookingSessions) {
+      out.bookingSessions = out.bookingSessions.map((bs) => {
+        const bsOut = { ...bs };
+        if (bsOut.session && typeof bsOut.session === 'object') delete bsOut.session.bookingSession;
+        return bsOut;
+      });
+    }
     return out;
   });
   const safePast = (pastSessionsWithSession || []).map((b) => {
     const out = { ...b };
-    if (out.session && typeof out.session === 'object') delete out.session.booking;
+    if (out.bookingSessions) {
+      out.bookingSessions = out.bookingSessions.map((bs) => {
+        const bsOut = { ...bs };
+        if (bsOut.session && typeof bsOut.session === 'object') delete bsOut.session.bookingSession;
+        return bsOut;
+      });
+    }
     return out;
   });
 
   return {
-    ...booking,
+    ...safeBooking,
     subscription,
     scheduleReservations,
     totalSessionsWithTeacher,
@@ -514,5 +720,6 @@ module.exports = {
   confirm,
   cancel,
   reject,
+  updateBookingSession,
   getSubscriptionPackagesForStudent,
 };

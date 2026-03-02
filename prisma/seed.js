@@ -381,7 +381,7 @@ async function main() {
         amount: booking.totalPrice,
         currency: 'EGP',
         status: booking.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
-        paymentMethod: ['stripe', 'mada', 'apple_pay'][Math.floor(Math.random() * 3)],
+        paymentMethod: 'FAWRY',
       });
     }
   }

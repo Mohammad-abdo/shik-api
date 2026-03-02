@@ -5,6 +5,35 @@ const { jwtAuth } = require('../middleware/jwtAuth');
 
 /**
  * @openapi
+ * /api/reviews:
+ *   get:
+ *     tags: [reviews]
+ *     summary: GET /api/reviews (all or filter by type)
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [SHEIKH, COURSE, BOOKING]
+ *     responses:
+ *       200:
+ *         description: List of reviews with user and related entity; averageByType
+ */
+router.get('/', async (req, res, next) => {
+  try {
+    const type = req.query.type || undefined;
+    const page = req.query.page ? parseInt(req.query.page, 10) : undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+    const includeSuspended = req.query.includeSuspended === 'true' || req.query.includeSuspended === '1';
+    const result = await reviewService.getAll({ type, page, limit, includeSuspended });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
  * /api/reviews/bookings/{bookingId}:
  *   post:
  *     tags: [reviews]
@@ -158,6 +187,60 @@ router.delete('/bookings/:bookingId', jwtAuth, async (req, res, next) => {
   try {
     const result = await reviewService.deleteReview(req.params.bookingId, req.user.id);
     res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** GET /reviews/:id - get single review */
+router.get('/:id', async (req, res, next) => {
+  try {
+    const review = await reviewService.getById(req.params.id);
+    res.json(review);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** PUT /reviews/:id - update review (owner or admin) */
+router.put('/:id', jwtAuth, async (req, res, next) => {
+  try {
+    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
+    const review = await reviewService.updateById(req.params.id, req.body || {}, req.user.id, isAdmin);
+    res.json(review);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** DELETE /reviews/:id - delete review (owner or admin) */
+router.delete('/:id', jwtAuth, async (req, res, next) => {
+  try {
+    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
+    const result = await reviewService.deleteById(req.params.id, req.user.id, isAdmin);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** PATCH /reviews/:id/suspend - suspend review (admin only) */
+router.patch('/:id/suspend', jwtAuth, async (req, res, next) => {
+  try {
+    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
+    const review = await reviewService.suspend(req.params.id, isAdmin);
+    res.json(review);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** PATCH /reviews/:id/activate - activate suspended review (admin only) */
+router.patch('/:id/activate', jwtAuth, async (req, res, next) => {
+  try {
+    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
+    const review = await reviewService.activate(req.params.id, isAdmin);
+    res.json(review);
   } catch (e) {
     next(e);
   }

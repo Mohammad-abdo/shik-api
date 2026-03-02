@@ -1,7 +1,9 @@
 const { prisma } = require('../lib/prisma');
 
-const PERMISSIONS_KEY = 'permissions';
-
+/**
+ * Returns middleware that allows request if user has at least one of the required permissions.
+ * SUPER_ADMIN and ADMIN bypass the check (full access).
+ */
 function permissions(requiredPermissions) {
   if (!Array.isArray(requiredPermissions)) {
     requiredPermissions = [requiredPermissions];
@@ -51,4 +53,10 @@ function permissions(requiredPermissions) {
   };
 }
 
+/** Alias: authorize(permissionName) — same as permissions([permissionName]) */
+function authorize(permissionName) {
+  return permissions([permissionName]);
+}
+
 module.exports = permissions;
+module.exports.authorize = authorize;

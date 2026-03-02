@@ -154,7 +154,7 @@ async function main() {
   const adminPassword = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@shaykhi.com' },
-    update: {},
+    update: { role: 'SUPER_ADMIN' },
     create: {
       email: 'admin@shaykhi.com',
       password: adminPassword,
@@ -162,7 +162,7 @@ async function main() {
       firstNameAr: '\u0645\u062F\u064A\u0631',
       lastName: 'User',
       lastNameAr: '\u0627\u0644\u0646\u0638\u0627\u0645',
-      role: 'ADMIN',
+      role: 'SUPER_ADMIN',
       status: 'ACTIVE',
       emailVerified: true,
       phoneVerified: true,
@@ -170,7 +170,7 @@ async function main() {
       avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop',
     },
   });
-  console.log('Admin user created:', admin.email);
+  console.log('Super Admin user created:', admin.email, '(role: SUPER_ADMIN)');
 
   const studentPassword = await bcrypt.hash('student123', 10);
   const studentsData = [
@@ -601,6 +601,15 @@ async function main() {
     'permissions.read', 'permissions.write', 'courses.read', 'courses.write',
     'subscriptions.read', 'subscriptions.write', 'exams.create', 'exams.review',
   ];
+  const fixedPermissions = [
+    { name: 'VIEW_DASHBOARD', resource: 'dashboard', action: 'view', description: 'عرض لوحة التحكم' },
+    { name: 'MANAGE_USERS', resource: 'users', action: 'manage', description: 'إدارة المستخدمين' },
+    { name: 'MANAGE_BOOKINGS', resource: 'bookings', action: 'manage', description: 'إدارة الحجوزات' },
+    { name: 'MANAGE_COURSES', resource: 'courses', action: 'manage', description: 'إدارة الدورات' },
+    { name: 'MANAGE_REVIEWS', resource: 'reviews', action: 'manage', description: 'إدارة التقييمات' },
+    { name: 'MANAGE_NOTIFICATIONS', resource: 'notifications', action: 'manage', description: 'إدارة الإشعارات' },
+    { name: 'VIEW_REPORTS', resource: 'reports', action: 'view', description: 'عرض التقارير' },
+  ];
   const createdPermissions = [];
   for (const name of permissionNames) {
     const [resource, action] = name.split('.');
@@ -611,7 +620,15 @@ async function main() {
     });
     createdPermissions.push(perm);
   }
-  console.log('Permissions created');
+  for (const p of fixedPermissions) {
+    const perm = await prisma.permission.upsert({
+      where: { name: p.name },
+      update: {},
+      create: { name: p.name, resource: p.resource, action: p.action, description: p.description },
+    });
+    if (!createdPermissions.find((x) => x.id === perm.id)) createdPermissions.push(perm);
+  }
+  console.log('Permissions created (including VIEW_DASHBOARD, MANAGE_*, VIEW_REPORTS)');
 
   for (const permission of createdPermissions) {
     try {
@@ -919,6 +936,133 @@ async function main() {
     } catch (err) { }
   }
   console.log('Course enrollments created');
+
+  // Seed reviews (BOOKING for completed bookings, plus sample SHEIKH and COURSE reviews)
+  const bookingReviewComments = [
+    'Great session, very clear explanation of Tajweed rules.',
+    'الشيخ ممتاز في الشرح والمراجعة. جلسة مفيدة جداً.',
+    'Patient and professional. My recitation improved a lot.',
+    'تعامل راقٍ ومتابعة أسبوعية منظمة. أنصح بالحجز.',
+    'Best Quran teacher I have had. Highly recommend.',
+    'جلسات منظمة وحفظ مع مراجعة مستمرة.',
+  ];
+  const completedBookings = await prisma.booking.findMany({
+    where: { status: 'COMPLETED' },
+    select: { id: true, studentId: true, teacherId: true },
+  });
+  let reviewsCreated = 0;
+  for (let i = 0; i < completedBookings.length; i++) {
+    const b = completedBookings[i];
+    try {
+      const existing = await prisma.review.findFirst({ where: { bookingId: b.id } });
+      if (existing) continue;
+      await prisma.review.create({
+        data: {
+          userId: b.studentId,
+          type: 'BOOKING',
+          sheikhId: b.teacherId,
+          bookingId: b.id,
+          rating: 3 + (i % 3),
+          comment: bookingReviewComments[i % bookingReviewComments.length],
+        },
+      });
+      reviewsCreated++;
+    } catch (e) {
+      // skip duplicates or missing user
+    }
+  }
+  const fullTeachersForReviews = createdTeachers.filter((t) => t.teacher.teacherType === 'FULL_TEACHER');
+  for (let i = 0; i < Math.min(3, fullTeachersForReviews.length); i++) {
+    const sheikh = fullTeachersForReviews[i].teacher;
+    const student = createdStudents[i % createdStudents.length];
+    try {
+      await prisma.review.create({
+        data: {
+          userId: student.id,
+          type: 'SHEIKH',
+          sheikhId: sheikh.id,
+          rating: 4 + (i % 2),
+          comment: i === 0 ? 'Excellent sheikh for memorization and Tajweed.' : (i === 1 ? 'مدرس متميز. أنصح بالتعلم معه.' : 'Very knowledgeable and patient.'),
+        },
+      });
+      reviewsCreated++;
+    } catch (e) { /* skip */ }
+  }
+  for (let i = 0; i < Math.min(3, createdCourses.length); i++) {
+    const course = createdCourses[i];
+    const student = createdStudents[i % createdStudents.length];
+    try {
+      await prisma.review.create({
+        data: {
+          userId: student.id,
+          type: 'COURSE',
+          courseId: course.id,
+          rating: 4 + (i % 2),
+          comment: i === 0 ? 'Clear lessons and good structure.' : (i === 1 ? 'دورة منظمة ومفيدة.' : 'Worth the time. Recommended.'),
+        },
+      });
+      reviewsCreated++;
+    } catch (e) { /* skip */ }
+  }
+  console.log(`Reviews seeded: ${reviewsCreated} (BOOKING + SHEIKH + COURSE)`);
+
+  // ── Notifications seed (Admin, Sheikh, Student) ─────────────────────────────
+  const notificationSeedData = [];
+  const now = new Date();
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+
+  // For Admin
+  notificationSeedData.push(
+    { userId: admin.id, type: 'BOOKING_REQUEST', title: 'طلب حجز جديد', message: 'طالب جديد يطلب حجز جلسة مع الشيخ عبدالرحمن. يرجى المراجعة.', relatedId: createdBookings[0]?.id, isRead: false, createdAt: now, sentById: createdStudents[0]?.id },
+    { userId: admin.id, type: 'REVIEW_RECEIVED', title: 'تقييم جديد', message: 'تم إضافة تقييم جديد على منصة Shaykhi.', relatedId: null, isRead: true, readAt: oneDayAgo, createdAt: twoDaysAgo, sentById: createdStudents[0]?.id },
+    { userId: admin.id, type: 'COURSE_CREATED', title: 'دورة جديدة', message: 'تم إنشاء دورة جديدة: دورة القرآن 1.', relatedId: createdCourses[0]?.id, isRead: false, createdAt: oneDayAgo, sentById: admin.id },
+    { userId: admin.id, type: 'SYSTEM', title: 'تحديث النظام', message: 'تم تحديث المنصة بنجاح. لا يلزم أي إجراء.', relatedId: null, isRead: true, readAt: now, createdAt: twoDaysAgo, sentById: null }
+  );
+
+  // For first Sheikh (teacher user)
+  if (fullTeachers.length > 0) {
+    const sheikhUser = fullTeachers[0].user;
+    notificationSeedData.push(
+      { userId: sheikhUser.id, type: 'BOOKING_REQUEST', title: 'طلب حجز جديد', message: 'الطالب أحمد محمد يطلب حجز جلسة معك غداً الساعة 09:00.', relatedId: createdBookings[0]?.id, isRead: false, createdAt: now, sentById: createdStudents[0]?.id },
+      { userId: sheikhUser.id, type: 'BOOKING_CONFIRMED', title: 'تم تأكيد الحجز', message: 'تم تأكيد حجز جلسة مع فاطمة علي.', relatedId: createdBookings[1]?.id, isRead: true, readAt: oneDayAgo, createdAt: twoDaysAgo, sentById: admin.id },
+      { userId: sheikhUser.id, type: 'REVIEW_RECEIVED', title: 'تقييم جديد من طالب', message: 'تقييمك: ممتاز في الشرح والمراجعة. جلسة مفيدة جداً.', relatedId: null, isRead: false, createdAt: oneDayAgo, sentById: createdStudents[0]?.id },
+      { userId: sheikhUser.id, type: 'SESSION_REMINDER', title: 'تذكير بجلسة', message: 'جلسة مع أحمد محمد غداً الساعة 10:00. لا تنسَ الحضور.', relatedId: createdBookings[0]?.id, isRead: false, createdAt: now, sentById: null }
+    );
+  }
+
+  // For first Student
+  if (createdStudents.length > 0) {
+    const student = createdStudents[0];
+    notificationSeedData.push(
+      { userId: student.id, type: 'BOOKING_CONFIRMED', title: 'تم تأكيد حجزك', message: 'تم تأكيد حجز جلستك مع الشيخ عبدالرحمن المصري.', relatedId: createdBookings[1]?.id, isRead: false, createdAt: now, sentById: admin.id },
+      { userId: student.id, type: 'BOOKING_REJECTED', title: 'تم رفض الحجز', message: 'عذراً، تم رفض حجزك لليوم المطلوب. يرجى اختيار وقت آخر.', relatedId: null, isRead: true, readAt: oneDayAgo, createdAt: twoDaysAgo, sentById: fullTeachers[0]?.user?.id },
+      { userId: student.id, type: 'PAYMENT_RECEIVED', title: 'تم استلام الدفع', message: 'تم استلام دفعتك بنجاح. شكراً لاستخدامك منصة Shaykhi.', relatedId: null, isRead: false, createdAt: oneDayAgo, sentById: null },
+      { userId: student.id, type: 'SYSTEM', title: 'مرحباً بك', message: 'مرحباً بك في منصة Shaykhi. استمتع بتعلم القرآن مع أفضل المشايخ.', relatedId: null, isRead: true, readAt: twoDaysAgo, createdAt: twoDaysAgo, sentById: null }
+    );
+  }
+
+  for (const n of notificationSeedData) {
+    try {
+      if (!n.userId) continue;
+      await prisma.notification.create({
+        data: {
+          userId: n.userId,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          relatedId: n.relatedId ?? null,
+          isRead: n.isRead ?? false,
+          readAt: n.isRead ? (n.readAt || now) : null,
+          sentById: n.sentById ?? null,
+          createdAt: n.createdAt || now,
+        },
+      });
+    } catch (e) {
+      // skip if duplicate or constraint
+    }
+  }
+  console.log(`Notifications seeded: ${notificationSeedData.length} (Admin, Sheikh, Student)`);
 
   for (let i = 0; i < 3; i++) {
     const teacher = createdTeachers[i % createdTeachers.length];

@@ -113,16 +113,18 @@ model Notification {
   title     String
   message   String
   data      String?          @db.LongText
+  relatedId String?
   isRead    Boolean          @default(false)
   readAt    DateTime?
   createdAt DateTime         @default(now())
   sentById  String?
 
-  user   User  @relation("UserNotifications", fields: [userId], references: [id])
-  sentBy User? @relation("SentNotifications", fields: [sentById], references: [id])
+  user   User  @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  sentBy User? @relation("SentNotifications", fields: [sentById], references: [id], onDelete: SetNull)
 
   @@index([sentById], map: "notifications_sentById_fkey")
   @@index([userId], map: "notifications_userId_fkey")
+  @@index([relatedId], map: "notifications_relatedId_fkey")
   @@map("notifications")
 }
 
@@ -212,21 +214,29 @@ model PlatformRevenue {
 }
 
 model Review {
-  id        String   @id @default(uuid())
-  bookingId String   @unique
-  studentId String
-  teacherId String
+  id        String       @id @default(uuid())
+  userId    String
   rating    Int
-  comment   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  comment   String?      @db.Text
+  type      ReviewType
+  status    ReviewStatus @default(ACTIVE)
+  sheikhId  String?
+  courseId  String?
+  bookingId String?      @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  teacher Teacher @relation("TeacherReviews", fields: [teacherId], references: [id])
-  student User    @relation("StudentReviews", fields: [studentId], references: [id])
-  booking Booking @relation(fields: [bookingId], references: [id])
+  user    User     @relation("UserReviews", fields: [userId], references: [id], onDelete: Cascade)
+  teacher Teacher? @relation("TeacherReviews", fields: [sheikhId], references: [id], onDelete: SetNull)
+  course  Course?  @relation("CourseReviews", fields: [courseId], references: [id], onDelete: SetNull)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
-  @@index([studentId], map: "reviews_studentId_fkey")
-  @@index([teacherId], map: "reviews_teacherId_fkey")
+  @@index([userId], map: "reviews_userId_fkey")
+  @@index([sheikhId], map: "reviews_sheikhId_fkey")
+  @@index([courseId], map: "reviews_courseId_fkey")
+  @@index([bookingId], map: "reviews_bookingId_fkey")
+  @@index([type], map: "reviews_type_fkey")
+  @@index([status], map: "reviews_status_fkey")
   @@map("reviews")
 }
 
@@ -403,7 +413,7 @@ model User {
   userRoles              UserRole[]            @relation("UserRoles")
   notifications          Notification[]        @relation("UserNotifications")
   sentNotifications      Notification[]        @relation("SentNotifications")
-  studentReviews         Review[]              @relation("StudentReviews")
+  reviews                Review[]              @relation("UserReviews")
   studentExamSubmissions ExamSubmission[]      @relation("StudentExamSubmissions")
   certificates           Certificate[]         @relation("StudentCertificates")
   courseEnrollments      CourseEnrollment[]    @relation("StudentCourseEnrollments")
@@ -487,6 +497,7 @@ model Course {
   videoProgress  VideoProgress[]    @relation("CourseVideoProgress")
   bookings       Booking[]          @relation("CourseBookings")
   courseTeachers CourseTeacher[]    @relation("CourseTeachers")
+  reviews        Review[]           @relation("CourseReviews")
 
   @@index([teacherId], map: "courses_teacherId_fkey")
   @@index([status])
@@ -857,6 +868,8 @@ enum NotificationType {
   PAYMENT_RECEIVED
   TEACHER_APPROVED
   REVIEW_RECEIVED
+  COURSE_CREATED
+  SYSTEM
 
   @@map("notifications_type")
 }
@@ -983,6 +996,17 @@ enum CourseLevel {
   BEGINNER
   INTERMEDIATE
   ADVANCED
+}
+
+enum ReviewType {
+  SHEIKH
+  COURSE
+  BOOKING
+}
+
+enum ReviewStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 enum VideoStatus {

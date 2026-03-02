@@ -3,6 +3,7 @@ const router = express.Router();
 const rbacService = require('../services/rbacService');
 const { jwtAuth } = require('../middleware/jwtAuth');
 const permissions = require('../middleware/permissions');
+const { requireSuperAdmin } = require('../middleware/requireSuperAdmin');
 
 /**
  * @openapi
@@ -33,7 +34,7 @@ const permissions = require('../middleware/permissions');
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.post('/roles', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.post('/roles', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const role = await rbacService.createRole(req.body);
     res.status(201).json(role);
@@ -139,7 +140,7 @@ router.get('/roles/:id', jwtAuth, async (req, res, next) => {
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.post('/roles/assign', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.post('/roles/assign', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const result = await rbacService.assignRoleToUser(req.body);
     res.json(result);
@@ -181,7 +182,7 @@ router.post('/roles/assign', jwtAuth, permissions(['rbac.write']), async (req, r
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.delete('/users/:userId/roles/:roleId', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.delete('/users/:userId/roles/:roleId', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const result = await rbacService.removeRoleFromUser(req.params.userId, req.params.roleId);
     res.json(result);
@@ -293,7 +294,7 @@ router.get('/users/:userId/permissions', jwtAuth, async (req, res, next) => {
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.post('/permissions', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.post('/permissions', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const permission = await rbacService.createPermission(req.body);
     res.status(201).json(permission);
@@ -362,9 +363,22 @@ router.get('/permissions', jwtAuth, async (req, res, next) => {
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.post('/permissions/assign', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.post('/permissions/assign', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const result = await rbacService.assignPermissionToRole(req.body);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST /rbac/roles/:id/assign-permission — assign one permission to role (body: { permissionId }) */
+router.post('/roles/:id/assign-permission', jwtAuth, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const result = await rbacService.assignPermissionToRole({
+      roleId: req.params.id,
+      permissionId: req.body.permissionId,
+    });
     res.json(result);
   } catch (e) {
     next(e);
@@ -404,7 +418,7 @@ router.post('/permissions/assign', jwtAuth, permissions(['rbac.write']), async (
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.delete('/roles/:roleId/permissions/:permissionId', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.delete('/roles/:roleId/permissions/:permissionId', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const result = await rbacService.removePermissionFromRole(req.params.roleId, req.params.permissionId);
     res.json(result);
@@ -448,7 +462,7 @@ router.delete('/roles/:roleId/permissions/:permissionId', jwtAuth, permissions([
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.put('/roles/:id', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.put('/roles/:id', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const role = await rbacService.updateRole(req.params.id, req.body);
     res.json(role);
@@ -485,7 +499,7 @@ router.put('/roles/:id', jwtAuth, permissions(['rbac.write']), async (req, res, 
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.delete('/roles/:id', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.delete('/roles/:id', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const result = await rbacService.deleteRole(req.params.id);
     res.json(result);
@@ -529,7 +543,7 @@ router.delete('/roles/:id', jwtAuth, permissions(['rbac.write']), async (req, re
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.put('/permissions/:id', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.put('/permissions/:id', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const permission = await rbacService.updatePermission(req.params.id, req.body);
     res.json(permission);
@@ -566,7 +580,7 @@ router.put('/permissions/:id', jwtAuth, permissions(['rbac.write']), async (req,
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.delete('/permissions/:id', jwtAuth, permissions(['rbac.write']), async (req, res, next) => {
+router.delete('/permissions/:id', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const result = await rbacService.deletePermission(req.params.id);
     res.json(result);

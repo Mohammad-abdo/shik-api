@@ -4,7 +4,7 @@ const adminService = require('../services/adminService');
 const { prisma } = require('../lib/prisma');
 const { jwtAuth } = require('../middleware/jwtAuth');
 const permissions = require('../middleware/permissions');
-const roles = require('../middleware/roles');
+const { requireSuperAdmin } = require('../middleware/requireSuperAdmin');
 
 router.use(jwtAuth);
 
@@ -477,7 +477,18 @@ router.delete('/users/:id', permissions(['users.write']), async (req, res, next)
  *             schema:
  *               $ref: "#/components/schemas/ApiError"
  */
-router.post('/users', permissions(['users.write']), async (req, res, next) => {
+/** Create user with email, password, role, and optional roleIds — Super Admin only */
+router.post('/users', requireSuperAdmin, async (req, res, next) => {
+  try {
+    const user = await adminService.createUser(req.body, req.user.id);
+    res.status(201).json(user);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Alias for dashboard: POST /admin/create-user (Super Admin only) */
+router.post('/create-user', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await adminService.createUser(req.body, req.user.id);
     res.status(201).json(user);

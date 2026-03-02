@@ -322,7 +322,7 @@ async function forceConfirmBooking(bookingId, adminId) {
 async function sendGlobalNotification(adminId, title, message) {
   const users = await prisma.user.findMany({ select: { id: true } });
   for (const u of users) {
-    await notificationService.createNotification(u.id, 'SESSION_REMINDER', title, message, {}, adminId);
+    await notificationService.createNotification(u.id, 'SESSION_REMINDER', title, message, {}, null, adminId);
   }
   await auditService.log(adminId, 'SEND_GLOBAL_NOTIFICATION', 'Notification', null, { title, recipients: users.length });
   return { sent: users.length };
@@ -975,6 +975,11 @@ async function getTeacherWallet(teacherId) {
   const hourPrice = Number(wallet.teacher?.hourlyRate) || 0;
   const totalEarnedFromBookings = Math.round(totalWorkedHours * hourPrice * 100) / 100;
 
+  // صافي أرباح الجلسات من سجل المعاملات (يتطابق مع قائمة المعاملات)
+  const totalEarnedFromSessions = (wallet.transactions || [])
+    .filter((t) => t.type === 'SESSION_EARNING')
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
   const plain = JSON.parse(JSON.stringify(wallet));
   // Primary: session-based hours (reflects actual session start/end times)
   plain.totalHours = sessionTotalHours;
@@ -984,6 +989,7 @@ async function getTeacherWallet(teacherId) {
   // Alias for legacy compatibility
   plain.hourPrice = hourPrice;
   plain.totalEarnedFromBookings = totalEarnedFromBookings;
+  plain.totalEarnedFromSessions = Math.round(totalEarnedFromSessions * 100) / 100;
   return plain;
 }
 

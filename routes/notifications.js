@@ -105,46 +105,33 @@ router.post('/broadcast', permissions(['notifications.send']), async (req, res, 
 router.get('/', async (req, res, next) => {
   try {
     const unreadOnly = req.query.unreadOnly === 'true';
-    const notifications = await notificationService.getUserNotifications(req.user.id, unreadOnly);
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+    const offset = req.query.offset ? parseInt(req.query.offset, 10) : undefined;
+    const notifications = await notificationService.getUserNotifications(req.user.id, { unreadOnly, limit, offset });
     res.json(notifications);
   } catch (e) {
     next(e);
   }
 });
 
-/**
- * @openapi
- * /api/notifications/{id}/read:
- *   put:
- *     tags: [notifications]
- *     summary: PUT /api/notifications/{id}/read
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             additionalProperties: true
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/ApiSuccess"
- *       400:
- *         description: Error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/ApiError"
- */
+// Must be before /:id/read so "read-all" is not captured as id
+router.put('/read-all', async (req, res, next) => {
+  try {
+    const result = await notificationService.markAllAsRead(req.user.id);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+router.patch('/read-all', async (req, res, next) => {
+  try {
+    const result = await notificationService.markAllAsRead(req.user.id);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.put('/:id/read', async (req, res, next) => {
   try {
     const result = await notificationService.markAsRead(req.user.id, req.params.id);
@@ -153,37 +140,18 @@ router.put('/:id/read', async (req, res, next) => {
     next(e);
   }
 });
-
-/**
- * @openapi
- * /api/notifications/read-all:
- *   put:
- *     tags: [notifications]
- *     summary: PUT /api/notifications/read-all
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             additionalProperties: true
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/ApiSuccess"
- *       400:
- *         description: Error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/ApiError"
- */
-router.put('/read-all', async (req, res, next) => {
+router.patch('/:id/read', async (req, res, next) => {
   try {
-    const result = await notificationService.markAllAsRead(req.user.id);
+    const result = await notificationService.markAsRead(req.user.id, req.params.id);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const result = await notificationService.deleteNotification(req.params.id, req.user.id);
     res.json(result);
   } catch (e) {
     next(e);

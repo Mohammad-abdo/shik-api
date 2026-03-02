@@ -67,7 +67,17 @@ async function create(studentId, dto) {
     'BOOKING_REQUEST',
     'New Booking Request',
     `You have a new booking request from ${booking.student.firstName} ${booking.student.lastName}`,
-    { bookingId: booking.id }
+    { bookingId: booking.id },
+    booking.id,
+    null
+  );
+  await notificationService.notifyAdmins(
+    'BOOKING_REQUEST',
+    'New Booking Request',
+    `New booking request from ${booking.student.firstName} ${booking.student.lastName} for ${teacher.user?.firstName || 'Sheikh'}`,
+    { bookingId: booking.id },
+    booking.id,
+    null
   );
 
   const [packageBookings, scheduleReservations] = await Promise.all([
@@ -180,7 +190,9 @@ async function confirm(bookingId, teacherId, userId) {
     'BOOKING_CONFIRMED',
     'Booking Confirmed',
     `Your booking with ${updated.teacher.user.firstName} ${updated.teacher.user.lastName} has been confirmed`,
-    { bookingId: updated.id }
+    { bookingId: updated.id },
+    updated.id,
+    userId
   );
   return updated;
 }
@@ -211,7 +223,9 @@ async function cancel(bookingId, userId, userRole) {
     'BOOKING_CANCELLED',
     'Booking Cancelled',
     `Your booking with ${notifyName} has been cancelled`,
-    { bookingId: updated.id }
+    { bookingId: updated.id },
+    updated.id,
+    userId
   );
   return updated;
 }
@@ -236,7 +250,9 @@ async function reject(bookingId, teacherId, userId) {
     'BOOKING_REJECTED',
     'Booking Rejected',
     `Your booking with ${updated.teacher.user.firstName} ${updated.teacher.user.lastName} has been rejected`,
-    { bookingId: updated.id }
+    { bookingId: updated.id },
+    updated.id,
+    userId
   );
   return updated;
 }

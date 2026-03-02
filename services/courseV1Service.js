@@ -378,19 +378,22 @@ async function getSheikhLessonsInCourse(courseId, sheikhId, options) {
   // تنسيق الدروس
   const formattedLessons = lessons.map(lesson => {
     const firstVideo = lesson.videos[0];
+    const isPurchased = !!isEnrolled;
+    const isLocked = !isPurchased;
     
     return {
       id: lesson.id,
       title: lesson.titleAr || lesson.title,
       description: lesson.descriptionAr || lesson.description || '',
-      videoUrl: firstVideo?.videoUrl || '',
+      videoUrl: isLocked ? '' : (firstVideo?.videoUrl || ''),
       duration: firstVideo 
         ? `${Math.floor(firstVideo.durationSeconds / 60)}:${String(firstVideo.durationSeconds % 60).padStart(2, '0')}` 
         : `${lesson.durationMinutes}:00`,
       thumbnail: firstVideo?.thumbnailUrl || '',
       price: '0 جنيه', // سعر الدرس - حالياً 0 لأنه part of course
       order: lesson.order,
-      isPurchased: !!isEnrolled, // إذا كان enrolled في الدورة يعتبر purchased
+      isPurchased, // إذا كان enrolled في الدورة يعتبر purchased
+      isLocked,
       isFree: lesson.isFree,
       viewsCount: 0, // يمكن إضافة view tracking لاحقاً
       rating: 0, // يمكن إضافة rating للدرس لاحقاً

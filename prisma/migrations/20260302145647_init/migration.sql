@@ -53,6 +53,7 @@ CREATE TABLE `bookings` (
     INDEX `bookings_studentId_fkey`(`studentId`),
     INDEX `bookings_teacherId_fkey`(`teacherId`),
     INDEX `bookings_scheduleId_fkey`(`scheduleId`),
+    INDEX `bookings_courseId_fkey`(`courseId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -280,6 +281,7 @@ CREATE TABLE `teacher_wallets` (
     `balance` DOUBLE NOT NULL DEFAULT 0,
     `pendingBalance` DOUBLE NOT NULL DEFAULT 0,
     `totalEarned` DOUBLE NOT NULL DEFAULT 0,
+    `totalHours` DOUBLE NOT NULL DEFAULT 0,
     `isActive` BOOLEAN NOT NULL DEFAULT true,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -693,6 +695,7 @@ CREATE TABLE `student_subscriptions` (
 
     UNIQUE INDEX `student_subscriptions_stripeSubscriptionId_key`(`stripeSubscriptionId`),
     INDEX `student_subscriptions_studentId_fkey`(`studentId`),
+    INDEX `student_subscriptions_teacherId_fkey`(`teacherId`),
     INDEX `student_subscriptions_packageId_fkey`(`packageId`),
     INDEX `student_subscriptions_status_idx`(`status`),
     PRIMARY KEY (`id`)
@@ -746,6 +749,59 @@ CREATE TABLE `student_wallet_transactions` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     INDEX `student_wallet_transactions_walletId_fkey`(`walletId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `session_memorizations` (
+    `id` VARCHAR(191) NOT NULL,
+    `sessionId` VARCHAR(191) NOT NULL,
+    `surahName` VARCHAR(191) NOT NULL,
+    `surahNameAr` VARCHAR(191) NULL,
+    `surahNumber` INTEGER NULL,
+    `fromAyah` INTEGER NULL,
+    `toAyah` INTEGER NULL,
+    `isFullSurah` BOOLEAN NOT NULL DEFAULT false,
+    `notes` LONGTEXT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `session_memorizations_sessionId_idx`(`sessionId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `session_revisions` (
+    `id` VARCHAR(191) NOT NULL,
+    `sessionId` VARCHAR(191) NOT NULL,
+    `revisionType` ENUM('CLOSE', 'FAR') NOT NULL,
+    `rangeType` ENUM('SURAH', 'JUZ', 'QUARTER') NOT NULL,
+    `fromSurah` VARCHAR(191) NULL,
+    `toSurah` VARCHAR(191) NULL,
+    `fromJuz` INTEGER NULL,
+    `toJuz` INTEGER NULL,
+    `fromQuarter` VARCHAR(191) NULL,
+    `toQuarter` VARCHAR(191) NULL,
+    `notes` LONGTEXT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `session_revisions_sessionId_idx`(`sessionId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `session_reports` (
+    `id` VARCHAR(191) NOT NULL,
+    `sessionId` VARCHAR(191) NOT NULL,
+    `teacherId` VARCHAR(191) NOT NULL,
+    `studentId` VARCHAR(191) NOT NULL,
+    `content` LONGTEXT NOT NULL,
+    `rating` INTEGER NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `session_reports_sessionId_key`(`sessionId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -910,3 +966,12 @@ ALTER TABLE `student_wallets` ADD CONSTRAINT `student_wallets_studentId_fkey` FO
 
 -- AddForeignKey
 ALTER TABLE `student_wallet_transactions` ADD CONSTRAINT `student_wallet_transactions_walletId_fkey` FOREIGN KEY (`walletId`) REFERENCES `student_wallets`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `session_memorizations` ADD CONSTRAINT `session_memorizations_sessionId_fkey` FOREIGN KEY (`sessionId`) REFERENCES `sessions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `session_revisions` ADD CONSTRAINT `session_revisions_sessionId_fkey` FOREIGN KEY (`sessionId`) REFERENCES `sessions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `session_reports` ADD CONSTRAINT `session_reports_sessionId_fkey` FOREIGN KEY (`sessionId`) REFERENCES `sessions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

@@ -660,6 +660,26 @@ router.post('/fawry/webhook', async (req, res, next) => {
         data: { status: 'CONFIRMED' },
       });
       bookingUpdateCount = bookingUpdate.count;
+
+      if (payment.booking?.courseId && payment.booking?.studentId) {
+        await prisma.courseEnrollment.upsert({
+          where: {
+            courseId_studentId: {
+              courseId: payment.booking.courseId,
+              studentId: payment.booking.studentId,
+            },
+          },
+          create: {
+            courseId: payment.booking.courseId,
+            studentId: payment.booking.studentId,
+            status: 'ACTIVE',
+            progress: 0,
+          },
+          update: {
+            status: 'ACTIVE',
+          },
+        });
+      }
     }
 
     // If this payment is for a student subscription, activate it after successful payment

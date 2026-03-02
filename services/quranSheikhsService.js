@@ -275,17 +275,22 @@ async function getSheikhById(id, studentId, lang = 'en') {
   };
 
   if (is_subscribed && studentId) {
-    const nextBooking = await prisma.booking.findFirst({
-      where: { studentId, teacherId: teacher.id, status: 'CONFIRMED', date: { gte: new Date() } },
-      orderBy: { date: 'asc' },
+    const nextSlot = await prisma.bookingSession.findFirst({
+      where: {
+        status: 'CONFIRMED',
+        scheduledDate: { gte: new Date() },
+        booking: { studentId, teacherId: teacher.id, status: 'CONFIRMED' },
+      },
+      orderBy: [{ scheduledDate: 'asc' }, { startTime: 'asc' }],
       include: { session: true },
     });
-    if (nextBooking) {
+    if (nextSlot) {
+      const roomId = nextSlot.session?.roomId;
       base.next_session = {
-        date: nextBooking.date.toISOString().split('T')[0],
-        time: nextBooking.startTime,
+        date: nextSlot.scheduledDate.toISOString().split('T')[0],
+        time: nextSlot.startTime,
         is_active_now: false,
-        meeting_link: nextBooking.session?.roomId ? `https://meet.example.com/${nextBooking.session.roomId}` : null,
+        meeting_link: roomId ? `https://meet.example.com/${roomId}` : null,
       };
     }
     const activeBooking = await prisma.booking.findFirst({

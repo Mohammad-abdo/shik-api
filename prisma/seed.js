@@ -398,51 +398,93 @@ async function main() {
   }
   console.log('Payments created');
 
-  // ── Sessions & Wallet Credits ────────────────────────────────────────────────
-  // Create Sessions for CONFIRMED and COMPLETED bookings of FULL_TEACHER teachers.
-  // For COMPLETED bookings: also credit the teacher's wallet immediately.
+  // ── BookingSessions (slots) for ALL bookings, then live Session only for CONFIRMED/COMPLETED ─
   const platformFee = parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '20');
-  const bookingsForSessions = await prisma.booking.findMany({
-    where: {
-      status: { in: ['CONFIRMED', 'COMPLETED'] },
-      teacher: { teacherType: 'FULL_TEACHER' },
-    },
+  const allBookingsForSlots = await prisma.booking.findMany({
+    where: { teacher: { teacherType: 'FULL_TEACHER' } },
     include: { teacher: true },
     orderBy: { date: 'asc' },
   });
+  const bookingsForSessions = allBookingsForSlots.filter((b) => b.status === 'CONFIRMED' || b.status === 'COMPLETED');
 
-  for (const booking of bookingsForSessions) {
-    // Skip if session already exists
-    const existing = await prisma.session.findUnique({ where: { bookingId: booking.id } });
+  const SESSIONS_PER_BOOKING = 4; // number of lesson slots per booking
+  let sessionLoopIndex = 0;
+  // First pass: create BookingSessions (slots) for every booking so each has many sessions
+  for (const booking of allBookingsForSlots) {
+    const durationMinutes = booking.duration || 120;
+    const slotStatus = booking.status === 'COMPLETED' ? 'COMPLETED' : booking.status === 'CANCELLED' ? 'CANCELLED' : booking.status === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING';
+    let firstBookingSession = null;
+
+    for (let slotIndex = 0; slotIndex < SESSIONS_PER_BOOKING; slotIndex++) {
+      const scheduledDate = new Date(booking.date);
+      scheduledDate.setDate(scheduledDate.getDate() + slotIndex);
+      const hour = 9 + (sessionLoopIndex * SESSIONS_PER_BOOKING + slotIndex) % 12;
+      const startTime = `${String(hour).padStart(2, '0')}:00`;
+      const endTime = (() => {
+        const [h, m] = startTime.split(':').map(Number);
+        const totalM = (h * 60 + (m || 0)) + durationMinutes;
+        return `${String(Math.floor(totalM / 60) % 24).padStart(2, '0')}:${String(totalM % 60).padStart(2, '0')}`;
+      })();
+      const dayOfWeek = scheduledDate.getDay();
+
+      let schedule = await prisma.schedule.findFirst({
+        where: { teacherId: booking.teacherId, dayOfWeek, startTime, isActive: true },
+      });
+      if (!schedule) {
+        schedule = await prisma.schedule.create({
+          data: { teacherId: booking.teacherId, dayOfWeek, startTime, endTime, isActive: true },
+        });
+      }
+
+      let bookingSession = await prisma.bookingSession.findFirst({
+        where: { bookingId: booking.id, orderIndex: slotIndex },
+      });
+      if (!bookingSession) {
+        try {
+          bookingSession = await prisma.bookingSession.create({
+            data: {
+              bookingId: booking.id,
+              scheduleId: schedule.id,
+              scheduledDate,
+              startTime,
+              endTime,
+              orderIndex: slotIndex,
+              status: slotStatus,
+            },
+          });
+        } catch (e) {
+          continue;
+        }
+      }
+      if (slotIndex === 0) firstBookingSession = bookingSession;
+    }
+
+    sessionLoopIndex += 1;
+    if (!firstBookingSession) continue;
+    // Only create live Session (and wallet credit) for CONFIRMED/COMPLETED bookings
+    if (booking.status !== 'CONFIRMED' && booking.status !== 'COMPLETED') continue;
+
+    const existing = await prisma.session.findUnique({ where: { bookingSessionId: firstBookingSession.id } });
     if (existing) continue;
 
-    // Build startedAt from booking date + startTime
-    const [hh, mm] = (booking.startTime || '09:00').split(':').map(Number);
-    const startedAt = new Date(booking.date);
+    const [hh, mm] = firstBookingSession.startTime.split(':').map(Number);
+    const startedAt = new Date(firstBookingSession.scheduledDate);
     startedAt.setHours(hh, mm, 0, 0);
-
-    // Duration in minutes (booking.duration is in hours × minutes based on creation; default 120 min)
-    const durationMinutes = booking.duration || 120;
     const endedAt = new Date(startedAt.getTime() + durationMinutes * 60 * 1000);
-
-    const roomId = `room_${booking.id}_seed`;
+    const roomId = `room_${firstBookingSession.id}_seed`;
 
     const sessionData = {
-      bookingId: booking.id,
+      bookingSessionId: firstBookingSession.id,
       type: 'VIDEO',
       roomId,
       startedAt,
       duration: durationMinutes,
     };
-
-    if (booking.status === 'COMPLETED') {
-      sessionData.endedAt = endedAt;
-    }
+    if (booking.status === 'COMPLETED') sessionData.endedAt = endedAt;
 
     try {
       await prisma.session.create({ data: sessionData });
     } catch (e) {
-      // skip if duplicate roomId
       continue;
     }
 
@@ -513,12 +555,13 @@ async function main() {
   ];
   const completedSessions = await prisma.session.findMany({
     where: { endedAt: { not: null } },
-    include: { booking: { select: { studentId: true, teacherId: true } } },
+    include: { bookingSession: { include: { booking: { select: { studentId: true, teacherId: true } } } } },
   });
   for (let idx = 0; idx < completedSessions.length; idx++) {
     const sess = completedSessions[idx];
-    if (!sess.booking) continue;
-    const { studentId, teacherId } = sess.booking;
+    const booking = sess.bookingSession?.booking;
+    if (!booking) continue;
+    const { studentId, teacherId } = booking;
     const s1 = surahs[idx % surahs.length];
     const s2 = surahs[(idx + 1) % surahs.length];
     try {

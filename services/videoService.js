@@ -1,19 +1,30 @@
 const { prisma } = require('../lib/prisma');
 const { buildRtcToken, getAgoraConfigOrThrow, sanitizeChannelName, sanitizeUid } = require('../utils/agora');
-function getBookingWindow(booking) {
-  const date = new Date(booking.date);
-  const [hour = '0', minute = '0'] = String(booking.startTime || '00:00').split(':');
+function getBookingWindowFromSlot(scheduledDate, startTime, endTimeOrDurationMinutes) {
+  const date = new Date(scheduledDate);
+  const [hour = '0', minute = '0'] = String(startTime || '00:00').split(':');
   const startAt = new Date(date);
   startAt.setHours(parseInt(hour, 10) || 0, parseInt(minute, 10) || 0, 0, 0);
-  const durationMinutes = Number(booking.duration) > 0 ? Number(booking.duration) : 120;
+  let durationMinutes = 120;
+  if (typeof endTimeOrDurationMinutes === 'number') {
+    durationMinutes = endTimeOrDurationMinutes;
+  } else if (typeof endTimeOrDurationMinutes === 'string' && endTimeOrDurationMinutes.includes(':')) {
+    const [eh, em] = endTimeOrDurationMinutes.split(':').map(Number);
+    durationMinutes = (eh - (hour || 0)) * 60 + ((em || 0) - (minute || 0));
+    if (durationMinutes <= 0) durationMinutes = 120;
+  }
   const endAt = new Date(startAt.getTime() + (durationMinutes * 60 * 1000));
   return { startAt, endAt };
 }
 
-function validateStudentJoinWindowOrThrow(booking, userId) {
+function validateStudentJoinWindowOrThrow(bookingSession, booking, userId) {
   if (booking.studentId !== userId) return;
   const now = new Date();
-  const { startAt, endAt } = getBookingWindow(booking);
+  const { startAt, endAt } = getBookingWindowFromSlot(
+    bookingSession.scheduledDate,
+    bookingSession.startTime,
+    bookingSession.endTime || booking.duration || 120
+  );
   if (now < startAt) {
     throw Object.assign(new Error('Student cannot join before the scheduled start time'), { statusCode: 403 });
   }
@@ -30,72 +41,93 @@ function getTestToken(channelName, uid = 1) {
   return { appId, token, channelName: name, uid: id };
 }
 
-async function createSession(bookingId, userId) {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: { student: true, teacher: { include: { user: true } } },
+async function createSession(bookingSessionId, userId) {
+  const bookingSession = await prisma.bookingSession.findUnique({
+    where: { id: bookingSessionId },
+    include: { booking: { include: { student: true, teacher: { include: { user: true } } } } },
   });
-  if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
+  if (!bookingSession) throw Object.assign(new Error('Booking session not found'), { statusCode: 404 });
+  const booking = bookingSession.booking;
   if (booking.studentId !== userId && booking.teacher.userId !== userId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
   if (booking.status !== 'CONFIRMED') throw Object.assign(new Error('Booking must be confirmed before joining session'), { statusCode: 400 });
-  validateStudentJoinWindowOrThrow(booking, userId);
-  let session = await prisma.session.findUnique({ where: { bookingId } });
+  if (bookingSession.status === 'CANCELLED') throw Object.assign(new Error('This session slot was cancelled'), { statusCode: 400 });
+  validateStudentJoinWindowOrThrow(bookingSession, booking, userId);
+  let session = await prisma.session.findUnique({ where: { bookingSessionId } });
   const { appId } = getAgoraConfigOrThrow();
   if (session) {
     const { token } = buildRtcToken(session.roomId, userId);
     return { ...session, token, appId };
   }
-  const roomId = `room_${bookingId}_${Date.now()}`;
+  const roomId = `room_${bookingSessionId}_${Date.now()}`;
   const { token } = buildRtcToken(roomId, userId);
   session = await prisma.session.create({
-    data: { bookingId, type: 'VIDEO', roomId, agoraToken: token, startedAt: new Date() },
+    data: { bookingSessionId, type: 'VIDEO', roomId, agoraToken: token, startedAt: new Date() },
   });
   return { ...session, token, appId };
 }
 
-async function getSessionToken(bookingId, userId) {
+async function getSessionToken(bookingSessionId, userId) {
   const { appId } = getAgoraConfigOrThrow();
   const session = await prisma.session.findUnique({
-    where: { bookingId },
-    include: { booking: { include: { student: true, teacher: { include: { user: true } } } } },
+    where: { bookingSessionId },
+    include: {
+      bookingSession: {
+        include: { booking: { include: { student: true, teacher: { include: { user: true } } } } },
+      },
+    },
   });
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
-  if (session.booking.studentId !== userId && session.booking.teacher.userId !== userId) {
+  const booking = session.bookingSession?.booking;
+  if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
+  if (booking.studentId !== userId && booking.teacher.userId !== userId) {
     throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
   }
-  if (session.booking.status !== 'CONFIRMED') {
+  if (booking.status !== 'CONFIRMED') {
     throw Object.assign(new Error('Booking must be confirmed before joining session'), { statusCode: 400 });
   }
-  validateStudentJoinWindowOrThrow(session.booking, userId);
+  validateStudentJoinWindowOrThrow(session.bookingSession, booking, userId);
   const { token } = buildRtcToken(session.roomId, userId);
   return { ...session, token, appId };
 }
 
-async function endSession(bookingId, userId) {
+async function endSession(bookingSessionId, userId) {
   const session = await prisma.session.findUnique({
-    where: { bookingId },
-    include: { booking: { include: { teacher: true } } },
+    where: { bookingSessionId },
+    include: { bookingSession: { include: { booking: { include: { teacher: true } } } } },
   });
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
-  if (session.booking.teacher.userId !== userId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
+  if (session.bookingSession?.booking?.teacher?.userId !== userId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
   const startedAt = session.startedAt || new Date();
   const endedAt = new Date();
   const duration = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000 / 60);
   const updated = await prisma.session.update({
-    where: { bookingId },
+    where: { bookingSessionId },
     data: { endedAt, duration },
   });
-  await prisma.booking.update({ where: { id: bookingId }, data: { status: 'COMPLETED' } });
+  await prisma.bookingSession.update({ where: { id: bookingSessionId }, data: { status: 'COMPLETED' } });
+  const allSlots = await prisma.bookingSession.findMany({
+    where: { bookingId: session.bookingSession.bookingId },
+    select: { status: true },
+  });
+  if (allSlots.every((s) => s.status === 'COMPLETED')) {
+    await prisma.booking.update({ where: { id: session.bookingSession.bookingId }, data: { status: 'COMPLETED' } });
+  }
   return updated;
 }
 
-async function getSessionHistory(bookingId, userId) {
+async function getSessionHistory(bookingSessionId, userId) {
   const session = await prisma.session.findUnique({
-    where: { bookingId },
-    include: { booking: { include: { student: true, teacher: { include: { user: true } } } } },
+    where: { bookingSessionId },
+    include: {
+      bookingSession: {
+        include: { booking: { include: { student: true, teacher: { include: { user: true } } } } },
+      },
+    },
   });
   if (!session) throw Object.assign(new Error('Session not found'), { statusCode: 404 });
-  if (session.booking.studentId !== userId && session.booking.teacher.userId !== userId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
+  const booking = session.bookingSession?.booking;
+  if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
+  if (booking.studentId !== userId && booking.teacher.userId !== userId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
   return session;
 }
 

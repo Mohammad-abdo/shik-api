@@ -345,15 +345,17 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
       return next(e);
     }
 
-    const numericRef = () => String(Math.floor(Math.random() * 900000000) + 100000000);
-    // Always generate new ref to avoid 9929 (Ticket value is invalid) if details changed
-    const finalMerchantRefNum = numericRef();
+    // Unique merchant ref: prefix + timestamp + random (Fawry accepts alphanumeric; ensure uniqueness)
+    const uniqueRef = () => `B${Date.now()}${String(Math.floor(Math.random() * 999999)).padStart(6, '0')}`;
+    const finalMerchantRefNum = uniqueRef();
     const settings = await getSettingsMap();
     const currencyCode = settings.currency_code || process.env.FAWRY_CURRENCY || 'EGP';
 
     const payment = await prisma.payment.upsert({
       where: { bookingId },
       create: {
+        paymentType: 'BOOKING',
+        userId: booking.studentId,
         bookingId,
         amount: booking.totalPrice,
         currency: currencyCode,
@@ -514,9 +516,9 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
       return next(e);
     }
 
-    // Generate merchant reference number
-    const numericRef = () => String(Math.floor(Math.random() * 900000000) + 100000000);
-    const finalMerchantRefNum = numericRef();
+    // Unique merchant ref for PayAtFawry
+    const uniqueRef = () => `B${Date.now()}${String(Math.floor(Math.random() * 999999)).padStart(6, '0')}`;
+    const finalMerchantRefNum = uniqueRef();
 
     // Calculate expiry time
     // Priority: request parameter > env variable > default (24 hours)
@@ -530,6 +532,8 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
     const payment = await prisma.payment.upsert({
       where: { bookingId },
       create: {
+        paymentType: 'BOOKING',
+        userId: booking.studentId,
         bookingId,
         amount: booking.totalPrice,
         currency: currencyCode,
@@ -620,21 +624,31 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
  *       400:
  *         description: Invalid signature
  */
-router.post('/fawry/webhook', async (req, res, next) => {
+// Fawry callback and webhook (same handler; Fawry may call either URL)
+const fawryWebhookHandler = async (req, res, next) => {
+  const payload = req.body || {};
+  const merchantRefNum = payload.merchantRefNumber || payload.merchantRefNum;
+  const orderStatus = (payload.orderStatus || '').toUpperCase();
+  // Log all callback payloads (redact nothing critical; secureKey is never in payload)
+  try {
+    const logger = require('../utils/logger');
+    logger.info('Fawry webhook received', { merchantRefNum, orderStatus, payload: { ...payload, messageSignature: payload.messageSignature ? '[REDACTED]' : undefined } });
+  } catch (_) {
+    console.log('Fawry webhook', { merchantRefNum, orderStatus });
+  }
+
   try {
     const secureKey = process.env.FAWRY_SECURE_KEY;
     if (!secureKey) {
       return res.status(503).send();
     }
-    const payload = req.body || {};
     const valid = fawryService.verifyWebhookSignature(payload, secureKey);
     if (!valid) {
       return res.status(400).send();
     }
 
-    const merchantRefNum = payload.merchantRefNumber || payload.merchantRefNum;
     if (!merchantRefNum) {
-      return res.status(200).send();
+      return res.status(200).json({ received: true });
     }
 
     const payment = await prisma.payment.findFirst({
@@ -642,10 +656,14 @@ router.post('/fawry/webhook', async (req, res, next) => {
       include: { booking: true },
     });
     if (!payment) {
-      return res.status(200).send();
+      return res.status(200).json({ received: true });
     }
 
-    const orderStatus = (payload.orderStatus || '').toUpperCase();
+    // Idempotency: do not update twice
+    if (payment.status === 'COMPLETED') {
+      return res.status(200).json({ received: true, alreadyProcessed: true, paymentId: payment.id });
+    }
+
     let newStatus = payment.status;
     if (orderStatus === 'PAID') {
       newStatus = 'COMPLETED';
@@ -653,48 +671,64 @@ router.post('/fawry/webhook', async (req, res, next) => {
       newStatus = 'FAILED';
     }
 
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: newStatus,
-        fawryRefNumber: payload.fawryRefNumber || payment.fawryRefNumber,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: newStatus,
+          fawryRefNumber: payload.fawryRefNumber || payment.fawryRefNumber,
+        },
+      });
+
+      if (newStatus !== 'COMPLETED') return;
+
+      if (payment.paymentType === 'BOOKING' && payment.bookingId) {
+        await tx.booking.updateMany({
+          where: { id: payment.bookingId, status: 'PENDING' },
+          data: { status: 'CONFIRMED' },
+        });
+      }
+
+      if (payment.paymentType === 'SUBSCRIPTION' && payment.subscriptionId) {
+        await tx.studentSubscription.updateMany({
+          where: { id: payment.subscriptionId, status: 'PENDING' },
+          data: { status: 'ACTIVE', paymentId: payment.id },
+        });
+        await tx.booking.updateMany({
+          where: { subscriptionId: payment.subscriptionId, status: 'PENDING' },
+          data: { status: 'CONFIRMED' },
+        });
+      }
+
+      if (payment.paymentType === 'COURSE' && payment.courseId && payment.userId) {
+        await tx.courseEnrollment.upsert({
+          where: {
+            courseId_studentId: { courseId: payment.courseId, studentId: payment.userId },
+          },
+          create: {
+            courseId: payment.courseId,
+            studentId: payment.userId,
+            status: 'ACTIVE',
+          },
+          update: {},
+        });
+      }
     });
-
-    let bookingUpdateCount = 0;
-    if (newStatus === 'COMPLETED' && payment.bookingId) {
-      const bookingUpdate = await prisma.booking.updateMany({
-        where: { id: payment.bookingId, status: 'PENDING' },
-        data: { status: 'CONFIRMED' },
-      });
-      bookingUpdateCount = bookingUpdate.count;
-    }
-
-    // If this payment is for a student subscription, activate it after successful payment
-    if (newStatus === 'COMPLETED' && payment.subscriptionId) {
-      await prisma.studentSubscription.updateMany({
-        where: { id: payment.subscriptionId, status: 'PENDING' },
-        data: { status: 'ACTIVE', paymentId: payment.id },
-      });
-
-      await prisma.booking.updateMany({
-        where: { subscriptionId: payment.subscriptionId, status: 'PENDING' },
-        data: { status: 'CONFIRMED' },
-      });
-    }
 
     res.status(200).json({
       received: true,
       merchantRefNum,
       paymentId: payment.id,
       paymentStatus: newStatus,
-      bookingUpdated: bookingUpdateCount > 0,
       orderStatus,
     });
   } catch (e) {
     next(e);
   }
-});
+};
+
+router.post('/fawry/webhook', fawryWebhookHandler);
+router.post('/fawry/callback', fawryWebhookHandler);
 
 /**
  * @openapi

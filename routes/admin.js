@@ -182,7 +182,7 @@ router.get('/payments', async (req, res, next) => {
   try {
     const page = req.query.page ? parseInt(req.query.page) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit) : 20;
-    const result = await adminService.getAllPayments(page, limit, req.query.status);
+    const result = await adminService.getAllPayments(page, limit, req.query.status, req.query.type);
     res.json(result);
   } catch (e) {
     next(e);

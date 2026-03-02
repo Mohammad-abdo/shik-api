@@ -154,15 +154,19 @@ async function getAllTeachers(page = 1, limit = 20, isApproved, teacherType) {
 }
 
 async function getPaymentStats() {
-  const [totalRevenue, pendingPayments, completedPayments] = await Promise.all([
+  const [totalRevenue, pendingCount, completedCount, failedCount] = await Promise.all([
     prisma.payment.aggregate({ where: { status: 'COMPLETED' }, _sum: { amount: true } }),
     prisma.payment.count({ where: { status: 'PENDING' } }),
     prisma.payment.count({ where: { status: 'COMPLETED' } }),
+    prisma.payment.count({ where: { status: 'FAILED' } }),
   ]);
   return {
     totalRevenue: totalRevenue._sum?.amount || 0,
-    pendingPayments,
-    completedPayments,
+    pendingPayments: pendingCount,
+    completedPayments: completedCount,
+    successfulCount: completedCount,
+    pendingCount,
+    failedCount,
   };
 }
 
@@ -253,9 +257,14 @@ async function getBookingTeachersWalletReport() {
   });
 }
 
-async function getAllPayments(page = 1, limit = 20, status) {
+async function getAllPayments(page = 1, limit = 20, status, type) {
   const where = {};
-  if (status) where.status = status;
+  if (status) {
+    where.status = status === 'SUCCEEDED' ? 'COMPLETED' : status;
+  }
+  if (type && ['BOOKING', 'SUBSCRIPTION', 'COURSE'].includes(type)) {
+    where.paymentType = type;
+  }
   const skip = (page - 1) * limit;
   const [payments, total] = await Promise.all([
     prisma.payment.findMany({
@@ -263,18 +272,40 @@ async function getAllPayments(page = 1, limit = 20, status) {
       skip,
       take: limit,
       include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
         booking: {
           include: {
             student: { select: { id: true, firstName: true, lastName: true, email: true } },
             teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
           },
         },
+        subscription: { select: { id: true, status: true }, include: { package: { select: { name: true } } } },
+        course: { select: { id: true, title: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.payment.count({ where }),
   ]);
   return { payments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+}
+
+async function getPaymentById(paymentId) {
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      booking: {
+        include: {
+          student: { select: { id: true, firstName: true, lastName: true, email: true } },
+          teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
+        },
+      },
+      subscription: { select: { id: true, status: true }, include: { package: { select: { name: true } } } },
+      course: { select: { id: true, title: true } },
+    },
+  });
+  if (!payment) return null;
+  return payment;
 }
 
 async function updateUserStatus(userId, status) {
@@ -1252,6 +1283,7 @@ module.exports = {
   getAllBookingsWithFilters,
   getBookingTeachersWalletReport,
   getAllPayments,
+  getPaymentById,
   updateUserStatus,
   deleteUser,
   banUser,

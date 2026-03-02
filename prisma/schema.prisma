@@ -154,8 +154,11 @@ model Otp {
 
 model Payment {
   id              String        @id @default(uuid())
+  paymentType     PaymentType   @default(BOOKING)
+  userId          String?
   bookingId       String?       @unique
   subscriptionId  String?       @unique
+  courseId        String?
   amount          Float
   currency        String        @default("EGP")
   status          PaymentStatus @default(PENDING)
@@ -170,9 +173,13 @@ model Payment {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  booking      Booking?             @relation(fields: [bookingId], references: [id])
-  subscription StudentSubscription? @relation(fields: [subscriptionId], references: [id])
+  user          User?                  @relation("UserPayments", fields: [userId], references: [id])
+  booking       Booking?               @relation(fields: [bookingId], references: [id])
+  subscription  StudentSubscription?   @relation(fields: [subscriptionId], references: [id])
+  course        Course?                 @relation("CoursePayments", fields: [courseId], references: [id])
 
+  @@index([userId])
+  @@index([courseId])
   @@map("payments")
 }
 
@@ -453,6 +460,7 @@ model User {
   studentSubscriptions   StudentSubscription[] @relation("StudentSubscriptions")
   scheduleReservations   ScheduleReservation[] @relation("StudentScheduleReservations")
   studentWallet          StudentWallet?        @relation("StudentWallet")
+  payments               Payment[]             @relation("UserPayments")
   videoProgress          VideoProgress[]       @relation("UserVideoProgress")
   auditLogs              AuditLog[]            @relation("UserAuditLogs")
 
@@ -531,6 +539,7 @@ model Course {
   bookings       Booking[]          @relation("CourseBookings")
   courseTeachers CourseTeacher[]    @relation("CourseTeachers")
   reviews        Review[]           @relation("CourseReviews")
+  payments       Payment[]         @relation("CoursePayments")
 
   @@index([teacherId], map: "courses_teacherId_fkey")
   @@index([status])
@@ -926,6 +935,14 @@ enum PaymentStatus {
   REFUNDED
 
   @@map("payments_status")
+}
+
+enum PaymentType {
+  BOOKING
+  SUBSCRIPTION
+  COURSE
+
+  @@map("payment_type")
 }
 
 enum PayoutStatus {

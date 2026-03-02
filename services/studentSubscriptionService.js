@@ -66,8 +66,25 @@ async function buildSubscriptionTimeline(subscriptionId, studentId) {
       startTime: r.startTime,
       endTime: r.endTime,
     })),
-    bookedSessions: bookings.flatMap((b) =>
-      (b.bookingSessions || []).map((bs) => ({
+    // Some flows create Booking rows first, then create bookingSessions later.
+    // Keep response useful in both cases.
+    bookedSessions: bookings.flatMap((b) => {
+      const sessions = b.bookingSessions || [];
+      if (sessions.length === 0) {
+        return [
+          {
+            bookingSessionId: null,
+            bookingId: b.id,
+            date: b.date,
+            startTime: b.startTime,
+            duration: b.duration,
+            status: b.status,
+            subscriptionId: b.subscriptionId,
+            session: null,
+          },
+        ];
+      }
+      return sessions.map((bs) => ({
         bookingSessionId: bs.id,
         bookingId: b.id,
         date: bs.scheduledDate || b.date,
@@ -76,8 +93,8 @@ async function buildSubscriptionTimeline(subscriptionId, studentId) {
         status: bs.status || b.status,
         subscriptionId: b.subscriptionId,
         session: bs.session || null,
-      }))
-    ),
+      }));
+    }),
   };
 }
 
@@ -402,9 +419,6 @@ async function subscribe(studentId, dto) {
   }
 
   const bookingStatus = amount > 0 ? 'PENDING' : 'CONFIRMED';
-  const perSessionAmount = generatedSlots.length > 0 && amount > 0
-    ? Number((amount / generatedSlots.length).toFixed(2))
-    : 0;
   let subscription = null;
   try {
     subscription = await prisma.$transaction(async (tx) => {
@@ -433,21 +447,36 @@ async function subscribe(studentId, dto) {
 
         await tx.scheduleReservation.createMany({ data: reservationData });
 
-        const bookingData = generatedSlots.map((slot) => ({
-          studentId,
-          teacherId: dto.teacherId,
-          scheduleId: slot.scheduleId || null,
-          date: slot.date,
-          startTime: slot.startTime,
-          duration: SESSION_DURATION_MINUTES,
-          status: bookingStatus,
-          price: perSessionAmount,
-          totalPrice: perSessionAmount,
-          type: 'SUBSCRIPTION',
-          subscriptionId: createdSubscription.id,
-        }));
+        // Create one master booking for the whole subscription schedule,
+        // then attach each reserved slot as a booking session.
+        const firstSlot = generatedSlots[0];
+        const masterBooking = await tx.booking.create({
+          data: {
+            studentId,
+            teacherId: dto.teacherId,
+            scheduleId: firstSlot.scheduleId || null,
+            date: firstSlot.date,
+            startTime: firstSlot.startTime,
+            duration: SESSION_DURATION_MINUTES,
+            status: bookingStatus,
+            price: amount,
+            totalPrice: amount,
+            type: 'SUBSCRIPTION',
+            subscriptionId: createdSubscription.id,
+          },
+        });
 
-        await tx.booking.createMany({ data: bookingData });
+        await tx.bookingSession.createMany({
+          data: generatedSlots.map((slot, index) => ({
+            bookingId: masterBooking.id,
+            scheduleId: slot.scheduleId,
+            scheduledDate: slot.date,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            orderIndex: index + 1,
+            status: bookingStatus,
+          })),
+        });
       }
 
       return createdSubscription;

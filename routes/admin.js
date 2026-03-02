@@ -189,20 +189,6 @@ router.get('/payments', async (req, res, next) => {
   }
 });
 
-router.get('/payments/:id', permissions(['payments.view']), async (req, res, next) => {
-  try {
-    const payment = await adminService.getPaymentById(req.params.id);
-    if (!payment) {
-      const e = new Error('Payment not found');
-      e.statusCode = 404;
-      return next(e);
-    }
-    res.json(payment);
-  } catch (e) {
-    next(e);
-  }
-});
-
 /**
  * @openapi
  * /api/admin/payments/stats:
@@ -229,6 +215,20 @@ router.get('/payments/stats', permissions(['reports.view']), async (req, res, ne
   try {
     const stats = await adminService.getPaymentStats();
     res.json(stats);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/payments/:id', permissions(['payments.view']), async (req, res, next) => {
+  try {
+    const payment = await adminService.getPaymentById(req.params.id);
+    if (!payment) {
+      const e = new Error('Payment not found');
+      e.statusCode = 404;
+      return next(e);
+    }
+    res.json(payment);
   } catch (e) {
     next(e);
   }

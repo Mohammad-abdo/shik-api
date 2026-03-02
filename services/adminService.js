@@ -279,7 +279,7 @@ async function getAllPayments(page = 1, limit = 20, status, type) {
             teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
           },
         },
-        subscription: { select: { id: true, status: true }, include: { package: { select: { name: true } } } },
+        subscription: { select: { id: true, status: true, package: { select: { name: true } } } },
         course: { select: { id: true, title: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -300,7 +300,7 @@ async function getPaymentById(paymentId) {
           teacher: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
         },
       },
-      subscription: { select: { id: true, status: true }, include: { package: { select: { name: true } } } },
+      subscription: { select: { id: true, status: true, package: { select: { name: true } } } },
       course: { select: { id: true, title: true } },
     },
   });

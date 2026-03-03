@@ -1,5 +1,4 @@
 const { prisma } = require('../lib/prisma');
-const { calculateDurationInDays, calculateEndDate, formatPackageResponse } = require('../utils/packageUtils');
 
 function parseFeatures(pkg) {
   if (pkg.features && typeof pkg.features === 'string') pkg.features = JSON.parse(pkg.features);
@@ -9,15 +8,6 @@ function parseFeatures(pkg) {
 
 async function createPackage(dto) {
  
-  let duration = 30; 
-
-  if (dto.packageType !== 'fixed' && dto.period && dto.periodUnit) {
-    duration = calculateDurationInDays(dto.packageType, dto.period, dto.periodUnit);
-  } else if (dto.packageType === 'fixed' && dto.period && dto.periodUnit) {
- 
-    duration = calculateDurationInDays(dto.packageType, dto.period, dto.periodUnit);
-  }
-
   const pkg = await prisma.subscriptionPackage.create({
     data: {
       name: dto.name,
@@ -25,15 +15,10 @@ async function createPackage(dto) {
       description: dto.description,
       descriptionAr: dto.descriptionAr,
       price: dto.price,
-      packageType: dto.packageType || 'fixed', 
+      packageType: dto.packageType || 'monthly', 
       period: dto.period, 
-      periodUnit: dto.periodUnit,
-      duration: duration,
       features: dto.features ? JSON.stringify(dto.features) : null,
       featuresAr: dto.featuresAr ? JSON.stringify(dto.featuresAr) : null,
-      maxStudents: dto.maxStudents,
-      maxCourses: dto.maxCourses,
-      maxBookings: dto.maxBookings, 
       sessionsPerMonth: dto.sessionsPerMonth, 
       isActive: dto.isActive !== undefined ? dto.isActive : true,
       isPopular: dto.isPopular || false,
@@ -44,12 +29,18 @@ async function createPackage(dto) {
 
 async function getAllPackages(activeOnly = false) {
   const where = activeOnly ? { isActive: true } : {};
-  const packages = await prisma.subscriptionPackage.findMany({ where, orderBy: [{ isPopular: 'desc' }, { price: 'asc' }] });
+  const packages = await prisma.subscriptionPackage.findMany({ 
+    where, 
+    orderBy: [{ isPopular: 'desc' }, { price: 'asc' }] 
+  });
   return packages.map((p) => parseFeatures({ ...p }));
 }
 
 async function getPackageById(id) {
-  const pkg = await prisma.subscriptionPackage.findUnique({ where: { id }, include: { _count: { select: { subscriptions: true } } } });
+  const pkg = await prisma.subscriptionPackage.findUnique({ 
+    where: { id }, 
+    include: { _count: { select: { subscriptions: true } } } 
+  });
   if (!pkg) throw Object.assign(new Error('Package not found'), { statusCode: 404 });
   return parseFeatures({ ...pkg });
 }
@@ -66,28 +57,12 @@ async function updatePackage(id, dto) {
   if (dto.description !== undefined) data.description = dto.description;
   if (dto.descriptionAr !== undefined) data.descriptionAr = dto.descriptionAr;
   if (dto.price !== undefined) data.price = dto.price;
-
-
   if (dto.packageType !== undefined) data.packageType = dto.packageType;
   if (dto.period !== undefined) data.period = dto.period;
-  if (dto.periodUnit !== undefined) data.periodUnit = dto.periodUnit;
-
-  if (dto.packageType !== undefined || dto.period !== undefined || dto.periodUnit !== undefined) {
-    const packageType = dto.packageType !== undefined ? dto.packageType : pkg.packageType;
-    const period = dto.period !== undefined ? dto.period : pkg.period;
-    const periodUnit = dto.periodUnit !== undefined ? dto.periodUnit : pkg.periodUnit;
-
-    if (period) {
-      data.duration = calculateDurationInDays(packageType, period, periodUnit);
-    }
-  }
 
   if (dto.features !== undefined) data.features = JSON.stringify(dto.features);
   if (dto.featuresAr !== undefined) data.featuresAr = JSON.stringify(dto.featuresAr);
-  if (dto.maxStudents !== undefined) data.maxStudents = dto.maxStudents;
-  if (dto.maxCourses !== undefined) data.maxCourses = dto.maxCourses;
-  if (dto.maxBookings !== undefined) data.maxBookings = dto.maxBookings; // 🆕
-  if (dto.sessionsPerMonth !== undefined) data.sessionsPerMonth = dto.sessionsPerMonth; // 🆕
+  if (dto.sessionsPerMonth !== undefined) data.sessionsPerMonth = dto.sessionsPerMonth;
   if (dto.isActive !== undefined) data.isActive = dto.isActive;
   if (dto.isPopular !== undefined) data.isPopular = dto.isPopular;
 
@@ -99,14 +74,17 @@ async function updatePackage(id, dto) {
 }
 
 async function deletePackage(id) {
-  const pkg = await prisma.subscriptionPackage.findUnique({ where: { id }, include: { _count: { select: { subscriptions: true } } } });
+  const pkg = await prisma.subscriptionPackage.findUnique({ 
+    where: { id }, 
+    include: { _count: { select: { subscriptions: true } } } 
+  });
   if (!pkg) throw Object.assign(new Error('Package not found'), { statusCode: 404 });
   if (pkg._count.subscriptions > 0) throw Object.assign(new Error('Cannot delete package with active subscriptions'), { statusCode: 400 });
   await prisma.subscriptionPackage.delete({ where: { id } });
   return { message: 'Package deleted' };
 }
 
-async function subscribe(teacherId, dto) {
+async function subscribe(teacherId, dto) {////NEED TO DOUBLE CHECK THE LOGIC WHY WE NEED START AND END DATE CALCULATED BY DAYS?!!
   const teacher = await prisma.teacher.findUnique({ where: { userId: teacherId } });
   if (!teacher) throw Object.assign(new Error('Teacher not found'), { statusCode: 404 });
 
@@ -117,28 +95,26 @@ async function subscribe(teacherId, dto) {
   const startDate = new Date();
   const endDate = new Date();
 
-
-  if (pkg.packageType !== 'fixed' && pkg.period && pkg.periodUnit) {
-    // For periodic packages calculate based on period and unit
-    switch (pkg.periodUnit) {
-      case 'days':
+  if (pkg.packageType && pkg.period) {
+    switch (pkg.packageType) {
+      case 'daily':
         endDate.setDate(endDate.getDate() + pkg.period);
         break;
-      case 'weeks':
+      case 'weekly':
         endDate.setDate(endDate.getDate() + (pkg.period * 7));
         break;
-      case 'months':
+      case 'monthly':
         endDate.setMonth(endDate.getMonth() + pkg.period);
         break;
-      case 'years':
+      case 'yearly':
         endDate.setFullYear(endDate.getFullYear() + pkg.period);
         break;
       default:
-        endDate.setDate(endDate.getDate() + (pkg.duration || 30));
+      
+        endDate.setDate(endDate.getDate() + 30);
     }
   } else {
-
-    endDate.setDate(endDate.getDate() + (pkg.duration || 30));
+    endDate.setDate(endDate.getDate() + 30);
   }
 
   return prisma.teacherSubscription.create({
@@ -174,7 +150,10 @@ async function getMyActive(teacherId) {
 }
 
 async function cancel(subscriptionId, teacherId) {
-  const sub = await prisma.teacherSubscription.findUnique({ where: { id: subscriptionId }, include: { teacher: true } });
+  const sub = await prisma.teacherSubscription.findUnique({ 
+    where: { id: subscriptionId }, 
+    include: { teacher: true } 
+  });
   if (!sub) throw Object.assign(new Error('Subscription not found'), { statusCode: 404 });
   if (sub.teacher.userId !== teacherId) throw Object.assign(new Error('Not authorized'), { statusCode: 403 });
   return prisma.teacherSubscription.update({
@@ -199,4 +178,15 @@ async function getAllAdmin(page = 1, limit = 20, status) {
   return { subscriptions, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 }
 
-module.exports = { createPackage, getAllPackages, getPackageById, updatePackage, deletePackage, subscribe, getMySubscriptions, getMyActive, cancel, getAllAdmin };
+module.exports = { 
+  createPackage, 
+  getAllPackages, 
+  getPackageById, 
+  updatePackage, 
+  deletePackage, 
+  subscribe, 
+  getMySubscriptions, 
+  getMyActive, 
+  cancel, 
+  getAllAdmin 
+};

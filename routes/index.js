@@ -15,6 +15,7 @@ const lessonsRoutes = require('./lessons');
 const examsRoutes = require('./exams');
 const heroRoutes = require('./heroRoute');
 const studentSubscriptionsRoutes = require('./student-subscriptions');
+const subscriptionsRoutes = require('./subscriptionRoute');
 const contentRoutes = require('./content');
 const pagesRoutes = require('./pages');
 const certificatesRoutes = require('./certificates');
@@ -43,6 +44,7 @@ router.use('/courses', coursesRoutes);
 router.use('/lessons', lessonsRoutes);
 router.use('/exams', examsRoutes);
 router.use('/student-subscriptions', studentSubscriptionsRoutes);
+router.use('/subscription-packages', subscriptionsRoutes);
 router.use('/content', contentRoutes);
 router.use('/hero', heroRoutes);
 

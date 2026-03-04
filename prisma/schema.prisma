@@ -796,13 +796,20 @@ model StudentSubscriptionPackage {
   // Package type and pricing
   packageType     String   @default("monthly") // 'daily', 'monthly', 'weekly', 'yearly', 'flexible'
   price           Float
-  period          Int?                         // Number of days/months for the package validity
-  totalSessions   Int?     @default(0)         // Total sessions included
-  sessionsPerMonth Int?                         // Sessions allowed per month
-  
-  // Features and metadata
-  features        String?  @db.LongText         // JSON array or comma-separated features
-  featuresAr      String?  @db.LongText         // Arabic version of features
+  packageType     String?  @default("monthly") // daily, weekly, monthly, yearly
+  period          Int?     @default(1)         // number of units (e.g. 1 month, 3 months)
+  duration        Int      @default(30)
+  durationMonths  Int?
+  totalSessions   Int?     @default(0)
+  weeklyFrequency Int?     @default(0)
+  monthlyPrice    Float?
+  yearlyPrice     Float?
+  dailyPrice      Float?
+  weeklyPrice     Float?
+
+  features        String?  @db.LongText
+  featuresAr      String?  @db.LongText
+ 
   isActive        Boolean  @default(true)
   isPopular       Boolean  @default(false)
   

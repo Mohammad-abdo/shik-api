@@ -244,13 +244,22 @@ function resolveSelectedSlotsWithTeacher(rawSelectedSlots, teacherSchedules) {
   return sortSlots(Array.from(dedupe.values()));
 }
 
+function durationFromPackageType(packageType, period) {
+  const p = period ?? 1;
+  switch (packageType) {
+    case 'daily': return p;
+    case 'weekly': return p * 7;
+    case 'monthly': return p * 30;
+    case 'yearly': return p * 365;
+    default: return p * 30;
+  }
+}
+
 async function createPackage(dto, adminId) {
-  // Calculate sessionsPerMonth if not provided
-  const sessionsPerMonth = dto.sessionsPerMonth ?? 
-                          (dto.totalSessions && dto.period ? 
-                           Math.ceil(dto.totalSessions / (dto.period / 30)) : 
-                           0);
-  
+  const sessionsPerMonth = dto.sessionsPerMonth ?? dto.totalSessions ?? dto.maxBookings ?? 0;
+  const packageType = ['daily', 'weekly', 'monthly', 'yearly'].includes(dto.packageType) ? dto.packageType : 'monthly';
+  const period = dto.period != null ? Number(dto.period) || 1 : 1;
+  const duration = dto.duration != null ? dto.duration : durationFromPackageType(packageType, period);
   const pkg = await prisma.studentSubscriptionPackage.create({
     data: {
       name: dto.name,
@@ -258,10 +267,14 @@ async function createPackage(dto, adminId) {
       description: dto.description,
       descriptionAr: dto.descriptionAr,
       price: dto.price,
-      packageType: dto.packageType || 'monthly',
-      period: dto.period,                    // Use period instead of duration
-      totalSessions: dto.totalSessions || 0,  // Total sessions in package
-      sessionsPerMonth: sessionsPerMonth,     // Sessions per month
+      packageType,
+      period,
+      duration,
+      durationMonths: dto.durationMonths,
+      totalSessions: sessionsPerMonth,
+      monthlyPrice: dto.monthlyPrice,
+      yearlyPrice: dto.yearlyPrice,
+      maxTeachers: dto.maxTeachers,
       features: dto.features ? JSON.stringify(dto.features) : null,
       featuresAr: dto.featuresAr ? JSON.stringify(dto.featuresAr) : null,
       isActive: dto.isActive !== undefined ? dto.isActive : true,
@@ -298,12 +311,12 @@ async function updatePackage(id, dto) {
   if (dto.description !== undefined) data.description = dto.description;
   if (dto.descriptionAr !== undefined) data.descriptionAr = dto.descriptionAr;
   if (dto.price !== undefined) data.price = dto.price;
-  if (dto.packageType !== undefined) data.packageType = dto.packageType;
-  
-  // Period (replaces duration)
-  if (dto.period !== undefined) data.period = dto.period;
-  
-  // Session counts
+  if (dto.packageType !== undefined && ['daily', 'weekly', 'monthly', 'yearly'].includes(dto.packageType)) data.packageType = dto.packageType;
+  if (dto.period !== undefined) data.period = Number(dto.period) || 1;
+  if (dto.duration !== undefined) data.duration = dto.duration;
+  else if (dto.packageType !== undefined || dto.period !== undefined) data.duration = durationFromPackageType(data.packageType ?? pkg.packageType, data.period ?? pkg.period);
+  if (dto.durationMonths !== undefined) data.durationMonths = dto.durationMonths;
+  if (dto.sessionsPerMonth !== undefined) data.totalSessions = dto.sessionsPerMonth;
   if (dto.totalSessions !== undefined) data.totalSessions = dto.totalSessions;
   if (dto.sessionsPerMonth !== undefined) data.sessionsPerMonth = dto.sessionsPerMonth;
   

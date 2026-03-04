@@ -2,12 +2,314 @@ const express = require('express');
 const router = express.Router();
 const studentSessionsService = require('../../services/studentSessionsService');
 const studentCoursesService = require('../../services/studentCoursesService');
+const quranSheikhsService = require('../../services/quranSheikhsService');
+const courseV1Service = require('../../services/courseV1Service');
+const notificationService = require('../../services/notificationService');
 const { jwtAuth } = require('../../middleware/jwtAuth');
 
 function getLang(req) {
   const accept = req.headers['accept-language'] || '';
   return accept.startsWith('ar') ? 'ar' : 'en';
 }
+
+/**
+ * @openapi
+ * /api/v1/student/search/sheikhs:
+ *   get:
+ *     tags: [student]
+ *     summary: Search sheikhs (student flow) with pagination
+ *     description: Returns a paginated list of bookable Quran sheikhs (FULL_TEACHER). Optional search by name (English or Arabic). Requires student JWT.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema: { type: string }
+ *         description: Search by sheikh name (English or Arabic)
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Alias for q
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *         description: Page number (1-based)
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *         description: Items per page (max 100)
+ *     responses:
+ *       200:
+ *         description: Paginated list of bookable sheikhs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: boolean, example: true }
+ *                 message: { type: string, example: 'Sheikhs search completed' }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     sheikhs:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: string }
+ *                           name: { type: string }
+ *                           title: { type: string }
+ *                           specialization: { type: string }
+ *                           image: { type: string, nullable: true }
+ *                           rating: { type: number }
+ *                           starting_price: { type: string }
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         current_page: { type: integer }
+ *                         total_pages: { type: integer }
+ *                         total_items: { type: integer }
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/search/sheikhs', jwtAuth, async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const search = req.query.q || req.query.search || '';
+    const lang = getLang(req);
+    const data = await quranSheikhsService.getBookableSheikhsNotInCourses(page, limit, search || undefined, lang);
+    res.json({ status: true, message: 'Sheikhs search completed', data });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v1/student/search/courses:
+ *   get:
+ *     tags: [student]
+ *     summary: Search courses (student flow) with pagination
+ *     description: Returns a paginated list of published courses. Optional search by title or description (English or Arabic). Requires student JWT.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema: { type: string }
+ *         description: Search by course title or description (English or Arabic)
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Alias for q
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *         description: Page number (1-based)
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *         description: Items per page (max 100)
+ *     responses:
+ *       200:
+ *         description: Paginated list of courses
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: boolean, example: true }
+ *                 message: { type: string, example: 'Courses search completed' }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     courses:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: string }
+ *                           name: { type: string }
+ *                           description: { type: string }
+ *                           image: { type: string, nullable: true }
+ *                           price: { type: string }
+ *                           duration: { type: string, nullable: true }
+ *                           lessonsCount: { type: integer }
+ *                           studentsCount: { type: integer }
+ *                           rating: { type: number, nullable: true }
+ *                           sheikhs: { type: array, items: { type: object } }
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page: { type: integer }
+ *                         limit: { type: integer }
+ *                         total: { type: integer }
+ *                         totalPages: { type: integer }
+ *                         hasNextPage: { type: boolean }
+ *                         hasPrevPage: { type: boolean }
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/search/courses', jwtAuth, async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const search = req.query.q || req.query.search || '';
+    const data = await courseV1Service.searchCourses({
+      page,
+      limit,
+      search: search || undefined,
+      status: 'PUBLISHED',
+    });
+    res.json({ status: true, message: 'Courses search completed', data });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v1/student/notifications:
+ *   get:
+ *     tags: [student]
+ *     summary: Get my notifications (student flow) with pagination
+ *     description: Returns the authenticated student's notifications. Supports unread-only filter and pagination.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: unreadOnly
+ *         schema: { type: boolean }
+ *         description: If true, return only unread notifications
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200:
+ *         description: List of notifications (array)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: string }
+ *                   userId: { type: string }
+ *                   type: { type: string }
+ *                   title: { type: string }
+ *                   message: { type: string }
+ *                   data: {}
+ *                   relatedId: { type: string, nullable: true }
+ *                   isRead: { type: boolean }
+ *                   readAt: { type: string, nullable: true }
+ *                   createdAt: { type: string }
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/notifications', jwtAuth, async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const unreadOnly = req.query.unreadOnly === 'true';
+    const offset = (page - 1) * limit;
+    const notifications = await notificationService.getUserNotifications(req.user.id, { unreadOnly, limit, offset });
+    res.json(notifications);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v1/student/notifications/read-all:
+ *   patch:
+ *     tags: [student]
+ *     summary: Mark all my notifications as read
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch('/notifications/read-all', jwtAuth, async (req, res, next) => {
+  try {
+    const result = await notificationService.markAllAsRead(req.user.id);
+    res.json({ status: true, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v1/student/notifications/{id}/read:
+ *   patch:
+ *     tags: [student]
+ *     summary: Mark one notification as read
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Notification not found
+ */
+router.patch('/notifications/:id/read', jwtAuth, async (req, res, next) => {
+  try {
+    const result = await notificationService.markAsRead(req.user.id, req.params.id);
+    res.json({ status: true, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v1/student/notifications/{id}:
+ *   delete:
+ *     tags: [student]
+ *     summary: Delete one of my notifications
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Notification not found
+ */
+router.delete('/notifications/:id', jwtAuth, async (req, res, next) => {
+  try {
+    const result = await notificationService.deleteNotification(req.params.id, req.user.id);
+    res.json({ status: true, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /**
  * @openapi

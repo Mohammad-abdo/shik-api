@@ -58,3 +58,5 @@ tmp/
 
 # Prisma (generated client lives in node_modules; keep migrations)
 # prisma/migrations/  ← keep migrations in git
+
+prisma/migrations/

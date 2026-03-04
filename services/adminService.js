@@ -553,6 +553,25 @@ async function updateTeacher(teacherId, dto, adminId) {
     data: updateData,
     include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } }, wallet: true },
   });
+
+  // Sync schedules when provided (same behavior as add teacher)
+  if (dto.schedules && Array.isArray(dto.schedules)) {
+    await prisma.schedule.updateMany({
+      where: { teacherId },
+      data: { isActive: false },
+    });
+    if (dto.schedules.length > 0 && updated.teacherType === 'FULL_TEACHER') {
+      const scheduleData = dto.schedules.map((s) => ({
+        teacherId,
+        dayOfWeek: parseInt(s.dayOfWeek, 10),
+        startTime: String(s.startTime || '').slice(0, 5),
+        endTime: String(s.endTime || '').slice(0, 5),
+        isActive: true,
+      }));
+      await prisma.schedule.createMany({ data: scheduleData });
+    }
+  }
+
   await auditService.log(adminId, 'UPDATE_TEACHER', 'Teacher', teacherId, updateData);
   return updated;
 }

@@ -46,4 +46,3 @@ router.get('/logs', jwtAuth, permissions(['reports.view']), async (req, res, nex
 });
 
 module.exports = router;
-///كسم المشايخ

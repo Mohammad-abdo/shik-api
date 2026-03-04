@@ -1,0 +1,367 @@
+{
+  "info": {
+    "_postman_id": "sheikh-mobile-api-v1",
+    "name": "Sheikh Mobile API (api/v1/shike/mobile)",
+    "description": "Sheikh Mobile App APIs: Auth, Profile, My Students, Sessions, Session Evaluation (Memorization/Revision/Report), Wallet, Withdraw.\n\nBase: {{baseUrl}}/api/v1/shike/mobile\n\nAfter Login, copy the token to the collection variable {{token}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8002" },
+    { "key": "token", "value": "" },
+    { "key": "sessionId", "value": "" },
+    { "key": "studentId", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register Sheikh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  var json = pm.response.json();",
+                  "  if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set('token', json.data.token);",
+                  "    console.log('Token saved from register');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"أحمد الشيخ\",\n  \"email\": \"sheikh@example.com\",\n  \"phone\": \"+201012345678\",\n  \"password\": \"password123\",\n  \"confirmPassword\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var json = pm.response.json();",
+                  "  var token = json.data && json.data.token;",
+                  "  if (token) {",
+                  "    pm.collectionVariables.set('token', token);",
+                  "    console.log('Token saved from login');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+201234567895\",\n  \"password\": \"teacher123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "login"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/delete-account",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "delete-account"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Profile & Pages",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"أحمد الشيخ\",\n  \"email\": \"sheikh@example.com\",\n  \"hourPrice\": 120\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "profile"]
+            }
+          }
+        },
+        {
+          "name": "About App (public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/about",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "about"]
+            }
+          }
+        },
+        {
+          "name": "Privacy Policy (public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/privacy-policy",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "privacy-policy"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. My Students",
+      "item": [
+        {
+          "name": "Get My Students",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var list = pm.response.json().data;",
+                  "  if (Array.isArray(list) && list.length > 0) {",
+                  "    pm.collectionVariables.set('studentId', list[0].studentId);",
+                  "    console.log('studentId saved: ' + list[0].studentId);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/my-students",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "my-students"]
+            }
+          }
+        },
+        {
+          "name": "Student Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/my-students/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "my-students", "{{studentId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. My Sessions",
+      "item": [
+        {
+          "name": "Today's Sessions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/today-sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "today-sessions"]
+            }
+          }
+        },
+        {
+          "name": "All My Sessions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var list = pm.response.json().data;",
+                  "  if (Array.isArray(list) && list.length > 0) {",
+                  "    pm.collectionVariables.set('sessionId', list[0].sessionId);",
+                  "    console.log('sessionId saved: ' + list[0].sessionId);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/my-sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "my-sessions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Session Evaluation (حفظ / مراجعة / تقرير)",
+      "description": "تقييم الجلسة مطابق لصفحة الحجوزات في الداشبورد.\n\n1. Get Session Details → لعرض الحفظ والمراجعة والتقرير الحالي\n2. Add Memorization → حفظ سورة جديدة\n3. Add Revision → مراجعة (قريبة/بعيدة)\n4. Add/Update Report → تقرير/تقييم + ملاحظات",
+      "item": [
+        {
+          "name": "Get Session Details (memorization + revision + report)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/session/{{sessionId}}/details",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "session", "{{sessionId}}", "details"]
+            }
+          }
+        },
+        {
+          "name": "Add Memorization (حفظ جديد)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surahName\": \"Al-Baqarah\",\n  \"surahNameAr\": \"البقرة\",\n  \"surahNumber\": 2,\n  \"fromAyah\": 1,\n  \"toAyah\": 20,\n  \"isFullSurah\": false,\n  \"notes\": \"Good progress on first 20 ayat\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/session/{{sessionId}}/memorization",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "session", "{{sessionId}}", "memorization"]
+            }
+          }
+        },
+        {
+          "name": "Add Revision (مراجعة)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"revisionType\": \"CLOSE\",\n  \"rangeType\": \"SURAH\",\n  \"fromSurah\": \"Al-Fatiha\",\n  \"toSurah\": \"Al-Baqarah\",\n  \"notes\": \"Close revision — good\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/session/{{sessionId}}/revision",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "session", "{{sessionId}}", "revision"]
+            }
+          }
+        },
+        {
+          "name": "Add Revision (مراجعة بعيدة - JUZ)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"revisionType\": \"FAR\",\n  \"rangeType\": \"JUZ\",\n  \"fromJuz\": 1,\n  \"toJuz\": 3,\n  \"notes\": \"Far revision of juz 1-3\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/session/{{sessionId}}/revision",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "session", "{{sessionId}}", "revision"]
+            }
+          }
+        },
+        {
+          "name": "Add/Update Session Report (تقرير + تقييم)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"content\": \"أداء جيد في الحفظ والتجويد. يحتاج مراجعة أكثر للأجزاء السابقة.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/session/{{sessionId}}/report",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "session", "{{sessionId}}", "report"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Wallet",
+      "item": [
+        {
+          "name": "Get Wallet Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/wallet",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "wallet"]
+            }
+          }
+        },
+        {
+          "name": "Request Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shike/mobile/wallet/withdraw",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shike", "mobile", "wallet", "withdraw"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

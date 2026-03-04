@@ -110,6 +110,123 @@ async function getAllCourses(options = {}) {
 }
 
 /**
+ * Search courses with pagination (for student flow).
+ * @param {Object} options - { page, limit, search, status }
+ */
+async function searchCourses(options = {}) {
+  const { page = 1, limit = 20, search, status = 'PUBLISHED' } = options;
+  const skip = (page - 1) * limit;
+
+  const where = { status };
+  if (search && String(search).trim()) {
+    const term = String(search).trim();
+    where.OR = [
+      { title: { contains: term } },
+      { titleAr: { contains: term } },
+      { description: { contains: term } },
+      { descriptionAr: { contains: term } },
+    ];
+  }
+
+  const [courses, total] = await Promise.all([
+    prisma.course.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                firstNameAr: true,
+                lastName: true,
+                lastNameAr: true,
+                avatar: true
+              }
+            }
+          }
+        },
+        courseTeachers: {
+          include: {
+            teacher: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    firstNameAr: true,
+                    lastName: true,
+                    lastNameAr: true,
+                    avatar: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      _count: {
+        select: {
+          enrollments: true,
+          lessons: true
+        }
+      }
+    }),
+    prisma.course.count({ where })
+  ]);
+
+  const items = courses.map((course) => {
+    const sheikhs = [];
+    const seenIds = new Set();
+    if (course.teacher) {
+      const user = course.teacher.user;
+      const name = (user.firstNameAr && user.lastNameAr)
+        ? `${user.firstNameAr} ${user.lastNameAr}`.trim()
+        : `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      sheikhs.push({ id: course.teacher.id, name });
+      seenIds.add(course.teacher.id);
+    }
+    for (const ct of course.courseTeachers) {
+      if (!seenIds.has(ct.teacher.id)) {
+        const user = ct.teacher.user;
+        const name = (user.firstNameAr && user.lastNameAr)
+          ? `${user.firstNameAr} ${user.lastNameAr}`.trim()
+          : `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+        sheikhs.push({ id: ct.teacher.id, name });
+        seenIds.add(ct.teacher.id);
+      }
+    }
+    return {
+      id: course.id,
+      name: course.titleAr || course.title,
+      description: course.descriptionAr || course.description || '',
+      image: course.image,
+      price: `${course.price} جنيه`,
+      duration: course.duration ? `${course.duration} أسابيع` : null,
+      lessonsCount: course._count.lessons,
+      studentsCount: course._count.enrollments,
+      rating: course.rating,
+      sheikhs
+    };
+  });
+
+  return {
+    courses: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+      hasNextPage: page * limit < total,
+      hasPrevPage: page > 1
+    }
+  };
+}
+
+/**
  * Endpoint 1: getCourseWithSheikhs
  * جلب تفاصيل الدورة مع قائمة المشايخ وعدد الدروس لكل شيخ في الدورة
  */
@@ -563,6 +680,7 @@ async function getSheikhLessonsInCourse(courseId, sheikhId, options) {
 
 module.exports = {
   getAllCourses,
+  searchCourses,
   getCourseWithSheikhs,
   getSheikhInCourseContext,
   getSheikhLessonsInCourse

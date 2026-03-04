@@ -1,10 +1,15 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const sheikhMobileService = require('../../services/sheikhMobileService');
 const authService = require('../../services/authService');
+const fileUploadService = require('../../services/fileUploadService');
 const { jwtAuth } = require('../../middleware/jwtAuth');
 const roles = require('../../middleware/roles');
 const { asyncHandler } = require('../../lib/asyncHandler');
+
+const uploadImage = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+const uploadVideo = multer({ storage: multer.memoryStorage(), limits: { fileSize: 150 * 1024 * 1024 } });
 
 // ─── Public (no auth) ─────────────────────────────────────────────────────
 router.post('/register', asyncHandler(async (req, res) => {
@@ -86,6 +91,31 @@ router.put('/profile', sheikhAuth, asyncHandler(async (req, res) => {
   const data = await sheikhMobileService.updateProfile(req.user.id, req.body);
   res.json(data);
 }));
+
+// ─── File Upload (image / video) ──────────────────────────────────────────
+router.post('/upload/image', sheikhAuth, uploadImage.single('file'), (req, res, next) => {
+  try {
+    if (!req.file) {
+      const err = new Error('No file provided. Use form field name "file".');
+      err.statusCode = 400;
+      return next(err);
+    }
+    const url = fileUploadService.uploadFile(req.file, 'images');
+    res.status(201).json({ success: true, url });
+  } catch (e) { next(e); }
+});
+
+router.post('/upload/video', sheikhAuth, uploadVideo.single('file'), (req, res, next) => {
+  try {
+    if (!req.file) {
+      const err = new Error('No file provided. Use form field name "file".');
+      err.statusCode = 400;
+      return next(err);
+    }
+    const url = fileUploadService.uploadFile(req.file, 'videos', true);
+    res.status(201).json({ success: true, url });
+  } catch (e) { next(e); }
+});
 
 router.get('/my-students', sheikhAuth, asyncHandler(async (req, res) => {
   const data = await sheikhMobileService.getMyStudents(req.user.id);

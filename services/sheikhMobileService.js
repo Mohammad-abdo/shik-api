@@ -15,8 +15,19 @@ const walletService = require('./walletService');
 async function getTeacherByUserId(userId) {
   return prisma.teacher.findUnique({
     where: { userId },
-    include: { user: true, wallet: true },
+    include: {
+      user: true,
+      wallet: true,
+      schedules: { orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }] },
+    },
   });
+}
+
+function parseSpecialties(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) return parsed; } catch {}
+  return String(raw).split(',').map(s => s.trim()).filter(Boolean);
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -82,13 +93,14 @@ async function register(dto) {
 
   return {
     success: true,
-    message: 'Sheikh registered successfully',
+    message: 'Sheikh registered successfully — pending admin approval',
     data: {
       id: user.id,
       name: `${user.firstName} ${user.lastName}`.trim(),
       email: user.email,
       phone: user.phone,
       token,
+      isApproved: false,
     },
   };
 }
@@ -123,6 +135,9 @@ async function login(dto) {
     throw err;
   }
 
+  const teacherProfile = await prisma.teacher.findUnique({ where: { userId: user.id } });
+  const isApproved = teacherProfile?.isApproved ?? false;
+
   const payload = { sub: user.id, email: user.email, role: user.role };
   const token = jwtLib.sign(payload);
 
@@ -130,6 +145,7 @@ async function login(dto) {
     success: true,
     data: {
       token,
+      isApproved,
       sheikh: {
         id: user.id,
         name: `${user.firstName} ${user.lastName}`.trim(),
@@ -151,10 +167,41 @@ async function getProfile(userId) {
   const u = teacher.user;
   return {
     id: u.id,
+    teacherId: teacher.id,
+    firstName: u.firstName,
+    firstNameAr: u.firstNameAr || '',
+    lastName: u.lastName,
+    lastNameAr: u.lastNameAr || '',
     name: `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+    nameAr: `${u.firstNameAr || ''} ${u.lastNameAr || ''}`.trim(),
     email: u.email,
     phone: u.phone,
-    hourPrice: teacher.hourlyRate ?? 0,
+    avatar: u.avatar || null,
+
+    teacherType: teacher.teacherType,
+    bio: teacher.bio || '',
+    bioAr: teacher.bioAr || '',
+    image: teacher.image || '',
+    introVideoUrl: teacher.introVideoUrl || '',
+    experience: teacher.experience ?? 0,
+    hourlyRate: teacher.hourlyRate ?? 0,
+    specialties: parseSpecialties(teacher.specialties),
+    specialtiesAr: parseSpecialties(teacher.specialtiesAr),
+    readingType: teacher.readingType || '',
+    readingTypeAr: teacher.readingTypeAr || '',
+    rating: teacher.rating ?? 0,
+    totalReviews: teacher.totalReviews ?? 0,
+
+    isApproved: teacher.isApproved ?? false,
+    approvedAt: teacher.approvedAt || null,
+
+    schedules: (teacher.schedules || []).map(s => ({
+      id: s.id,
+      dayOfWeek: s.dayOfWeek,
+      startTime: String(s.startTime || '').slice(0, 5),
+      endTime: String(s.endTime || '').slice(0, 5),
+    })),
+
     totalHoursCompleted: wallet.totalHours ?? 0,
     walletBalance: wallet.balance ?? 0,
   };
@@ -167,26 +214,51 @@ async function updateProfile(userId, dto) {
     err.statusCode = 404;
     throw err;
   }
-  const u = teacher.user;
-  const updates = {};
+
+  // ── User fields ──
+  const userUpdates = {};
   if (dto.name !== undefined) {
     const parts = String(dto.name).trim().split(' ');
-    updates.firstName = parts[0] || u.firstName;
-    updates.lastName = parts.slice(1).join(' ') || u.lastName;
+    userUpdates.firstName = parts[0] || teacher.user.firstName;
+    userUpdates.lastName = parts.slice(1).join(' ') || teacher.user.lastName;
   }
-  if (dto.email !== undefined) updates.email = String(dto.email).trim().toLowerCase();
-  if (Object.keys(updates).length) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: updates,
-    });
+  if (dto.firstName !== undefined) userUpdates.firstName = String(dto.firstName).trim();
+  if (dto.firstNameAr !== undefined) userUpdates.firstNameAr = String(dto.firstNameAr).trim();
+  if (dto.lastName !== undefined) userUpdates.lastName = String(dto.lastName).trim();
+  if (dto.lastNameAr !== undefined) userUpdates.lastNameAr = String(dto.lastNameAr).trim();
+  if (dto.email !== undefined) userUpdates.email = String(dto.email).trim().toLowerCase();
+  if (dto.phone !== undefined) userUpdates.phone = String(dto.phone).trim() || null;
+
+  if (Object.keys(userUpdates).length) {
+    await prisma.user.update({ where: { id: userId }, data: userUpdates });
   }
-  if (dto.hourPrice !== undefined) {
-    await prisma.teacher.update({
-      where: { id: teacher.id },
-      data: { hourlyRate: parseFloat(dto.hourPrice) || 0 },
-    });
+
+  // ── Teacher fields (hourlyRate excluded — admin only) ──
+  const teacherUpdates = {};
+  if (dto.bio !== undefined) teacherUpdates.bio = String(dto.bio).trim();
+  if (dto.bioAr !== undefined) teacherUpdates.bioAr = String(dto.bioAr).trim();
+  if (dto.image !== undefined) teacherUpdates.image = String(dto.image).trim();
+  if (dto.introVideoUrl !== undefined) teacherUpdates.introVideoUrl = String(dto.introVideoUrl).trim();
+  if (dto.experience !== undefined) teacherUpdates.experience = parseInt(dto.experience, 10) || 0;
+  if (dto.readingType !== undefined) teacherUpdates.readingType = String(dto.readingType).trim();
+  if (dto.readingTypeAr !== undefined) teacherUpdates.readingTypeAr = String(dto.readingTypeAr).trim();
+  if (dto.specialties !== undefined) {
+    const arr = Array.isArray(dto.specialties)
+      ? dto.specialties
+      : String(dto.specialties).split(',').map(s => s.trim()).filter(Boolean);
+    teacherUpdates.specialties = JSON.stringify(arr);
   }
+  if (dto.specialtiesAr !== undefined) {
+    const arr = Array.isArray(dto.specialtiesAr)
+      ? dto.specialtiesAr
+      : String(dto.specialtiesAr).split(',').map(s => s.trim()).filter(Boolean);
+    teacherUpdates.specialtiesAr = JSON.stringify(arr);
+  }
+
+  if (Object.keys(teacherUpdates).length) {
+    await prisma.teacher.update({ where: { id: teacher.id }, data: teacherUpdates });
+  }
+
   return getProfile(userId);
 }
 

@@ -27,7 +27,7 @@
     },
     {
       "key": "baseApiUrl",
-      "value": "http://localhost:3001/api"
+      "value": "http://localhost:8002/api"
     },
     {
       "key": "bookingId",

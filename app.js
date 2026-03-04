@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
 const { connect, disconnect } = require('./lib/prisma');
 const { buildSwaggerSpec, buildMobileSwaggerSpec } = require('./lib/swagger');
+const { buildSheikhMobileSwaggerSpec } = require('./lib/sheikhMobileSwagger');
 const { corsHandler, addCorsHeaders } = require('./middleware/corsHandler');
 const { keepAliveMiddleware, configureServer, setupGracefulShutdown, mobileHealthCheck } = require('./middleware/keepAlive');
 const responseTransform = require('./middleware/responseTransform');
@@ -18,6 +19,7 @@ const PORT = process.env.PORT || 8002;
 const HOST = process.env.HOST || '0.0.0.0';
 const swaggerSpec = buildSwaggerSpec({ port: PORT });
 const mobileSwaggerSpec = buildMobileSwaggerSpec({ port: PORT });
+const sheikhMobileSwaggerSpec = buildSheikhMobileSwaggerSpec();
 
 // Keep raw body for Stripe webhook verification
 app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
@@ -147,6 +149,25 @@ app.get('/api/mobile/openapi.json', (req, res) => {
   res.json(mobileSwaggerSpec);
 });
 
+// Sheikh Mobile API docs — /api/v1/shike/mobile/docs
+app.use(
+  '/api/v1/shike/mobile/docs',
+  swaggerUi.serveFiles(sheikhMobileSwaggerSpec),
+  swaggerUi.setup(sheikhMobileSwaggerSpec, {
+    explorer: true,
+    customSiteTitle: 'Sheikh Mobile API Docs',
+    swaggerOptions: {
+      docExpansion: 'list',
+      defaultModelsExpandDepth: -1,
+      persistAuthorization: true,
+      displayRequestDuration: true,
+    },
+  })
+);
+app.get('/api/v1/shike/mobile/openapi.json', (req, res) => {
+  res.type('application/json').send(JSON.stringify(sheikhMobileSwaggerSpec, null, 2));
+});
+
 app.use('/api', routes);
 
 app.use(errorHandler);
@@ -190,6 +211,7 @@ async function start() {
       console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
       console.log(`API docs: http://localhost:${PORT}/api/docs`);
       console.log(`📱 Mobile health: http://localhost:${PORT}/api/mobile/health`);
+      console.log(`📘 Sheikh Mobile docs: http://localhost:${PORT}/api/v1/shike/mobile/docs`);
       console.log(`🌐 CORS enabled for web and mobile apps`);
     });
 

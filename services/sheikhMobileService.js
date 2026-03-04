@@ -90,11 +90,24 @@ async function register(dto) {
     },
   });
 
+  const specialtiesArr = Array.isArray(dto.specialties)
+    ? dto.specialties
+    : String(dto.specialties).split(',').map(s => s.trim()).filter(Boolean);
+
   await prisma.teacher.create({
     data: {
       userId: user.id,
       hourlyRate: 0,
       isApproved: false,
+      experience: parseInt(dto.experience, 10) || 0,
+      specialties: JSON.stringify(specialtiesArr),
+      specialtiesAr: dto.specialtiesAr ? JSON.stringify(
+        Array.isArray(dto.specialtiesAr) ? dto.specialtiesAr : String(dto.specialtiesAr).split(',').map(s => s.trim()).filter(Boolean)
+      ) : undefined,
+      bio: dto.bio ? String(dto.bio).trim() : undefined,
+      bioAr: dto.bioAr ? String(dto.bioAr).trim() : undefined,
+      readingType: dto.readingType ? String(dto.readingType).trim() : undefined,
+      readingTypeAr: dto.readingTypeAr ? String(dto.readingTypeAr).trim() : undefined,
     },
   });
 

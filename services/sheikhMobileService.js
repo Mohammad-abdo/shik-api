@@ -42,6 +42,16 @@ async function register(dto) {
     err.statusCode = 400;
     throw err;
   }
+  if (!dto.experience && dto.experience !== 0) {
+    const err = new Error('Experience (years) is required');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!dto.specialties || (Array.isArray(dto.specialties) ? dto.specialties.length === 0 : !String(dto.specialties).trim())) {
+    const err = new Error('Specialties are required');
+    err.statusCode = 400;
+    throw err;
+  }
   if (password !== confirmPassword) {
     const err = new Error('Password and confirm password do not match');
     err.statusCode = 400;

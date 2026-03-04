@@ -840,6 +840,34 @@ async function main() {
   }
   console.log('Student subscriptions created (one per student–sheikh pair so every booking can be linked)');
 
+  // ─── Create payments for student subscriptions so /my-students returns data ──
+  const allStudentSubs = await prisma.studentSubscription.findMany({
+    where: { status: 'ACTIVE' },
+    include: { package: true, student: true },
+  });
+  for (const sub of allStudentSubs) {
+    const existingPayment = await prisma.payment.findFirst({ where: { subscriptionId: sub.id } });
+    if (existingPayment) {
+      if (!sub.paymentId) {
+        await prisma.studentSubscription.update({ where: { id: sub.id }, data: { paymentId: existingPayment.id } });
+      }
+      continue;
+    }
+    const payment = await prisma.payment.create({
+      data: {
+        paymentType: 'SUBSCRIPTION',
+        userId: sub.studentId,
+        subscriptionId: sub.id,
+        amount: sub.package?.price ?? 99,
+        currency: 'EGP',
+        status: 'COMPLETED',
+        paymentMethod: 'fawry',
+      },
+    });
+    await prisma.studentSubscription.update({ where: { id: sub.id }, data: { paymentId: payment.id } });
+  }
+  console.log('Payments linked to all student subscriptions (COMPLETED)');
+
   // Create sample schedule reservations for active student subscriptions
   const activeStudentSubscriptions = await prisma.studentSubscription.findMany({
     where: { status: 'ACTIVE' },
@@ -1156,6 +1184,56 @@ async function main() {
     console.log('Certificates created');
   }
 
+  // ─── Site Pages (About, Privacy) for Sheikh Mobile API ─────────────────────
+  const sitePages = [
+    {
+      slug: 'app',
+      title: 'About Shaykhi',
+      titleAr: 'عن شيخي',
+      body: 'Shaykhi is a Quran memorization platform connecting students with certified sheikhs for live one-on-one sessions. Our mission is to make Quran learning accessible to everyone worldwide through technology while preserving the traditional teacher-student relationship.',
+      bodyAr: 'شيخي هي منصة لحفظ القرآن الكريم تربط الطلاب بمشايخ معتمدين لحلقات مباشرة فردية. مهمتنا هي جعل تعلم القرآن متاحاً للجميع في جميع أنحاء العالم من خلال التكنولوجيا مع الحفاظ على العلاقة التقليدية بين الشيخ والطالب.',
+    },
+    {
+      slug: 'privacy',
+      title: 'Privacy Policy',
+      titleAr: 'سياسة الخصوصية',
+      body: 'We respect your privacy. Your personal data is collected solely for providing our Quran learning services. We do not share your information with third parties without your consent. Session recordings are stored securely and accessible only to the sheikh and student involved.',
+      bodyAr: 'نحن نحترم خصوصيتك. يتم جمع بياناتك الشخصية فقط لتقديم خدمات تعلم القرآن. لا نشارك معلوماتك مع أطراف ثالثة بدون موافقتك. يتم تخزين تسجيلات الجلسات بشكل آمن ولا يمكن الوصول إليها إلا من قبل الشيخ والطالب المعنيين.',
+    },
+    {
+      slug: 'terms',
+      title: 'Terms of Service',
+      titleAr: 'شروط الخدمة',
+      body: 'By using Shaykhi, you agree to maintain respectful conduct during sessions. Sheikhs must hold valid certifications. Cancellation policy: sessions can be cancelled up to 4 hours before the scheduled time.',
+      bodyAr: 'باستخدامك لمنصة شيخي، فإنك توافق على الحفاظ على السلوك المحترم أثناء الجلسات. يجب أن يحمل المشايخ شهادات صالحة. سياسة الإلغاء: يمكن إلغاء الجلسات قبل 4 ساعات من الموعد المحدد.',
+    },
+  ];
+  for (const pg of sitePages) {
+    await prisma.sitePage.upsert({
+      where: { slug: pg.slug },
+      create: pg,
+      update: { title: pg.title, titleAr: pg.titleAr, body: pg.body, bodyAr: pg.bodyAr },
+    });
+  }
+  console.log('Site pages seeded (about, privacy, terms)');
+
+  // ─── Payout requests (withdraw history) for sheikh wallet ─────────────────
+  for (const t of fullTeachers) {
+    const wallet = await prisma.teacherWallet.findUnique({ where: { teacherId: t.teacher.id } });
+    if (!wallet) continue;
+    const existingPayout = await prisma.payoutRequest.findFirst({ where: { teacherId: t.teacher.id } });
+    if (existingPayout) continue;
+    const payouts = [
+      { teacherId: t.teacher.id, walletId: wallet.id, amount: 500, status: 'APPROVED', requestedAt: new Date(Date.now() - 15 * 86400000), approvedAt: new Date(Date.now() - 14 * 86400000), approvedBy: admin.id, processedAt: new Date(Date.now() - 13 * 86400000) },
+      { teacherId: t.teacher.id, walletId: wallet.id, amount: 300, status: 'APPROVED', requestedAt: new Date(Date.now() - 7 * 86400000), approvedAt: new Date(Date.now() - 6 * 86400000), approvedBy: admin.id, processedAt: new Date(Date.now() - 5 * 86400000) },
+      { teacherId: t.teacher.id, walletId: wallet.id, amount: 200, status: 'REJECTED', requestedAt: new Date(Date.now() - 3 * 86400000), rejectionReason: 'Insufficient documentation' },
+    ];
+    for (const p of payouts) {
+      try { await prisma.payoutRequest.create({ data: p }); } catch (_) {}
+    }
+  }
+  console.log('Payout requests seeded (withdraw history for sheikhs)');
+
   // Default system settings (currency: Egyptian Pound)
   const currencyDefaults = { currency_code: 'EGP', currency_symbol: 'ج.م', currency_name_ar: 'جنيه مصري', currency_name_en: 'Egyptian Pound' };
   for (const [key, value] of Object.entries(currencyDefaults)) {
@@ -1172,6 +1250,9 @@ async function main() {
   console.log('  Admin:   admin@shaykhi.com / admin123');
   console.log('  Student: student1@shaykhi.com / student123');
   console.log('  Teacher: teacher1@shaykhi.com / teacher123');
+  console.log('\nSheikh Mobile API test:');
+  console.log('  Login:   POST /api/v1/shike/mobile/login { phone: "+201234567895", password: "teacher123" }');
+  console.log('  Docs:    http://localhost:8002/api/sheikh/docs');
 }
 
 main()

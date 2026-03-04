@@ -792,29 +792,30 @@ model StudentSubscriptionPackage {
   nameAr          String?
   description     String?  @db.LongText
   descriptionAr   String?  @db.LongText
+  
+  // Package type and pricing
+  packageType     String   @default("monthly") // 'daily', 'monthly', 'weekly', 'yearly', 'flexible'
   price           Float
-  duration        Int      @default(30)
-  durationMonths  Int?
-  totalSessions   Int?     @default(0)
-  weeklyFrequency Int?     @default(0)
-  monthlyPrice    Float?
-  yearlyPrice     Float?
-  maxTeachers     Int?
-  features        String?  @db.LongText
-  featuresAr      String?  @db.LongText
-  maxBookings     Int?
-  maxCourses      Int?
+  period          Int?                         // Number of days/months for the package validity
+  totalSessions   Int?     @default(0)         // Total sessions included
+  sessionsPerMonth Int?                         // Sessions allowed per month
+  
+  // Features and metadata
+  features        String?  @db.LongText         // JSON array or comma-separated features
+  featuresAr      String?  @db.LongText         // Arabic version of features
   isActive        Boolean  @default(true)
   isPopular       Boolean  @default(false)
+  
+  // Tracking
   createdBy       String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  subscriptions StudentSubscription[] @relation("StudentPackageSubscriptions")
+  // Relationships
+  subscriptions   StudentSubscription[] @relation("StudentPackageSubscriptions")
 
   @@map("student_subscription_packages")
 }
-
 model StudentSubscription {
   id                   String             @id @default(uuid())
   studentId            String

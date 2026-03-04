@@ -793,14 +793,14 @@ model StudentSubscriptionPackage {
   description   String? @db.LongText
   descriptionAr String? @db.LongText
 
-  // Package type and pricing
-  packageType     String @default("monthly") // 'daily', 'monthly', 'weekly', 'yearly', 'flexible'
+  // Package type and pricing (daily, weekly, monthly, yearly)
+  packageType     String? @default("monthly")
   price           Float
-  period          Int?   @default(1) // number of units (e.g. 1 month, 3 months)
-  duration        Int    @default(30)
+  period          Int?    @default(1) // number of units (e.g. 1 month, 3 months)
+  duration        Int     @default(30)
   durationMonths  Int?
-  totalSessions   Int?   @default(0)
-  weeklyFrequency Int?   @default(0)
+  totalSessions   Int?    @default(0)
+  weeklyFrequency Int?    @default(0)
   monthlyPrice    Float?
   yearlyPrice     Float?
   dailyPrice      Float?

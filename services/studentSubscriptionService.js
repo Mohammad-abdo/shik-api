@@ -277,8 +277,6 @@ async function createPackage(dto, adminId) {
       maxTeachers: dto.maxTeachers,
       features: dto.features ? JSON.stringify(dto.features) : null,
       featuresAr: dto.featuresAr ? JSON.stringify(dto.featuresAr) : null,
-      maxBookings: dto.maxBookings,
-      maxCourses: dto.maxCourses,
       isActive: dto.isActive !== undefined ? dto.isActive : true,
       isPopular: dto.isPopular || false,
       createdBy: adminId,
@@ -286,6 +284,8 @@ async function createPackage(dto, adminId) {
   });
   return parseFeatures({ ...pkg });
 }
+
+
 
 async function getAllPackages(activeOnly = false) {
   const where = activeOnly ? { isActive: true } : {};
@@ -302,7 +302,10 @@ async function getPackageById(id) {
 async function updatePackage(id, dto) {
   const pkg = await prisma.studentSubscriptionPackage.findUnique({ where: { id } });
   if (!pkg) throw Object.assign(new Error('Package not found'), { statusCode: 404 });
+  
   const data = {};
+  
+  // Basic fields
   if (dto.name !== undefined) data.name = dto.name;
   if (dto.nameAr !== undefined) data.nameAr = dto.nameAr;
   if (dto.description !== undefined) data.description = dto.description;
@@ -315,16 +318,21 @@ async function updatePackage(id, dto) {
   if (dto.durationMonths !== undefined) data.durationMonths = dto.durationMonths;
   if (dto.sessionsPerMonth !== undefined) data.totalSessions = dto.sessionsPerMonth;
   if (dto.totalSessions !== undefined) data.totalSessions = dto.totalSessions;
-  if (dto.monthlyPrice !== undefined) data.monthlyPrice = dto.monthlyPrice;
-  if (dto.yearlyPrice !== undefined) data.yearlyPrice = dto.yearlyPrice;
-  if (dto.maxTeachers !== undefined) data.maxTeachers = dto.maxTeachers;
+  if (dto.sessionsPerMonth !== undefined) data.sessionsPerMonth = dto.sessionsPerMonth;
+  
+  // Features
   if (dto.features !== undefined) data.features = JSON.stringify(dto.features);
   if (dto.featuresAr !== undefined) data.featuresAr = JSON.stringify(dto.featuresAr);
-  if (dto.maxBookings !== undefined) data.maxBookings = dto.maxBookings;
-  if (dto.maxCourses !== undefined) data.maxCourses = dto.maxCourses;
+  
+  // Status flags
   if (dto.isActive !== undefined) data.isActive = dto.isActive;
   if (dto.isPopular !== undefined) data.isPopular = dto.isPopular;
-  const updated = await prisma.studentSubscriptionPackage.update({ where: { id }, data });
+  
+  const updated = await prisma.studentSubscriptionPackage.update({ 
+    where: { id }, 
+    data 
+  });
+  
   return parseFeatures({ ...updated });
 }
 

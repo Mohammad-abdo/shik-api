@@ -792,6 +792,9 @@ model StudentSubscriptionPackage {
   nameAr          String?
   description     String?  @db.LongText
   descriptionAr   String?  @db.LongText
+  
+  // Package type and pricing
+  packageType     String   @default("monthly") // 'daily', 'monthly', 'weekly', 'yearly', 'flexible'
   price           Float
   packageType     String?  @default("monthly") // daily, weekly, monthly, yearly
   period          Int?     @default(1)         // number of units (e.g. 1 month, 3 months)
@@ -809,15 +812,17 @@ model StudentSubscriptionPackage {
  
   isActive        Boolean  @default(true)
   isPopular       Boolean  @default(false)
+  
+  // Tracking
   createdBy       String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  subscriptions StudentSubscription[] @relation("StudentPackageSubscriptions")
+  // Relationships
+  subscriptions   StudentSubscription[] @relation("StudentPackageSubscriptions")
 
   @@map("student_subscription_packages")
 }
-
 model StudentSubscription {
   id                   String             @id @default(uuid())
   studentId            String

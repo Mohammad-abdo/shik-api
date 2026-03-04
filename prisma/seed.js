@@ -734,15 +734,16 @@ async function main() {
 
   console.log('Teacher course subscriptions seed skipped (subscriptions are student live-session only)');
 
+  // UPDATED: Student subscription packages with removed fields (monthlyPrice, yearlyPrice, maxTeachers, maxBookings, maxCourses)
   const studentPackagesData = [
     {
       name: 'Quran Live Lite',
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0627\u064A\u062A',
       description: '4 live sessions per month with Quran sheikhs. Ideal for beginners.',
       descriptionAr: '\u0623\u0631\u0628\u0639 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0634\u064A\u0648\u062E \u0627\u0644\u0642\u0631\u0622\u0646. \u0645\u062B\u0627\u0644\u064A\u0629 \u0644\u0644\u0645\u0628\u062A\u062F\u0626\u064A\u0646.',
+      packageType: 'monthly',
       price: 19.99,
-      duration: 30,
-      durationMonths: 1,
+      period: 30,
       totalSessions: 4,
       weeklyFrequency: 1,
       monthlyPrice: 19.99,
@@ -759,9 +760,9 @@ async function main() {
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0644\u0633',
       description: '12 live sessions per month with priority booking slots. Best value.',
       descriptionAr: '\u0627\u062B\u0646\u062A\u0627 \u0639\u0634\u0631\u0629 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0623\u0648\u0644\u0648\u064A\u0629 \u0627\u0644\u062D\u062C\u0632. \u0623\u0641\u0636\u0644 \u0627\u0644\u0623\u0633\u0639\u0627\u0631.',
+      packageType: 'monthly',
       price: 49.99,
-      duration: 30,
-      durationMonths: 1,
+      period: 30,
       totalSessions: 12,
       weeklyFrequency: 3,
       monthlyPrice: 49.99,
@@ -778,9 +779,9 @@ async function main() {
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0627\u0644\u0639\u0627\u0626\u0644\u064A\u0629',
       description: '24 live sessions monthly for family plans and multiple learners. Full support.',
       descriptionAr: '\u0623\u0631\u0628\u0639 \u0648\u0639\u0634\u0631\u0648\u0646 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0644\u062E\u0637\u0637 \u0627\u0644\u0639\u0627\u0626\u0644\u0629 \u0648\u062A\u0639\u062F\u062F \u0627\u0644\u0645\u062A\u0639\u0644\u0645\u064A\u0646. \u062F\u0639\u0645 \u0643\u0627\u0645\u0644.',
+      packageType: 'monthly',
       price: 89.99,
-      duration: 30,
-      durationMonths: 1,
+      period: 30,
       totalSessions: 24,
       weeklyFrequency: 6,
       monthlyPrice: 89.99,
@@ -792,7 +793,24 @@ async function main() {
       isActive: true,
       isPopular: false,
     },
+    // Add a yearly package example
+    {
+      name: 'Quran Live Yearly Premium',
+      nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0627\u0644\u0633\u0646\u0648\u064A\u0629',
+      description: '12 live sessions per month with annual commitment. Best savings.',
+      descriptionAr: '\u0627\u062B\u0646\u062A\u0627 \u0639\u0634\u0631\u0629 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0628\u0627\u0644\u062A\u0632\u0627\u0645 \u0633\u0646\u0648\u064A. \u0623\u0641\u0636\u0644 \u062A\u0648\u0641\u064A\u0631.',
+      packageType: 'yearly',
+      price: 499.99,
+      period: 365,
+      totalSessions: 144, // 12 sessions × 12 months
+      sessionsPerMonth: 12,
+      features: JSON.stringify(['12 live sessions monthly', 'Priority support', 'Best value pricing', 'Annual progress report', 'Flexible scheduling']),
+      featuresAr: JSON.stringify(['12 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u062F\u0639\u0645 \u0645\u0645\u064A\u0632', '\u0623\u0641\u0636\u0644 \u0633\u0639\u0631', '\u062A\u0642\u0631\u064A\u0631 \u062A\u0642\u062F\u0645 \u0633\u0646\u0648\u064A', '\u062C\u062F\u0648\u0644\u0629 \u0645\u0631\u0646\u0629']),
+      isActive: true,
+      isPopular: true,
+    },
   ];
+
   const createdStudentPackages = [];
   for (const pkg of studentPackagesData) {
     const existing = await prisma.studentSubscriptionPackage.findFirst({ where: { name: pkg.name } });
@@ -822,7 +840,7 @@ async function main() {
         const pkg = createdStudentPackages[(si + ti) % createdStudentPackages.length];
         const startDate = new Date();
         const endDate = new Date();
-        endDate.setDate(startDate.getDate() + (pkg.duration || 30));
+        endDate.setDate(startDate.getDate() + (pkg.period || 30));
         sub = await prisma.studentSubscription.create({
           data: {
             studentId: student.id,

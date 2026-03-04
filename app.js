@@ -111,14 +111,19 @@ app.get('/api/mobile/health', (req, res) => {
   });
 });
 
-// Swagger docs
+// —— توثيق API الرئيسي (ويب / أدمن / المستخدم العام) ——
+// Main API docs: http://localhost:8002/api/docs
+app.get('/api/openapi.json', (req, res) => {
+  res.json(swaggerSpec);
+});
 app.use(
   '/api/docs',
-  swaggerUi.serve,
+  swaggerUi.serveFiles(swaggerSpec),
   swaggerUi.setup(swaggerSpec, {
     explorer: true,
-    customSiteTitle: 'Shik API Docs',
+    customSiteTitle: 'Shik API Docs (Web / Admin)',
     swaggerOptions: {
+      url: '/api/openapi.json',
       docExpansion: 'none',
       defaultModelsExpandDepth: -1,
       persistAuthorization: true,
@@ -126,18 +131,20 @@ app.use(
     },
   })
 );
-app.get('/api/openapi.json', (req, res) => {
-  res.json(swaggerSpec);
-});
 
-// Mobile-focused Swagger docs
+// —— توثيق API الموبايل للطالب/اليوزر ——
+// Student/User mobile docs: http://localhost:8002/api/mobile/docs
+app.get('/api/mobile/openapi.json', (req, res) => {
+  res.json(mobileSwaggerSpec);
+});
 app.use(
   '/api/mobile/docs',
   swaggerUi.serveFiles(mobileSwaggerSpec),
   swaggerUi.setup(mobileSwaggerSpec, {
     explorer: true,
-    customSiteTitle: 'Shik Mobile API Docs',
+    customSiteTitle: 'Shik Mobile API Docs (Student / User)',
     swaggerOptions: {
+      url: '/api/mobile/openapi.json',
       docExpansion: 'list',
       defaultModelsExpandDepth: -1,
       persistAuthorization: true,
@@ -145,11 +152,30 @@ app.use(
     },
   })
 );
-app.get('/api/mobile/openapi.json', (req, res) => {
-  res.json(mobileSwaggerSpec);
-});
 
-// Sheikh Mobile API docs — /api/v1/shike/mobile/docs
+// —— توثيق API الموبايل للشيخ فقط ——
+// Sheikh mobile docs: http://localhost:8002/api/sheikh/docs (و /api/v1/shike/mobile/docs)
+app.get('/api/sheikh/openapi.json', (req, res) => {
+  res.type('application/json').json(sheikhMobileSwaggerSpec);
+});
+app.get('/api/v1/shike/mobile/openapi.json', (req, res) => {
+  res.type('application/json').json(sheikhMobileSwaggerSpec);
+});
+app.use(
+  '/api/sheikh/docs',
+  swaggerUi.serveFiles(sheikhMobileSwaggerSpec),
+  swaggerUi.setup(sheikhMobileSwaggerSpec, {
+    explorer: true,
+    customSiteTitle: 'Sheikh Mobile API Docs',
+    swaggerOptions: {
+      url: '/api/sheikh/openapi.json',
+      docExpansion: 'list',
+      defaultModelsExpandDepth: -1,
+      persistAuthorization: true,
+      displayRequestDuration: true,
+    },
+  })
+);
 app.use(
   '/api/v1/shike/mobile/docs',
   swaggerUi.serveFiles(sheikhMobileSwaggerSpec),
@@ -157,6 +183,7 @@ app.use(
     explorer: true,
     customSiteTitle: 'Sheikh Mobile API Docs',
     swaggerOptions: {
+      url: '/api/v1/shike/mobile/openapi.json',
       docExpansion: 'list',
       defaultModelsExpandDepth: -1,
       persistAuthorization: true,
@@ -164,9 +191,6 @@ app.use(
     },
   })
 );
-app.get('/api/v1/shike/mobile/openapi.json', (req, res) => {
-  res.type('application/json').send(JSON.stringify(sheikhMobileSwaggerSpec, null, 2));
-});
 
 app.use('/api', routes);
 
@@ -209,9 +233,10 @@ async function start() {
       console.log(`   Local:   http://localhost:${PORT}`);
       console.log(`   API:     http://localhost:${PORT}/api`);
       console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
-      console.log(`API docs: http://localhost:${PORT}/api/docs`);
+      console.log(`📄 API docs (Web/Admin):  http://localhost:${PORT}/api/docs`);
+      console.log(`📱 API docs (Student/User): http://localhost:${PORT}/api/mobile/docs`);
+      console.log(`📘 API docs (Sheikh):      http://localhost:${PORT}/api/sheikh/docs`);
       console.log(`📱 Mobile health: http://localhost:${PORT}/api/mobile/health`);
-      console.log(`📘 Sheikh Mobile docs: http://localhost:${PORT}/api/v1/shike/mobile/docs`);
       console.log(`🌐 CORS enabled for web and mobile apps`);
     });
 

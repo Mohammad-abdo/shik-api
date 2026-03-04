@@ -244,8 +244,22 @@ function resolveSelectedSlotsWithTeacher(rawSelectedSlots, teacherSchedules) {
   return sortSlots(Array.from(dedupe.values()));
 }
 
+function durationFromPackageType(packageType, period) {
+  const p = period ?? 1;
+  switch (packageType) {
+    case 'daily': return p;
+    case 'weekly': return p * 7;
+    case 'monthly': return p * 30;
+    case 'yearly': return p * 365;
+    default: return p * 30;
+  }
+}
+
 async function createPackage(dto, adminId) {
   const sessionsPerMonth = dto.sessionsPerMonth ?? dto.totalSessions ?? dto.maxBookings ?? 0;
+  const packageType = ['daily', 'weekly', 'monthly', 'yearly'].includes(dto.packageType) ? dto.packageType : 'monthly';
+  const period = dto.period != null ? Number(dto.period) || 1 : 1;
+  const duration = dto.duration != null ? dto.duration : durationFromPackageType(packageType, period);
   const pkg = await prisma.studentSubscriptionPackage.create({
     data: {
       name: dto.name,
@@ -253,7 +267,9 @@ async function createPackage(dto, adminId) {
       description: dto.description,
       descriptionAr: dto.descriptionAr,
       price: dto.price,
-      duration: dto.duration || 30,
+      packageType,
+      period,
+      duration,
       durationMonths: dto.durationMonths,
       totalSessions: sessionsPerMonth,
       monthlyPrice: dto.monthlyPrice,
@@ -292,7 +308,10 @@ async function updatePackage(id, dto) {
   if (dto.description !== undefined) data.description = dto.description;
   if (dto.descriptionAr !== undefined) data.descriptionAr = dto.descriptionAr;
   if (dto.price !== undefined) data.price = dto.price;
+  if (dto.packageType !== undefined && ['daily', 'weekly', 'monthly', 'yearly'].includes(dto.packageType)) data.packageType = dto.packageType;
+  if (dto.period !== undefined) data.period = Number(dto.period) || 1;
   if (dto.duration !== undefined) data.duration = dto.duration;
+  else if (dto.packageType !== undefined || dto.period !== undefined) data.duration = durationFromPackageType(data.packageType ?? pkg.packageType, data.period ?? pkg.period);
   if (dto.durationMonths !== undefined) data.durationMonths = dto.durationMonths;
   if (dto.sessionsPerMonth !== undefined) data.totalSessions = dto.sessionsPerMonth;
   if (dto.totalSessions !== undefined) data.totalSessions = dto.totalSessions;

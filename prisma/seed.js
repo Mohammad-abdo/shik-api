@@ -734,24 +734,24 @@ async function main() {
 
   console.log('Teacher course subscriptions seed skipped (subscriptions are student live-session only)');
 
+  // UPDATED: Student subscription packages with removed fields (monthlyPrice, yearlyPrice, maxTeachers, maxBookings, maxCourses)
   const studentPackagesData = [
     {
       name: 'Quran Live Lite',
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0627\u064A\u062A',
       description: '4 live sessions per month with Quran sheikhs. Ideal for beginners.',
       descriptionAr: '\u0623\u0631\u0628\u0639 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0634\u064A\u0648\u062E \u0627\u0644\u0642\u0631\u0622\u0646. \u0645\u062B\u0627\u0644\u064A\u0629 \u0644\u0644\u0645\u0628\u062A\u062F\u0626\u064A\u0646.',
+      packageType: 'monthly',
       price: 19.99,
-      duration: 30,
-      durationMonths: 1,
+      period: 30,
       totalSessions: 4,
       weeklyFrequency: 1,
       monthlyPrice: 19.99,
       yearlyPrice: 199.99,
-      maxTeachers: 1,
+      packageType: 'monthly',
+      period: 1,
       features: JSON.stringify(['4 live sessions monthly', 'Session recording access', 'Progress reports']),
       featuresAr: JSON.stringify(['4 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u0625\u0645\u0643\u0627\u0646\u064A\u0629 \u0631\u062C\u0648\u0639 \u0644\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062D\u0644\u0642\u0629', '\u062A\u0642\u0627\u0631\u064A\u0631 \u0627\u0644\u062A\u0642\u062F\u0645']),
-      maxBookings: 4,
-      maxCourses: 2,
       isActive: true,
       isPopular: false,
     },
@@ -760,18 +760,17 @@ async function main() {
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0644\u0633',
       description: '12 live sessions per month with priority booking slots. Best value.',
       descriptionAr: '\u0627\u062B\u0646\u062A\u0627 \u0639\u0634\u0631\u0629 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0645\u0639 \u0623\u0648\u0644\u0648\u064A\u0629 \u0627\u0644\u062D\u062C\u0632. \u0623\u0641\u0636\u0644 \u0627\u0644\u0623\u0633\u0639\u0627\u0631.',
+      packageType: 'monthly',
       price: 49.99,
-      duration: 30,
-      durationMonths: 1,
+      period: 30,
       totalSessions: 12,
       weeklyFrequency: 3,
       monthlyPrice: 49.99,
       yearlyPrice: 499.99,
-      maxTeachers: 2,
+      packageType: 'monthly',
+      period: 1,
       features: JSON.stringify(['12 live sessions monthly', 'Priority support', 'Flexible rescheduling', 'Memorization & revision reports']),
       featuresAr: JSON.stringify(['12 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u062F\u0639\u0645 \u0633\u0631\u064A\u0639', '\u0645\u0631\u0648\u0646\u0629 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062C\u062F\u0648\u0644\u0629', '\u062A\u0642\u0627\u0631\u064A\u0631 \u062D\u0641\u0638 \u0648\u0645\u0631\u0627\u062C\u0639\u0629']),
-      maxBookings: 12,
-      maxCourses: 5,
       isActive: true,
       isPopular: true,
     },
@@ -780,22 +779,38 @@ async function main() {
       nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0627\u0644\u0639\u0627\u0626\u0644\u064A\u0629',
       description: '24 live sessions monthly for family plans and multiple learners. Full support.',
       descriptionAr: '\u0623\u0631\u0628\u0639 \u0648\u0639\u0634\u0631\u0648\u0646 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0644\u062E\u0637\u0637 \u0627\u0644\u0639\u0627\u0626\u0644\u0629 \u0648\u062A\u0639\u062F\u062F \u0627\u0644\u0645\u062A\u0639\u0644\u0645\u064A\u0646. \u062F\u0639\u0645 \u0643\u0627\u0645\u0644.',
+      packageType: 'monthly',
       price: 89.99,
-      duration: 30,
-      durationMonths: 1,
+      period: 30,
       totalSessions: 24,
       weeklyFrequency: 6,
       monthlyPrice: 89.99,
       yearlyPrice: 899.99,
-      maxTeachers: 3,
+      packageType: 'monthly',
+      period: 1,
       features: JSON.stringify(['24 live sessions monthly', 'Family dashboard', 'Progress reports', 'Dedicated support']),
       featuresAr: JSON.stringify(['24 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 \u0639\u0627\u0626\u0644\u064A\u0629', '\u062A\u0642\u0627\u0631\u064A\u0631 \u062A\u0642\u062F\u0645', '\u062F\u0639\u0645 \u0645\u062E\u0635\u0635']),
-      maxBookings: 24,
-      maxCourses: 8,
       isActive: true,
       isPopular: false,
     },
+    // Add a yearly package example
+    {
+      name: 'Quran Live Yearly Premium',
+      nameAr: '\u0628\u0627\u0642\u0629 \u0627\u0644\u062D\u0644\u0642\u0627\u062A \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0627\u0644\u0633\u0646\u0648\u064A\u0629',
+      description: '12 live sessions per month with annual commitment. Best savings.',
+      descriptionAr: '\u0627\u062B\u0646\u062A\u0627 \u0639\u0634\u0631\u0629 \u062D\u0644\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627 \u0628\u0627\u0644\u062A\u0632\u0627\u0645 \u0633\u0646\u0648\u064A. \u0623\u0641\u0636\u0644 \u062A\u0648\u0641\u064A\u0631.',
+      packageType: 'yearly',
+      price: 499.99,
+      period: 365,
+      totalSessions: 144, // 12 sessions × 12 months
+      sessionsPerMonth: 12,
+      features: JSON.stringify(['12 live sessions monthly', 'Priority support', 'Best value pricing', 'Annual progress report', 'Flexible scheduling']),
+      featuresAr: JSON.stringify(['12 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u062F\u0639\u0645 \u0645\u0645\u064A\u0632', '\u0623\u0641\u0636\u0644 \u0633\u0639\u0631', '\u062A\u0642\u0631\u064A\u0631 \u062A\u0642\u062F\u0645 \u0633\u0646\u0648\u064A', '\u062C\u062F\u0648\u0644\u0629 \u0645\u0631\u0646\u0629']),
+      isActive: true,
+      isPopular: true,
+    },
   ];
+
   const createdStudentPackages = [];
   for (const pkg of studentPackagesData) {
     const existing = await prisma.studentSubscriptionPackage.findFirst({ where: { name: pkg.name } });
@@ -825,7 +840,7 @@ async function main() {
         const pkg = createdStudentPackages[(si + ti) % createdStudentPackages.length];
         const startDate = new Date();
         const endDate = new Date();
-        endDate.setDate(startDate.getDate() + (pkg.duration || 30));
+        endDate.setDate(startDate.getDate() + (pkg.period || 30));
         sub = await prisma.studentSubscription.create({
           data: {
             studentId: student.id,
@@ -842,6 +857,34 @@ async function main() {
     }
   }
   console.log('Student subscriptions created (one per student–sheikh pair so every booking can be linked)');
+
+  // ─── Create payments for student subscriptions so /my-students returns data ──
+  const allStudentSubs = await prisma.studentSubscription.findMany({
+    where: { status: 'ACTIVE' },
+    include: { package: true, student: true },
+  });
+  for (const sub of allStudentSubs) {
+    const existingPayment = await prisma.payment.findFirst({ where: { subscriptionId: sub.id } });
+    if (existingPayment) {
+      if (!sub.paymentId) {
+        await prisma.studentSubscription.update({ where: { id: sub.id }, data: { paymentId: existingPayment.id } });
+      }
+      continue;
+    }
+    const payment = await prisma.payment.create({
+      data: {
+        paymentType: 'SUBSCRIPTION',
+        userId: sub.studentId,
+        subscriptionId: sub.id,
+        amount: sub.package?.price ?? 99,
+        currency: 'EGP',
+        status: 'COMPLETED',
+        paymentMethod: 'fawry',
+      },
+    });
+    await prisma.studentSubscription.update({ where: { id: sub.id }, data: { paymentId: payment.id } });
+  }
+  console.log('Payments linked to all student subscriptions (COMPLETED)');
 
   // Create sample schedule reservations for active student subscriptions
   const activeStudentSubscriptions = await prisma.studentSubscription.findMany({
@@ -1159,6 +1202,56 @@ async function main() {
     console.log('Certificates created');
   }
 
+  // ─── Site Pages (About, Privacy) for Sheikh Mobile API ─────────────────────
+  const sitePages = [
+    {
+      slug: 'app',
+      title: 'About Shaykhi',
+      titleAr: 'عن شيخي',
+      body: 'Shaykhi is a Quran memorization platform connecting students with certified sheikhs for live one-on-one sessions. Our mission is to make Quran learning accessible to everyone worldwide through technology while preserving the traditional teacher-student relationship.',
+      bodyAr: 'شيخي هي منصة لحفظ القرآن الكريم تربط الطلاب بمشايخ معتمدين لحلقات مباشرة فردية. مهمتنا هي جعل تعلم القرآن متاحاً للجميع في جميع أنحاء العالم من خلال التكنولوجيا مع الحفاظ على العلاقة التقليدية بين الشيخ والطالب.',
+    },
+    {
+      slug: 'privacy',
+      title: 'Privacy Policy',
+      titleAr: 'سياسة الخصوصية',
+      body: 'We respect your privacy. Your personal data is collected solely for providing our Quran learning services. We do not share your information with third parties without your consent. Session recordings are stored securely and accessible only to the sheikh and student involved.',
+      bodyAr: 'نحن نحترم خصوصيتك. يتم جمع بياناتك الشخصية فقط لتقديم خدمات تعلم القرآن. لا نشارك معلوماتك مع أطراف ثالثة بدون موافقتك. يتم تخزين تسجيلات الجلسات بشكل آمن ولا يمكن الوصول إليها إلا من قبل الشيخ والطالب المعنيين.',
+    },
+    {
+      slug: 'terms',
+      title: 'Terms of Service',
+      titleAr: 'شروط الخدمة',
+      body: 'By using Shaykhi, you agree to maintain respectful conduct during sessions. Sheikhs must hold valid certifications. Cancellation policy: sessions can be cancelled up to 4 hours before the scheduled time.',
+      bodyAr: 'باستخدامك لمنصة شيخي، فإنك توافق على الحفاظ على السلوك المحترم أثناء الجلسات. يجب أن يحمل المشايخ شهادات صالحة. سياسة الإلغاء: يمكن إلغاء الجلسات قبل 4 ساعات من الموعد المحدد.',
+    },
+  ];
+  for (const pg of sitePages) {
+    await prisma.sitePage.upsert({
+      where: { slug: pg.slug },
+      create: pg,
+      update: { title: pg.title, titleAr: pg.titleAr, body: pg.body, bodyAr: pg.bodyAr },
+    });
+  }
+  console.log('Site pages seeded (about, privacy, terms)');
+
+  // ─── Payout requests (withdraw history) for sheikh wallet ─────────────────
+  for (const t of fullTeachers) {
+    const wallet = await prisma.teacherWallet.findUnique({ where: { teacherId: t.teacher.id } });
+    if (!wallet) continue;
+    const existingPayout = await prisma.payoutRequest.findFirst({ where: { teacherId: t.teacher.id } });
+    if (existingPayout) continue;
+    const payouts = [
+      { teacherId: t.teacher.id, walletId: wallet.id, amount: 500, status: 'APPROVED', requestedAt: new Date(Date.now() - 15 * 86400000), approvedAt: new Date(Date.now() - 14 * 86400000), approvedBy: admin.id, processedAt: new Date(Date.now() - 13 * 86400000) },
+      { teacherId: t.teacher.id, walletId: wallet.id, amount: 300, status: 'APPROVED', requestedAt: new Date(Date.now() - 7 * 86400000), approvedAt: new Date(Date.now() - 6 * 86400000), approvedBy: admin.id, processedAt: new Date(Date.now() - 5 * 86400000) },
+      { teacherId: t.teacher.id, walletId: wallet.id, amount: 200, status: 'REJECTED', requestedAt: new Date(Date.now() - 3 * 86400000), rejectionReason: 'Insufficient documentation' },
+    ];
+    for (const p of payouts) {
+      try { await prisma.payoutRequest.create({ data: p }); } catch (_) {}
+    }
+  }
+  console.log('Payout requests seeded (withdraw history for sheikhs)');
+
   // Default system settings (currency: Egyptian Pound)
   const currencyDefaults = { currency_code: 'EGP', currency_symbol: 'ج.م', currency_name_ar: 'جنيه مصري', currency_name_en: 'Egyptian Pound' };
   for (const [key, value] of Object.entries(currencyDefaults)) {
@@ -1175,6 +1268,9 @@ async function main() {
   console.log('  Admin:   admin@shaykhi.com / admin123');
   console.log('  Student: student1@shaykhi.com / student123');
   console.log('  Teacher: teacher1@shaykhi.com / teacher123');
+  console.log('\nSheikh Mobile API test:');
+  console.log('  Login:   POST /api/v1/shike/mobile/login { phone: "+201234567895", password: "teacher123" }');
+  console.log('  Docs:    http://localhost:8002/api/sheikh/docs');
 }
 
 main()

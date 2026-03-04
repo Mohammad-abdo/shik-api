@@ -201,4 +201,107 @@ async function getMyReports(studentId, page = 1, limit = 20, lang = 'en') {
   return withReports;
 }
 
-module.exports = { getMySessions, getSessionReport, getMyReports };
+async function getReportsBySheikh(studentId, sheikhId, page = 1, limit = 20, lang = 'en') {
+  const skip = (page - 1) * limit;
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: sheikhId },
+    include: {
+      user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, avatar: true } },
+    },
+  });
+  if (!teacher) throw Object.assign(new Error('Sheikh not found'), { statusCode: 404 });
+
+  const [reports, total] = await Promise.all([
+    prisma.sessionReport.findMany({
+      where: { studentId, teacherId: sheikhId },
+      include: {
+        session: {
+          include: {
+            memorizations: { orderBy: { createdAt: 'asc' } },
+            revisions: { orderBy: { createdAt: 'asc' } },
+            bookingSession: {
+              include: {
+                booking: { select: { date: true, startTime: true, status: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.sessionReport.count({ where: { studentId, teacherId: sheikhId } }),
+  ]);
+
+  const sheikhName = (t) => {
+    if (!t?.user) return '—';
+    const u = t.user;
+    return lang === 'ar'
+      ? [u.firstNameAr, u.lastNameAr].filter(Boolean).join(' ').trim() || [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+      : [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  };
+
+  const dayName = (d) => (lang === 'ar' ? DAY_NAMES_AR[d] : DAY_NAMES_EN[d]);
+
+  const items = reports.map((r) => {
+    const s = r.session;
+    const bs = s?.bookingSession;
+    const slotDate = bs?.scheduledDate ?? bs?.booking?.date;
+    const slotTime = bs?.startTime ?? bs?.booking?.startTime;
+
+    let reportContent = {};
+    try { reportContent = JSON.parse(r.content); } catch (_) { reportContent = { text: r.content }; }
+
+    return {
+      report_id: r.id,
+      session_id: s?.id ?? null,
+      date: slotDate?.toISOString?.()?.split('T')[0] ?? r.createdAt.toISOString().split('T')[0],
+      day_name: slotDate ? dayName(slotDate.getDay()) : '',
+      time: slotTime ?? '',
+      rating: r.rating,
+      content: reportContent,
+      memorizations: (s?.memorizations || []).map((m) => ({
+        id: m.id,
+        surah: lang === 'ar' ? (m.surahNameAr || m.surahName) : m.surahName,
+        from_ayah: m.fromAyah,
+        to_ayah: m.toAyah,
+        is_full_surah: m.isFullSurah,
+        notes: m.notes,
+      })),
+      revisions: (s?.revisions || []).map((rv) => ({
+        id: rv.id,
+        type: rv.revisionType,
+        range_type: rv.rangeType,
+        from_surah: rv.fromSurah,
+        to_surah: rv.toSurah,
+        from_juz: rv.fromJuz,
+        to_juz: rv.toJuz,
+        notes: rv.notes,
+      })),
+    };
+  });
+
+  return {
+    sheikh: {
+      id: teacher.id,
+      name: sheikhName(teacher),
+      image: teacher.image || teacher.user?.avatar || null,
+      specialization: lang === 'ar'
+        ? (teacher.specialtiesAr || teacher.specialties || '—')
+        : (teacher.specialties || teacher.specialtiesAr || '—'),
+    },
+    reports: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: skip + limit < total,
+      hasPrevPage: page > 1,
+    },
+  };
+}
+
+module.exports = { getMySessions, getSessionReport, getMyReports, getReportsBySheikh };

@@ -487,4 +487,102 @@ router.get('/reports', jwtAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/v1/student/reports/sheikh/{sheikhId}:
+ *   get:
+ *     tags: [student]
+ *     summary: Get all reports from a specific sheikh for the authenticated student
+ *     description: Returns paginated session reports that a specific sheikh has written for the student, including memorization progress, revisions, and ratings.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sheikhId
+ *         required: true
+ *         schema: { type: string }
+ *         description: The teacher/sheikh ID
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *         description: Page number (1-based)
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *         description: Items per page (max 100)
+ *     responses:
+ *       200:
+ *         description: Reports from the specified sheikh
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     sheikh:
+ *                       type: object
+ *                       properties:
+ *                         id: { type: string }
+ *                         name: { type: string }
+ *                         image: { type: string, nullable: true }
+ *                         specialization: { type: string }
+ *                     reports:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           report_id: { type: string }
+ *                           session_id: { type: string }
+ *                           date: { type: string }
+ *                           day_name: { type: string }
+ *                           time: { type: string }
+ *                           rating: { type: integer, nullable: true }
+ *                           content: { type: object }
+ *                           memorizations:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 surah: { type: string }
+ *                                 from_ayah: { type: integer }
+ *                                 to_ayah: { type: integer }
+ *                                 is_full_surah: { type: boolean }
+ *                           revisions:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 type: { type: string }
+ *                                 range_type: { type: string }
+ *                                 from_surah: { type: string }
+ *                                 to_surah: { type: string }
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page: { type: integer }
+ *                         limit: { type: integer }
+ *                         total: { type: integer }
+ *                         totalPages: { type: integer }
+ *                         hasNextPage: { type: boolean }
+ *                         hasPrevPage: { type: boolean }
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Sheikh not found
+ */
+router.get('/reports/sheikh/:sheikhId', jwtAuth, async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const lang = getLang(req);
+    const data = await studentSessionsService.getReportsBySheikh(req.user.id, req.params.sheikhId, page, limit, lang);
+    res.json({ status: true, data });
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;

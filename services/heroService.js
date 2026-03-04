@@ -19,7 +19,8 @@ const heroService = {
       }
 
       const slidesData = JSON.parse(heroPage.body);
-      const activeSlides = slidesData.slides
+      const slides = Array.isArray(slidesData?.slides) ? slidesData.slides : [];
+      const activeSlides = slides
         .filter(slide => slide.isActive)
         .sort((a, b) => a.order - b.order);
 
@@ -47,7 +48,8 @@ const heroService = {
       }
 
       const slidesData = JSON.parse(heroPage.body);
-      const sortedSlides = slidesData.slides.sort((a, b) => a.order - b.order);
+      const slides = Array.isArray(slidesData?.slides) ? slidesData.slides : [];
+      const sortedSlides = slides.sort((a, b) => a.order - b.order);
 
       return {
         success: true,

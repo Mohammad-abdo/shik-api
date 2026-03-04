@@ -318,7 +318,7 @@ async function updatePackage(id, dto) {
   if (dto.durationMonths !== undefined) data.durationMonths = dto.durationMonths;
   if (dto.sessionsPerMonth !== undefined) data.totalSessions = dto.sessionsPerMonth;
   if (dto.totalSessions !== undefined) data.totalSessions = dto.totalSessions;
-  if (dto.sessionsPerMonth !== undefined) data.sessionsPerMonth = dto.sessionsPerMonth;
+  // sessionsPerMonth is not a DB column; we map it to totalSessions above
   
   // Features
   if (dto.features !== undefined) data.features = JSON.stringify(dto.features);

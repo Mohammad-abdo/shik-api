@@ -803,7 +803,6 @@ async function main() {
       price: 499.99,
       period: 365,
       totalSessions: 144, // 12 sessions × 12 months
-      sessionsPerMonth: 12,
       features: JSON.stringify(['12 live sessions monthly', 'Priority support', 'Best value pricing', 'Annual progress report', 'Flexible scheduling']),
       featuresAr: JSON.stringify(['12 \u062D\u0644\u0642\u0627\u062A \u0645\u0628\u0627\u0634\u0631\u0629 \u0634\u0647\u0631\u064A\u0627', '\u062F\u0639\u0645 \u0645\u0645\u064A\u0632', '\u0623\u0641\u0636\u0644 \u0633\u0639\u0631', '\u062A\u0642\u0631\u064A\u0631 \u062A\u0642\u062F\u0645 \u0633\u0646\u0648\u064A', '\u062C\u062F\u0648\u0644\u0629 \u0645\u0631\u0646\u0629']),
       isActive: true,

@@ -58,10 +58,10 @@ model Booking {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  student         User            @relation("StudentBookings", fields: [studentId], references: [id])
-  teacher         Teacher         @relation("TeacherBookings", fields: [teacherId], references: [id])
-  schedule        Schedule?       @relation("ScheduleBookings", fields: [scheduleId], references: [id])
-  course          Course?         @relation("CourseBookings", fields: [courseId], references: [id])
+  student         User             @relation("StudentBookings", fields: [studentId], references: [id])
+  teacher         Teacher          @relation("TeacherBookings", fields: [teacherId], references: [id])
+  schedule        Schedule?        @relation("ScheduleBookings", fields: [scheduleId], references: [id])
+  course          Course?          @relation("CourseBookings", fields: [courseId], references: [id])
   payment         Payment?
   bookingSessions BookingSession[] @relation("BookingBookingSessions")
   review          Review?
@@ -173,10 +173,10 @@ model Payment {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  user          User?                  @relation("UserPayments", fields: [userId], references: [id])
-  booking       Booking?               @relation(fields: [bookingId], references: [id])
-  subscription  StudentSubscription?   @relation(fields: [subscriptionId], references: [id])
-  course        Course?                 @relation("CoursePayments", fields: [courseId], references: [id])
+  user         User?                @relation("UserPayments", fields: [userId], references: [id])
+  booking      Booking?             @relation(fields: [bookingId], references: [id])
+  subscription StudentSubscription? @relation(fields: [subscriptionId], references: [id])
+  course       Course?              @relation("CoursePayments", fields: [courseId], references: [id])
 
   @@index([userId])
   @@index([courseId])
@@ -303,18 +303,18 @@ model Schedule {
 }
 
 model BookingSession {
-  id             String               @id @default(uuid())
-  bookingId      String
-  scheduleId     String
-  scheduledDate  DateTime
-  startTime      String
-  endTime        String
-  orderIndex     Int                  @default(0)
-  status         BookingSessionStatus  @default(PENDING)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  id            String               @id @default(uuid())
+  bookingId     String
+  scheduleId    String
+  scheduledDate DateTime
+  startTime     String
+  endTime       String
+  orderIndex    Int                  @default(0)
+  status        BookingSessionStatus @default(PENDING)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
-  booking Booking  @relation("BookingBookingSessions", fields: [bookingId], references: [id], onDelete: Cascade)
+  booking  Booking  @relation("BookingBookingSessions", fields: [bookingId], references: [id], onDelete: Cascade)
   schedule Schedule @relation("ScheduleBookingSessions", fields: [scheduleId], references: [id], onDelete: Restrict)
   session  Session? @relation("BookingSessionLiveMeeting")
 
@@ -325,22 +325,22 @@ model BookingSession {
 }
 
 model Session {
-  id                String      @id @default(uuid())
-  bookingSessionId  String?     @unique
-  type              SessionType @default(VIDEO)
-  roomId            String      @unique
-  agoraToken        String?
-  startedAt         DateTime?
-  endedAt           DateTime?
-  recordingUrl      String?
-  duration          Int?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  id               String      @id @default(uuid())
+  bookingSessionId String?     @unique
+  type             SessionType @default(VIDEO)
+  roomId           String      @unique
+  agoraToken       String?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  recordingUrl     String?
+  duration         Int?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  bookingSession    BookingSession?      @relation("BookingSessionLiveMeeting", fields: [bookingSessionId], references: [id], onDelete: SetNull)
-  memorizations     SessionMemorization[]
-  revisions         SessionRevision[]
-  report            SessionReport?
+  bookingSession BookingSession?       @relation("BookingSessionLiveMeeting", fields: [bookingSessionId], references: [id], onDelete: SetNull)
+  memorizations  SessionMemorization[]
+  revisions      SessionRevision[]
+  report         SessionReport?
 
   @@index([bookingSessionId], map: "sessions_bookingSessionId_fkey")
   @@map("sessions")
@@ -539,7 +539,7 @@ model Course {
   bookings       Booking[]          @relation("CourseBookings")
   courseTeachers CourseTeacher[]    @relation("CourseTeachers")
   reviews        Review[]           @relation("CourseReviews")
-  payments       Payment[]         @relation("CoursePayments")
+  payments       Payment[]          @relation("CoursePayments")
 
   @@index([teacherId], map: "courses_teacherId_fkey")
   @@index([status])
@@ -741,21 +741,21 @@ model Certificate {
 }
 
 model SubscriptionPackage {
-  id            String   @id @default(uuid())
-  name          String
-  nameAr        String?
-  description   String?  @db.LongText
-  descriptionAr String?  @db.LongText
-  price         Float
-  packageType   String   @default("monthly") // 🆕 'daily', 'monthly', 'weekly', 'yearly'
-  period        Int?                        // 🆕  number
-  features      String?  @db.LongText
-  featuresAr    String?  @db.LongText                  // 🆕 Add if needed
-  sessionsPerMonth Int?                      // 🆕 Add if needed
-  isActive      Boolean  @default(true)
-  isPopular     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String   @id @default(uuid())
+  name             String
+  nameAr           String?
+  description      String?  @db.LongText
+  descriptionAr    String?  @db.LongText
+  price            Float
+  packageType      String   @default("monthly") // 🆕 'daily', 'monthly', 'weekly', 'yearly'
+  period           Int? // 🆕  number
+  features         String?  @db.LongText
+  featuresAr       String?  @db.LongText // 🆕 Add if needed
+  sessionsPerMonth Int? // 🆕 Add if needed
+  isActive         Boolean  @default(true)
+  isPopular        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   subscriptions TeacherSubscription[] @relation("PackageSubscriptions")
 
@@ -787,42 +787,42 @@ model TeacherSubscription {
 }
 
 model StudentSubscriptionPackage {
-  id              String   @id @default(uuid())
-  name            String
-  nameAr          String?
-  description     String?  @db.LongText
-  descriptionAr   String?  @db.LongText
-  
+  id            String  @id @default(uuid())
+  name          String
+  nameAr        String?
+  description   String? @db.LongText
+  descriptionAr String? @db.LongText
+
   // Package type and pricing
-  packageType     String   @default("monthly") // 'daily', 'monthly', 'weekly', 'yearly', 'flexible'
+  packageType     String @default("monthly") // 'daily', 'monthly', 'weekly', 'yearly', 'flexible'
   price           Float
-  packageType     String?  @default("monthly") // daily, weekly, monthly, yearly
-  period          Int?     @default(1)         // number of units (e.g. 1 month, 3 months)
-  duration        Int      @default(30)
+  period          Int?   @default(1) // number of units (e.g. 1 month, 3 months)
+  duration        Int    @default(30)
   durationMonths  Int?
-  totalSessions   Int?     @default(0)
-  weeklyFrequency Int?     @default(0)
+  totalSessions   Int?   @default(0)
+  weeklyFrequency Int?   @default(0)
   monthlyPrice    Float?
   yearlyPrice     Float?
   dailyPrice      Float?
   weeklyPrice     Float?
 
-  features        String?  @db.LongText
-  featuresAr      String?  @db.LongText
- 
-  isActive        Boolean  @default(true)
-  isPopular       Boolean  @default(false)
-  
+  features   String? @db.LongText
+  featuresAr String? @db.LongText
+
+  isActive  Boolean @default(true)
+  isPopular Boolean @default(false)
+
   // Tracking
-  createdBy       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  subscriptions   StudentSubscription[] @relation("StudentPackageSubscriptions")
+  subscriptions StudentSubscription[] @relation("StudentPackageSubscriptions")
 
   @@map("student_subscription_packages")
 }
+
 model StudentSubscription {
   id                   String             @id @default(uuid())
   studentId            String

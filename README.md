@@ -74,7 +74,7 @@ npm run dev
 - `DATABASE_URL` – رابط اتصال MySQL
 - `JWT_SECRET` – مفتاح JWT (مطلوب)
 - `JWT_REFRESH_SECRET` – مفتاح JWT للتجديد (اختياري)
-- `PORT` – منفذ السيرفر (افتراضي 3001)
+- `PORT` – منفذ السيرفر (افتراضي 8002)
 - `BASE_URL` – عنوان الـ API (لروابط الملفات)
 - `STRIPE_SECRET_KEY`، `STRIPE_WEBHOOK_SECRET` – للدفع (اختياري)
 - `SMTP_*` – لإرسال البريد و OTP (اختياري)

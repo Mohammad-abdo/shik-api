@@ -855,7 +855,7 @@
     {
       "id": "12dd943d-0a0a-4b40-a9a5-79b866abd6eb",
       "key": "baseApiUrl",
-      "value": "http://localhost:3001/api"
+      "value": "http://localhost:8002/api"
     },
     {
       "id": "42f081e0-9374-4165-8f2f-6ec98adee9a1",

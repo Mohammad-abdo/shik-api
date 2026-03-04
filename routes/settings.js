@@ -12,12 +12,22 @@ const CURRENCY_DEFAULTS = {
   currency_name_en: 'Egyptian Pound',
 };
 
+const SIDEBAR_KEYS = ['sidebar_logo_url', 'sidebar_title_ar', 'sidebar_title_en', 'sidebar_subtitle_ar', 'sidebar_subtitle_en'];
+const SIDEBAR_DEFAULTS = {
+  sidebar_logo_url: '',
+  sidebar_title_ar: 'ترتيل',
+  sidebar_title_en: 'Tarteel',
+  sidebar_subtitle_ar: 'منصة حفظ القرآن',
+  sidebar_subtitle_en: 'Quran memorization platform',
+};
+
 async function getSettingsMap() {
   const rows = await prisma.systemSetting.findMany({
-    where: { key: { in: CURRENCY_KEYS } },
+    where: { key: { in: [...CURRENCY_KEYS, ...SIDEBAR_KEYS] } },
   });
   const map = {};
   CURRENCY_KEYS.forEach((k) => { map[k] = CURRENCY_DEFAULTS[k]; });
+  SIDEBAR_KEYS.forEach((k) => { map[k] = SIDEBAR_DEFAULTS[k]; });
   rows.forEach((r) => { map[r.key] = r.value; });
   return map;
 }
@@ -34,6 +44,13 @@ router.get('/', async (req, res, next) => {
         symbol: map.currency_symbol,
         nameAr: map.currency_name_ar,
         nameEn: map.currency_name_en,
+      },
+      sidebar: {
+        logoUrl: map.sidebar_logo_url || '',
+        titleAr: map.sidebar_title_ar || SIDEBAR_DEFAULTS.sidebar_title_ar,
+        titleEn: map.sidebar_title_en || SIDEBAR_DEFAULTS.sidebar_title_en,
+        subtitleAr: map.sidebar_subtitle_ar || SIDEBAR_DEFAULTS.sidebar_subtitle_ar,
+        subtitleEn: map.sidebar_subtitle_en || SIDEBAR_DEFAULTS.sidebar_subtitle_en,
       },
     });
   } catch (e) {

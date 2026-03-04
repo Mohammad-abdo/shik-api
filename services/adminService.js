@@ -131,10 +131,22 @@ async function getAllUsersWithFilters(filters = {}) {
   return { users, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 }
 
-async function getAllTeachers(page = 1, limit = 20, isApproved, teacherType) {
+async function getAllTeachers(page = 1, limit = 20, isApproved, teacherType, search) {
   const where = {};
   if (isApproved !== undefined) where.isApproved = isApproved;
   if (teacherType === 'COURSE_SHEIKH' || teacherType === 'FULL_TEACHER') where.teacherType = teacherType;
+  if (search && String(search).trim()) {
+    const term = String(search).trim();
+    where.user = {
+      OR: [
+        { firstName: { contains: term, mode: 'insensitive' } },
+        { lastName: { contains: term, mode: 'insensitive' } },
+        { firstNameAr: { contains: term } },
+        { lastNameAr: { contains: term } },
+        { email: { contains: term, mode: 'insensitive' } },
+      ],
+    };
+  }
   const skip = (page - 1) * limit;
   const [teachers, total] = await Promise.all([
     prisma.teacher.findMany({

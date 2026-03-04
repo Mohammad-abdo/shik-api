@@ -12,12 +12,22 @@ const CURRENCY_DEFAULTS = {
   currency_name_en: 'Egyptian Pound',
 };
 
+const SIDEBAR_KEYS = ['sidebar_logo_url', 'sidebar_title_ar', 'sidebar_title_en', 'sidebar_subtitle_ar', 'sidebar_subtitle_en'];
+const SIDEBAR_DEFAULTS = {
+  sidebar_logo_url: '',
+  sidebar_title_ar: 'ترتيل',
+  sidebar_title_en: 'Tarteel',
+  sidebar_subtitle_ar: 'منصة حفظ القرآن',
+  sidebar_subtitle_en: 'Quran memorization platform',
+};
+
 async function getSettingsMap() {
   const rows = await prisma.systemSetting.findMany({
-    where: { key: { in: CURRENCY_KEYS } },
+    where: { key: { in: [...CURRENCY_KEYS, ...SIDEBAR_KEYS] } },
   });
   const map = {};
   CURRENCY_KEYS.forEach((k) => { map[k] = CURRENCY_DEFAULTS[k]; });
+  SIDEBAR_KEYS.forEach((k) => { map[k] = SIDEBAR_DEFAULTS[k]; });
   rows.forEach((r) => { map[r.key] = r.value; });
   return map;
 }
@@ -35,6 +45,13 @@ router.get('/', async (req, res, next) => {
         nameAr: map.currency_name_ar,
         nameEn: map.currency_name_en,
       },
+      sidebar: {
+        logoUrl: map.sidebar_logo_url || '',
+        titleAr: map.sidebar_title_ar || SIDEBAR_DEFAULTS.sidebar_title_ar,
+        titleEn: map.sidebar_title_en || SIDEBAR_DEFAULTS.sidebar_title_en,
+        subtitleAr: map.sidebar_subtitle_ar || SIDEBAR_DEFAULTS.sidebar_subtitle_ar,
+        subtitleEn: map.sidebar_subtitle_en || SIDEBAR_DEFAULTS.sidebar_subtitle_en,
+      },
     });
   } catch (e) {
     next(e);
@@ -42,27 +59,35 @@ router.get('/', async (req, res, next) => {
 });
 
 /**
- * PATCH /api/settings — admin only, update system settings (e.g. currency)
- * Body: { currencyCode?, currencySymbol?, currencyNameAr?, currencyNameEn? } or { currency: { code, symbol, nameAr, nameEn } }
+ * PATCH /api/settings — admin only, update system settings (currency + sidebar)
+ * Body: currencyCode?, currencySymbol?, ... or sidebarLogoUrl?, sidebarTitleAr?, sidebarTitleEn?, sidebarSubtitleAr?, sidebarSubtitleEn?
  */
 router.patch('/', jwtAuth, requireSuperAdmin, async (req, res, next) => {
   try {
     const body = req.body || {};
-    // Support both flat keys and nested body.currency
+    const updates = [];
+
+    // Currency
     const currencyObj = body.currency && typeof body.currency === 'object' ? body.currency : body;
     const currencyCode = currencyObj.currencyCode ?? currencyObj.code;
     const currencySymbol = currencyObj.currencySymbol ?? currencyObj.symbol;
     const currencyNameAr = currencyObj.currencyNameAr ?? currencyObj.nameAr;
     const currencyNameEn = currencyObj.currencyNameEn ?? currencyObj.nameEn;
-
-    const updates = [];
     if (currencyCode != null && currencyCode !== '') updates.push({ key: 'currency_code', value: String(currencyCode) });
     if (currencySymbol != null) updates.push({ key: 'currency_symbol', value: String(currencySymbol) });
     if (currencyNameAr != null) updates.push({ key: 'currency_name_ar', value: String(currencyNameAr) });
     if (currencyNameEn != null) updates.push({ key: 'currency_name_en', value: String(currencyNameEn) });
 
+    // Sidebar
+    const sidebar = body.sidebar && typeof body.sidebar === 'object' ? body.sidebar : body;
+    if (sidebar.logoUrl !== undefined) updates.push({ key: 'sidebar_logo_url', value: String(sidebar.logoUrl || '') });
+    if (sidebar.titleAr !== undefined) updates.push({ key: 'sidebar_title_ar', value: String(sidebar.titleAr || '') });
+    if (sidebar.titleEn !== undefined) updates.push({ key: 'sidebar_title_en', value: String(sidebar.titleEn || '') });
+    if (sidebar.subtitleAr !== undefined) updates.push({ key: 'sidebar_subtitle_ar', value: String(sidebar.subtitleAr || '') });
+    if (sidebar.subtitleEn !== undefined) updates.push({ key: 'sidebar_subtitle_en', value: String(sidebar.subtitleEn || '') });
+
     if (updates.length === 0) {
-      const err = new Error('No currency fields to update. Send currencyCode, currencySymbol, currencyNameAr, currencyNameEn.');
+      const err = new Error('No settings fields to update. Send currency or sidebar fields.');
       err.statusCode = 400;
       return next(err);
     }
@@ -84,6 +109,13 @@ router.patch('/', jwtAuth, requireSuperAdmin, async (req, res, next) => {
         symbol: map.currency_symbol,
         nameAr: map.currency_name_ar,
         nameEn: map.currency_name_en,
+      },
+      sidebar: {
+        logoUrl: map.sidebar_logo_url || '',
+        titleAr: map.sidebar_title_ar || SIDEBAR_DEFAULTS.sidebar_title_ar,
+        titleEn: map.sidebar_title_en || SIDEBAR_DEFAULTS.sidebar_title_en,
+        subtitleAr: map.sidebar_subtitle_ar || SIDEBAR_DEFAULTS.sidebar_subtitle_ar,
+        subtitleEn: map.sidebar_subtitle_en || SIDEBAR_DEFAULTS.sidebar_subtitle_en,
       },
     });
   } catch (e) {

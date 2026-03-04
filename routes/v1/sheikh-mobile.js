@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const sheikhMobileService = require('../../services/sheikhMobileService');
+const authService = require('../../services/authService');
 const { jwtAuth } = require('../../middleware/jwtAuth');
 const roles = require('../../middleware/roles');
 const { asyncHandler } = require('../../lib/asyncHandler');
@@ -13,6 +14,43 @@ router.post('/register', asyncHandler(async (req, res) => {
 
 router.post('/login', asyncHandler(async (req, res) => {
   const result = await sheikhMobileService.login(req.body);
+  res.json(result);
+}));
+
+// ─── OTP ──────────────────────────────────────────────────────────────────
+router.post('/send-login-otp', asyncHandler(async (req, res) => {
+  const { method, identifier } = req.body;
+  const result = await authService.sendLoginOtp(method, identifier);
+  res.json(result);
+}));
+
+router.post('/resend-otp', asyncHandler(async (req, res) => {
+  const { email, phone } = req.body;
+  if (phone) {
+    await authService.sendLoginOtp('phone', phone);
+    return res.json({ success: true, message: 'OTP resent to phone' });
+  }
+  if (email) {
+    await authService.sendLoginOtp('email', email);
+    return res.json({ success: true, message: 'OTP resent to email' });
+  }
+  const err = new Error('Email or phone is required');
+  err.statusCode = 400;
+  throw err;
+}));
+
+// ─── Forgot / Reset Password ─────────────────────────────────────────────
+router.post('/forgot-password', asyncHandler(async (req, res) => {
+  const result = req.body.student_phone
+    ? await authService.mobileForgotPassword(req.body)
+    : await authService.forgotPassword(req.body);
+  res.json(result);
+}));
+
+router.post('/reset-password', asyncHandler(async (req, res) => {
+  const result = req.body.password_confirmation
+    ? await authService.mobileResetPassword(req.body)
+    : await authService.resetPassword(req.body);
   res.json(result);
 }));
 

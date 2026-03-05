@@ -117,6 +117,16 @@ router.post('/upload/video', sheikhAuth, uploadVideo.single('file'), (req, res, 
   } catch (e) { next(e); }
 });
 
+router.get('/stats/students-count', sheikhAuth, asyncHandler(async (req, res) => {
+  const data = await sheikhMobileService.getStudentsCount(req.user.id);
+  res.json(data);
+}));
+
+router.get('/stats/today-sessions-count', sheikhAuth, asyncHandler(async (req, res) => {
+  const data = await sheikhMobileService.getTodaySessionsCount(req.user.id);
+  res.json(data);
+}));
+
 router.get('/my-students', sheikhAuth, asyncHandler(async (req, res) => {
   const data = await sheikhMobileService.getMyStudents(req.user.id);
   res.json(data);

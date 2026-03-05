@@ -316,13 +316,19 @@ router.delete('/notifications/:id', jwtAuth, async (req, res, next) => {
  * /api/v1/student/my-courses:
  *   get:
  *     tags: [student]
- *     summary: Get my enrolled courses (with sheikh details)
- *     description: Returns the authenticated student's enrolled courses including progress, sheikh details, and course info.
+ *     summary: Get my enrolled courses (FULL details with lessons, videos, sheikhs, progress)
+ *     description: |
+ *       Returns the authenticated student's enrolled courses with COMPLETE details:
+ *       - Course info (name, description, full_description, image, price, level, category, rating, etc.)
+ *       - All lessons with their videos (title, video_url, thumbnail, duration, order)
+ *       - Per-video watch progress and completion status
+ *       - All sheikhs teaching the course (name, image, bio, specialization, rating, experience)
+ *       - Student progress (progress_percentage, completed_videos, completed_at)
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of enrolled courses with sheikh info
+ *         description: Full details of enrolled courses
  *         content:
  *           application/json:
  *             schema:
@@ -336,12 +342,27 @@ router.delete('/notifications/:id', jwtAuth, async (req, res, next) => {
  *                     properties:
  *                       id: { type: string }
  *                       name: { type: string }
+ *                       name_ar: { type: string, nullable: true }
+ *                       description: { type: string }
+ *                       full_description: { type: string }
  *                       image: { type: string, nullable: true }
- *                       video_url: { type: string, nullable: true }
+ *                       intro_video_url: { type: string, nullable: true }
+ *                       intro_video_thumbnail: { type: string, nullable: true }
+ *                       price: { type: number }
+ *                       duration: { type: string, nullable: true }
+ *                       category: { type: string, nullable: true }
+ *                       level: { type: string, nullable: true, enum: [BEGINNER, INTERMEDIATE, ADVANCED] }
+ *                       status: { type: string }
+ *                       is_featured: { type: boolean }
  *                       rating: { type: number }
+ *                       total_reviews: { type: integer }
  *                       total_lessons: { type: integer }
+ *                       total_videos: { type: integer }
+ *                       students_count: { type: integer }
  *                       progress_percentage: { type: integer }
+ *                       completed_videos: { type: integer }
  *                       enrollment_date: { type: string }
+ *                       completed_at: { type: string, nullable: true }
  *                       sheikhs:
  *                         type: array
  *                         items:
@@ -350,8 +371,36 @@ router.delete('/notifications/:id', jwtAuth, async (req, res, next) => {
  *                             id: { type: string }
  *                             name: { type: string }
  *                             image: { type: string, nullable: true }
+ *                             bio: { type: string }
  *                             specialization: { type: string }
  *                             rating: { type: number }
+ *                             experience: { type: integer }
+ *                       lessons:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id: { type: string }
+ *                             title: { type: string }
+ *                             description: { type: string }
+ *                             order: { type: integer }
+ *                             duration_minutes: { type: integer }
+ *                             is_free: { type: boolean }
+ *                             is_completed: { type: boolean }
+ *                             videos_count: { type: integer }
+ *                             videos:
+ *                               type: array
+ *                               items:
+ *                                 type: object
+ *                                 properties:
+ *                                   id: { type: string }
+ *                                   title: { type: string }
+ *                                   video_url: { type: string }
+ *                                   thumbnail_url: { type: string, nullable: true }
+ *                                   duration_seconds: { type: integer }
+ *                                   order: { type: integer }
+ *                                   is_completed: { type: boolean }
+ *                                   watch_progress: { type: integer }
  *       401:
  *         description: Unauthorized
  */

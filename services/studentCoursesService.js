@@ -9,14 +9,22 @@ async function getMyCourses(studentId, lang = 'en') {
     where: { studentId, status: 'ACTIVE' },
     include: {
       course: {
-        select: {
-          id: true,
-          title: true,
-          titleAr: true,
-          image: true,
-          introVideoUrl: true,
-          rating: true,
-          totalLessons: true,
+        include: {
+          courseTeachers: {
+            include: {
+              teacher: {
+                include: {
+                  user: {
+                    select: {
+                      firstName: true, lastName: true,
+                      firstNameAr: true, lastNameAr: true,
+                      avatar: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -24,17 +32,37 @@ async function getMyCourses(studentId, lang = 'en') {
   });
 
   const list = enrollments.map((e) => {
-    const name = courseName(e.course, lang);
+    const c = e.course;
+    const name = courseName(c, lang);
     const progressValue = Number(e.progress) || 0;
     const progressPercentage = Math.round(progressValue * 100);
+
+    const sheikhs = (c.courseTeachers || []).map((ct) => {
+      const t = ct.teacher;
+      const u = t?.user;
+      const sheikhName = lang === 'ar'
+        ? [u?.firstNameAr, u?.lastNameAr].filter(Boolean).join(' ').trim() || [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim()
+        : [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
+      return {
+        id: t.id,
+        name: sheikhName || '—',
+        image: t.image || u?.avatar || null,
+        specialization: lang === 'ar' ? (t?.specialtiesAr || t?.specialties || '—') : (t?.specialties || t?.specialtiesAr || '—'),
+        rating: t.rating ?? 0,
+      };
+    });
+
     return {
-      id: e.course.id,
+      id: c.id,
       name,
-      image: e.course.image || null,
-      video_url: e.course.introVideoUrl || null,
+      image: c.image || null,
+      video_url: c.introVideoUrl || null,
+      rating: c.rating ?? 0,
+      total_lessons: c.totalLessons ?? 0,
       progress_percentage: progressPercentage,
       progress_value: progressValue,
       enrollment_date: e.enrolledAt.toISOString().split('T')[0],
+      sheikhs,
     };
   });
 

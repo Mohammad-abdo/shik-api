@@ -304,4 +304,93 @@ async function getReportsBySheikh(studentId, sheikhId, page = 1, limit = 20, lan
   };
 }
 
-module.exports = { getMySessions, getSessionReport, getMyReports, getReportsBySheikh };
+async function getMyBookings(studentId, page = 1, limit = 20, lang = 'en') {
+  const skip = (page - 1) * limit;
+
+  const [bookings, total] = await Promise.all([
+    prisma.booking.findMany({
+      where: { studentId },
+      include: {
+        teacher: {
+          include: {
+            user: { select: { firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, avatar: true } },
+          },
+        },
+        bookingSessions: {
+          orderBy: { orderIndex: 'asc' },
+          include: { session: { select: { id: true, roomId: true, startedAt: true, endedAt: true } } },
+        },
+      },
+      orderBy: { date: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.booking.count({ where: { studentId } }),
+  ]);
+
+  const teacherIds = [...new Set(bookings.map(b => b.teacherId))];
+  const activeSubs = await prisma.studentSubscription.findMany({
+    where: {
+      studentId,
+      teacherId: { in: teacherIds },
+      status: { in: ['ACTIVE', 'PENDING'] },
+      endDate: { gte: new Date() },
+    },
+    select: { teacherId: true },
+  });
+  const subscribedTeacherIds = new Set(activeSubs.map(s => s.teacherId));
+
+  const sheikhName = (t) => {
+    if (!t?.user) return '—';
+    const u = t.user;
+    return lang === 'ar'
+      ? [u.firstNameAr, u.lastNameAr].filter(Boolean).join(' ').trim() || [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+      : [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  };
+
+  const items = bookings.map((b) => {
+    const t = b.teacher;
+    const sessions = (b.bookingSessions || []).map(bs => ({
+      id: bs.session?.id || bs.id,
+      scheduledDate: bs.scheduledDate?.toISOString?.()?.split('T')[0] ?? '',
+      startTime: bs.startTime,
+      endTime: bs.endTime,
+      status: bs.status,
+      meetingLink: bs.session?.roomId ? `https://meet.example.com/${bs.session.roomId}` : null,
+    }));
+
+    return {
+      id: b.id,
+      date: b.date?.toISOString?.()?.split('T')[0] ?? '',
+      startTime: b.startTime,
+      duration: b.duration,
+      status: b.status,
+      totalPrice: b.totalPrice,
+      notes: b.notes || null,
+      createdAt: b.createdAt,
+      sheikh: {
+        id: t?.id || null,
+        name: sheikhName(t),
+        image: t?.image || t?.user?.avatar || null,
+        specialization: lang === 'ar' ? (t?.specialtiesAr || t?.specialties || '—') : (t?.specialties || t?.specialtiesAr || '—'),
+        rating: t?.rating ?? 0,
+        is_subscribed: subscribedTeacherIds.has(b.teacherId),
+      },
+      sessions,
+    };
+  });
+
+  return {
+    bookings: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: skip + limit < total,
+      hasPrevPage: page > 1,
+    },
+  };
+}
+
+module.exports = { getMySessions, getSessionReport, getMyReports, getReportsBySheikh, getMyBookings };

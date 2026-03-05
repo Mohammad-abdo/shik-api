@@ -723,6 +723,221 @@ async function getPrivacyPolicy() {
   return page || { title: 'Privacy Policy', body: '', bodyAr: null };
 }
 
+// ─── Schedules (المواعيد) ──────────────────────────────────────────────────────
+async function getMySchedules(userId) {
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId },
+    select: { id: true, teacherType: true },
+  });
+  if (!teacher) {
+    const err = new Error('Sheikh profile not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const schedules = await prisma.schedule.findMany({
+    where: { teacherId: teacher.id },
+    orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+  });
+
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return {
+    teacherId: teacher.id,
+    total: schedules.length,
+    schedules: schedules.map(s => ({
+      id: s.id,
+      dayOfWeek: s.dayOfWeek,
+      dayName: DAY_NAMES[s.dayOfWeek] || '',
+      startTime: String(s.startTime || '').slice(0, 5),
+      endTime: String(s.endTime || '').slice(0, 5),
+      isActive: s.isActive,
+    })),
+  };
+}
+
+async function addMySchedules(userId, dto) {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (!teacher) {
+    const err = new Error('Sheikh profile not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const rawSlots = Array.isArray(dto?.slots) ? dto.slots : [dto];
+  if (rawSlots.filter(Boolean).length === 0) {
+    const err = new Error('At least one schedule slot is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  for (const slot of rawSlots) {
+    const day = Number(slot?.dayOfWeek);
+    if (!Number.isInteger(day) || day < 0 || day > 6) {
+      const err = new Error('dayOfWeek must be an integer from 0 (Sunday) to 6 (Saturday)');
+      err.statusCode = 400;
+      throw err;
+    }
+    const st = String(slot?.startTime || '').slice(0, 5);
+    const et = String(slot?.endTime || '').slice(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(st) || !/^\d{2}:\d{2}$/.test(et)) {
+      const err = new Error('startTime and endTime must be in HH:MM format');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (et <= st) {
+      const err = new Error('endTime must be greater than startTime');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  const existing = await prisma.schedule.findMany({
+    where: { teacherId: teacher.id, isActive: true },
+  });
+
+  for (const slot of rawSlots) {
+    const day = Number(slot.dayOfWeek);
+    const st = String(slot.startTime).slice(0, 5);
+    const et = String(slot.endTime).slice(0, 5);
+    const overlap = existing.some(s =>
+      s.dayOfWeek === day &&
+      st < String(s.endTime).slice(0, 5) &&
+      et > String(s.startTime).slice(0, 5)
+    );
+    if (overlap) {
+      const err = new Error(`Schedule overlaps existing slot on day ${day}: ${st}-${et}`);
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
+  const created = [];
+  await prisma.$transaction(async (tx) => {
+    for (const slot of rawSlots) {
+      const schedule = await tx.schedule.create({
+        data: {
+          teacherId: teacher.id,
+          dayOfWeek: Number(slot.dayOfWeek),
+          startTime: String(slot.startTime).slice(0, 5),
+          endTime: String(slot.endTime).slice(0, 5),
+          isActive: true,
+        },
+      });
+      created.push(schedule);
+    }
+    await tx.teacher.update({
+      where: { id: teacher.id },
+      data: { isApproved: false },
+    });
+  });
+
+  return {
+    success: true,
+    message: 'Schedules added — pending admin approval',
+    createdCount: created.length,
+    schedules: created.map(s => ({
+      id: s.id,
+      dayOfWeek: s.dayOfWeek,
+      startTime: String(s.startTime).slice(0, 5),
+      endTime: String(s.endTime).slice(0, 5),
+      isActive: s.isActive,
+    })),
+  };
+}
+
+async function updateMySchedule(userId, scheduleId, dto) {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (!teacher) {
+    const err = new Error('Sheikh profile not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const schedule = await prisma.schedule.findUnique({ where: { id: scheduleId } });
+  if (!schedule || schedule.teacherId !== teacher.id) {
+    const err = new Error('Schedule not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const updates = {};
+  if (dto.dayOfWeek !== undefined) {
+    const day = Number(dto.dayOfWeek);
+    if (!Number.isInteger(day) || day < 0 || day > 6) {
+      const err = new Error('dayOfWeek must be an integer from 0 to 6');
+      err.statusCode = 400;
+      throw err;
+    }
+    updates.dayOfWeek = day;
+  }
+  if (dto.startTime !== undefined) updates.startTime = String(dto.startTime).slice(0, 5);
+  if (dto.endTime !== undefined) updates.endTime = String(dto.endTime).slice(0, 5);
+
+  const finalStart = updates.startTime || String(schedule.startTime).slice(0, 5);
+  const finalEnd = updates.endTime || String(schedule.endTime).slice(0, 5);
+  const finalDay = updates.dayOfWeek !== undefined ? updates.dayOfWeek : schedule.dayOfWeek;
+
+  if (finalEnd <= finalStart) {
+    const err = new Error('endTime must be greater than startTime');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const siblings = await prisma.schedule.findMany({
+    where: { teacherId: teacher.id, isActive: true, id: { not: scheduleId } },
+  });
+  const overlap = siblings.some(s =>
+    s.dayOfWeek === finalDay &&
+    finalStart < String(s.endTime).slice(0, 5) &&
+    finalEnd > String(s.startTime).slice(0, 5)
+  );
+  if (overlap) {
+    const err = new Error(`Updated schedule overlaps existing slot on day ${finalDay}`);
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const [updated] = await prisma.$transaction([
+    prisma.schedule.update({ where: { id: scheduleId }, data: updates }),
+    prisma.teacher.update({ where: { id: teacher.id }, data: { isApproved: false } }),
+  ]);
+
+  return {
+    success: true,
+    message: 'Schedule updated — pending admin approval',
+    schedule: {
+      id: updated.id,
+      dayOfWeek: updated.dayOfWeek,
+      startTime: String(updated.startTime).slice(0, 5),
+      endTime: String(updated.endTime).slice(0, 5),
+      isActive: updated.isActive,
+    },
+  };
+}
+
+async function deleteMySchedule(userId, scheduleId) {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (!teacher) {
+    const err = new Error('Sheikh profile not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const schedule = await prisma.schedule.findUnique({ where: { id: scheduleId } });
+  if (!schedule || schedule.teacherId !== teacher.id) {
+    const err = new Error('Schedule not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  await prisma.$transaction([
+    prisma.schedule.delete({ where: { id: scheduleId } }),
+    prisma.teacher.update({ where: { id: teacher.id }, data: { isApproved: false } }),
+  ]);
+
+  return { success: true, message: 'Schedule deleted — pending admin approval' };
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 async function getStudentsCount(userId) {
   const teacher = await prisma.teacher.findUnique({ where: { userId } });
@@ -785,6 +1000,10 @@ module.exports = {
   addMemorization,
   addRevision,
   addSessionReport,
+  getMySchedules,
+  addMySchedules,
+  updateMySchedule,
+  deleteMySchedule,
   getWallet,
   requestWithdraw,
   deleteAccount,

@@ -313,6 +313,145 @@ router.delete('/notifications/:id', jwtAuth, async (req, res, next) => {
 
 /**
  * @openapi
+ * /api/v1/student/my-courses:
+ *   get:
+ *     tags: [student]
+ *     summary: Get my enrolled courses (with sheikh details)
+ *     description: Returns the authenticated student's enrolled courses including progress, sheikh details, and course info.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of enrolled courses with sheikh info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: boolean, example: true }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string }
+ *                       name: { type: string }
+ *                       image: { type: string, nullable: true }
+ *                       video_url: { type: string, nullable: true }
+ *                       rating: { type: number }
+ *                       total_lessons: { type: integer }
+ *                       progress_percentage: { type: integer }
+ *                       enrollment_date: { type: string }
+ *                       sheikhs:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id: { type: string }
+ *                             name: { type: string }
+ *                             image: { type: string, nullable: true }
+ *                             specialization: { type: string }
+ *                             rating: { type: number }
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/my-courses', jwtAuth, async (req, res, next) => {
+  try {
+    const lang = getLang(req);
+    const data = await studentCoursesService.getMyCourses(req.user.id, lang);
+    res.json({ status: true, data });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /api/v1/student/my-bookings:
+ *   get:
+ *     tags: [student]
+ *     summary: Get all my bookings (with sheikh details and subscription status)
+ *     description: Returns all bookings for the authenticated student, including sheikh details and whether the student is currently subscribed to each sheikh.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *         description: Page number (1-based)
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *         description: Items per page (max 100)
+ *     responses:
+ *       200:
+ *         description: Paginated list of student bookings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     bookings:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: string }
+ *                           date: { type: string }
+ *                           startTime: { type: string }
+ *                           duration: { type: integer }
+ *                           status: { type: string, enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED, REJECTED] }
+ *                           totalPrice: { type: number }
+ *                           sheikh:
+ *                             type: object
+ *                             properties:
+ *                               id: { type: string }
+ *                               name: { type: string }
+ *                               image: { type: string, nullable: true }
+ *                               specialization: { type: string }
+ *                               rating: { type: number }
+ *                               is_subscribed: { type: boolean, description: 'Whether the student is currently subscribed to this sheikh' }
+ *                           sessions:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 id: { type: string }
+ *                                 scheduledDate: { type: string }
+ *                                 startTime: { type: string }
+ *                                 endTime: { type: string }
+ *                                 status: { type: string }
+ *                                 meetingLink: { type: string, nullable: true }
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page: { type: integer }
+ *                         limit: { type: integer }
+ *                         total: { type: integer }
+ *                         totalPages: { type: integer }
+ *                         hasNextPage: { type: boolean }
+ *                         hasPrevPage: { type: boolean }
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/my-bookings', jwtAuth, async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const lang = getLang(req);
+    const data = await studentSessionsService.getMyBookings(req.user.id, page, limit, lang);
+    res.json({ status: true, data });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
  * /api/v1/student/sessions:
  *   get:
  *     tags: [student]

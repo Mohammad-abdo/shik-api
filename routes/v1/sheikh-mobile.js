@@ -180,6 +180,28 @@ router.post('/session/:sessionId/report', sheikhAuth, asyncHandler(async (req, r
   res.status(201).json(result);
 }));
 
+// ─── Schedules (المواعيد) ─────────────────────────────────────────────────────
+router.get('/my-schedules', sheikhAuth, asyncHandler(async (req, res) => {
+  const data = await sheikhMobileService.getMySchedules(req.user.id);
+  res.json(data);
+}));
+
+router.post('/my-schedules', sheikhAuth, asyncHandler(async (req, res) => {
+  const result = await sheikhMobileService.addMySchedules(req.user.id, req.body);
+  res.status(201).json(result);
+}));
+
+router.put('/my-schedules/:scheduleId', sheikhAuth, asyncHandler(async (req, res) => {
+  const result = await sheikhMobileService.updateMySchedule(req.user.id, req.params.scheduleId, req.body);
+  res.json(result);
+}));
+
+router.delete('/my-schedules/:scheduleId', sheikhAuth, asyncHandler(async (req, res) => {
+  const result = await sheikhMobileService.deleteMySchedule(req.user.id, req.params.scheduleId);
+  res.json(result);
+}));
+
+// ─── Wallet ───────────────────────────────────────────────────────────────────
 router.get('/wallet', sheikhAuth, asyncHandler(async (req, res) => {
   const data = await sheikhMobileService.getWallet(req.user.id);
   res.json(data);

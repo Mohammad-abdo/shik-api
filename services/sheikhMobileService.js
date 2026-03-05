@@ -723,6 +723,55 @@ async function getPrivacyPolicy() {
   return page || { title: 'Privacy Policy', body: '', bodyAr: null };
 }
 
+// ─── Stats ────────────────────────────────────────────────────────────────────
+async function getStudentsCount(userId) {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (!teacher) return { totalStudents: 0, activeStudents: 0 };
+
+  const activeCount = await prisma.studentSubscription.count({
+    where: {
+      teacherId: teacher.id,
+      status: 'ACTIVE',
+      paymentId: { not: null },
+      payment: { status: 'COMPLETED' },
+    },
+  });
+
+  const allCount = await prisma.studentSubscription.count({
+    where: {
+      teacherId: teacher.id,
+      paymentId: { not: null },
+      payment: { status: 'COMPLETED' },
+    },
+  });
+
+  return { totalStudents: allCount, activeStudents: activeCount };
+}
+
+async function getTodaySessionsCount(userId) {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (!teacher) return { total: 0, completed: 0, pending: 0, cancelled: 0 };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const where = {
+    booking: { teacherId: teacher.id },
+    scheduledDate: { gte: today, lt: tomorrow },
+  };
+
+  const [total, completed, pending, cancelled] = await Promise.all([
+    prisma.bookingSession.count({ where }),
+    prisma.bookingSession.count({ where: { ...where, status: 'COMPLETED' } }),
+    prisma.bookingSession.count({ where: { ...where, status: 'PENDING' } }),
+    prisma.bookingSession.count({ where: { ...where, status: 'CANCELLED' } }),
+  ]);
+
+  return { total, completed, pending, cancelled };
+}
+
 module.exports = {
   register,
   login,
@@ -741,4 +790,6 @@ module.exports = {
   deleteAccount,
   getAbout,
   getPrivacyPolicy,
+  getStudentsCount,
+  getTodaySessionsCount,
 };

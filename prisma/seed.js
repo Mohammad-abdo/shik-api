@@ -1003,25 +1003,115 @@ async function main() {
   }
   console.log('Courses, lessons, and videos created');
 
+  // ── CourseTeacher join records (so getMyCourses returns sheikhs via courseTeachers) ──
+  for (let i = 0; i < createdCourses.length; i++) {
+    const course = createdCourses[i];
+    const primaryTeacher = createdTeachers.find(t => t.teacher.id === course.teacherId);
+    if (primaryTeacher) {
+      try {
+        await prisma.courseTeacher.upsert({
+          where: { courseId_teacherId: { courseId: course.id, teacherId: primaryTeacher.teacher.id } },
+          update: {},
+          create: { courseId: course.id, teacherId: primaryTeacher.teacher.id },
+        });
+      } catch (_) {}
+    }
+    const secondTeacher = createdTeachers[(i + 1) % createdTeachers.length];
+    if (secondTeacher && secondTeacher.teacher.id !== course.teacherId) {
+      try {
+        await prisma.courseTeacher.upsert({
+          where: { courseId_teacherId: { courseId: course.id, teacherId: secondTeacher.teacher.id } },
+          update: {},
+          create: { courseId: course.id, teacherId: secondTeacher.teacher.id },
+        });
+      } catch (_) {}
+    }
+  }
+  console.log('CourseTeacher join records created');
+
+  // ── Enroll every student in multiple courses (varied progress) ──
   const enrollmentsData = [];
-  for (let i = 0; i < 10; i++) {
-    enrollmentsData.push({
-      courseId: createdCourses[i % createdCourses.length].id,
-      studentId: createdStudents[i % createdStudents.length].id,
-      status: 'ACTIVE',
-      progress: Math.random() * 100,
-    });
+  for (let si = 0; si < createdStudents.length; si++) {
+    for (let ci = 0; ci < createdCourses.length; ci++) {
+      const progressTiers = [0.0, 0.25, 0.5, 0.75, 1.0];
+      const progress = progressTiers[(si + ci) % progressTiers.length];
+      const isCompleted = progress >= 1.0;
+      enrollmentsData.push({
+        courseId: createdCourses[ci].id,
+        studentId: createdStudents[si].id,
+        status: isCompleted ? 'COMPLETED' : 'ACTIVE',
+        progress,
+        completedAt: isCompleted ? new Date() : null,
+      });
+    }
   }
   for (const e of enrollmentsData) {
     try {
       await prisma.courseEnrollment.upsert({
         where: { courseId_studentId: { courseId: e.courseId, studentId: e.studentId } },
-        update: {},
+        update: { progress: e.progress, status: e.status, completedAt: e.completedAt },
         create: e,
       });
     } catch (err) { }
   }
-  console.log('Course enrollments created');
+  console.log(`Course enrollments created: ${enrollmentsData.length} (every student × every course)`);
+
+  // ── VideoProgress for all enrolled students (realistic watch data) ──
+  const allEnrollments = await prisma.courseEnrollment.findMany({
+    include: {
+      course: {
+        include: {
+          lessons: {
+            orderBy: { order: 'asc' },
+            include: { videos: { orderBy: { order: 'asc' } } },
+          },
+        },
+      },
+    },
+  });
+
+  let vpCreated = 0;
+  for (const enrollment of allEnrollments) {
+    const { studentId, courseId, progress, course } = enrollment;
+    const allVideos = (course.lessons || []).flatMap(l => (l.videos || []).map(v => ({ ...v, lessonId: l.id })));
+    if (allVideos.length === 0) continue;
+
+    const completedCount = Math.round(progress * allVideos.length);
+    for (let vi = 0; vi < allVideos.length; vi++) {
+      const video = allVideos[vi];
+      const isCompleted = vi < completedCount;
+      const isWatching = vi === completedCount;
+      if (!isCompleted && !isWatching) continue;
+
+      const watchProg = isCompleted ? 100 : Math.floor(Math.random() * 70 + 10);
+      const watchSec = isCompleted ? video.durationSeconds : Math.floor(video.durationSeconds * watchProg / 100);
+
+      try {
+        await prisma.videoProgress.upsert({
+          where: { userId_videoId: { userId: studentId, videoId: video.id } },
+          update: {
+            status: isCompleted ? 'COMPLETED' : 'WATCHING',
+            watchProgress: watchProg,
+            watchDurationSeconds: watchSec,
+            completedAt: isCompleted ? new Date() : null,
+          },
+          create: {
+            userId: studentId,
+            videoId: video.id,
+            lessonId: video.lessonId,
+            courseId,
+            status: isCompleted ? 'COMPLETED' : 'WATCHING',
+            watchProgress: watchProg,
+            watchDurationSeconds: watchSec,
+            startedAt: new Date(Date.now() - (allVideos.length - vi) * 86400000),
+            completedAt: isCompleted ? new Date() : null,
+          },
+        });
+        vpCreated++;
+      } catch (_) {}
+    }
+  }
+  console.log(`VideoProgress records created: ${vpCreated}`);
 
   // Seed reviews (BOOKING for completed bookings, plus sample SHEIKH and COURSE reviews)
   const bookingReviewComments = [

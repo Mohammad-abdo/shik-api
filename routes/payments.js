@@ -627,8 +627,8 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
 // Fawry callback and webhook (same handler; Fawry may call either URL)
 const fawryWebhookHandler = async (req, res, next) => {
   const payload = req.body || {};
-  const merchantRefNum = payload.merchantRefNumber || payload.merchantRefNum;
-  const orderStatus = (payload.orderStatus || '').toUpperCase();
+  const merchantRefNum = String(payload.merchantRefNumber || payload.merchantRefNum || '').trim();
+  const orderStatus = String(payload.orderStatus || payload.paymentStatus || payload.status || '').trim().toUpperCase();
   // Log all callback payloads (redact nothing critical; secureKey is never in payload)
   try {
     const logger = require('../utils/logger');
@@ -664,10 +664,13 @@ const fawryWebhookHandler = async (req, res, next) => {
       return res.status(200).json({ received: true, alreadyProcessed: true, paymentId: payment.id });
     }
 
+    const paidOrderStatuses = new Set(['PAID', 'SUCCESS', 'SUCCESSFUL', 'PAID_AT_FAWRY', 'PAIDATFAWRY']);
+    const failedOrderStatuses = new Set(['FAILED', 'FAIL', 'EXPIRED', 'CANCELED', 'CANCELLED', 'VOIDED']);
+
     let newStatus = payment.status;
-    if (orderStatus === 'PAID') {
+    if (paidOrderStatuses.has(orderStatus) || Number(payload.statusCode) === 200) {
       newStatus = 'COMPLETED';
-    } else if (['FAILED', 'EXPIRED', 'CANCELED', 'CANCELLED'].includes(orderStatus)) {
+    } else if (failedOrderStatuses.has(orderStatus)) {
       newStatus = 'FAILED';
     }
 
@@ -680,16 +683,14 @@ const fawryWebhookHandler = async (req, res, next) => {
         },
       });
 
-      let bookingUpdateCount = 0;
       if (newStatus === 'COMPLETED' && payment.bookingId) {
-        const bookingUpdate = await prisma.booking.updateMany({
+        await tx.booking.updateMany({
           where: { id: payment.bookingId, status: 'PENDING' },
           data: { status: 'CONFIRMED' },
         });
-        bookingUpdateCount = bookingUpdate.count;
 
         if (payment.booking?.courseId && payment.booking?.studentId) {
-          await prisma.courseEnrollment.upsert({
+          await tx.courseEnrollment.upsert({
             where: {
               courseId_studentId: {
                 courseId: payment.booking.courseId,
@@ -709,7 +710,7 @@ const fawryWebhookHandler = async (req, res, next) => {
         }
       }
 
-      if (payment.paymentType === 'SUBSCRIPTION' && payment.subscriptionId) {
+      if (newStatus === 'COMPLETED' && payment.paymentType === 'SUBSCRIPTION' && payment.subscriptionId) {
         await tx.studentSubscription.updateMany({
           where: { id: payment.subscriptionId, status: 'PENDING' },
           data: { status: 'ACTIVE', paymentId: payment.id },
@@ -720,7 +721,7 @@ const fawryWebhookHandler = async (req, res, next) => {
         });
       }
 
-      if (payment.paymentType === 'COURSE' && payment.courseId && payment.userId) {
+      if (newStatus === 'COMPLETED' && payment.paymentType === 'COURSE' && payment.courseId && payment.userId) {
         await tx.courseEnrollment.upsert({
           where: {
             courseId_studentId: { courseId: payment.courseId, studentId: payment.userId },

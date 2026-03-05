@@ -246,17 +246,36 @@ async function createCharge(chargeRequest) {
 }
 
 function verifyWebhookSignature(payload, secureKey) {
-  const a = (payload.fawryRefNumber || '').toString();
-  const b = (payload.merchantRefNumber || payload.merchantRefNum || '').toString();
-  const c = formatTwoDecimals(payload.paymentAmount);
-  const d = formatTwoDecimals(payload.orderAmount);
-  const e = (payload.orderStatus || '').toString();
-  const f = (payload.paymentMethod || '').toString();
-  const g = (payload.paymentRefrenceNumber || payload.paymentReferenceNumber || '').toString();
-  const str = a + b + c + d + e + f + g + String(secureKey || '').trim();
-  const expected = crypto.createHash('sha256').update(str, 'utf8').digest('hex').toLowerCase();
-  const received = (payload.messageSignature || '').toLowerCase();
-  return expected === received;
+  const received = String(payload.messageSignature || '').trim().toLowerCase();
+  if (!received) return false;
+
+  const a = String(payload.fawryRefNumber || '').trim();
+  const b = String(payload.merchantRefNumber || payload.merchantRefNum || '').trim();
+  const e = String(payload.orderStatus || '').trim();
+  const f = String(payload.paymentMethod || '').trim();
+  const g = String(payload.paymentRefrenceNumber || payload.paymentReferenceNumber || payload.referenceNumber || '').trim();
+
+  const paymentAmountRaw = payload.paymentAmount == null ? '' : String(payload.paymentAmount).trim();
+  const orderAmountRaw = payload.orderAmount == null ? '' : String(payload.orderAmount).trim();
+  const amountCandidates = [formatTwoDecimals(payload.paymentAmount), paymentAmountRaw].filter(Boolean);
+  const orderAmountCandidates = [formatTwoDecimals(payload.orderAmount), orderAmountRaw].filter(Boolean);
+
+  const signatureInputs = new Set();
+  for (const c of amountCandidates) {
+    for (const d of orderAmountCandidates) {
+      signatureInputs.add(a + b + c + d + e + f + g + String(secureKey || '').trim());
+    }
+  }
+
+  // Fallback for callbacks that omit payment reference numbers.
+  signatureInputs.add(a + b + formatTwoDecimals(payload.paymentAmount) + formatTwoDecimals(payload.orderAmount) + e + f + '' + String(secureKey || '').trim());
+
+  for (const input of signatureInputs) {
+    const expected = crypto.createHash('sha256').update(input, 'utf8').digest('hex').toLowerCase();
+    if (expected === received) return true;
+  }
+
+  return false;
 }
 
 function formatTwoDecimals(v) {

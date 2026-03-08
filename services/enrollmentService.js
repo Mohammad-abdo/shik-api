@@ -50,20 +50,101 @@ async function enrollInCourse(courseId, studentId, sheikId = null, options = {})
 
   // Paid course: require either bypassPayment or a completed payment for this course
   if (!bypassPayment && Number(course.price || 0) > 0) {
-    const completedPayment = await prisma.payment.findFirst({
+    // 1) Payment linked via booking (course flow creates Payment with bookingId; booking has courseId + studentId)
+    let completedPayment = await prisma.payment.findFirst({
       where: {
         status: 'COMPLETED',
-        OR: [
-          { courseId, userId: studentId },
-          {
-            booking: {
-              courseId,
-              studentId
+        booking: { courseId, studentId },
+      },
+    });
+    // 2) Payment with direct courseId + userId (some flows set these)
+    if (!completedPayment) {
+      completedPayment = await prisma.payment.findFirst({
+        where: {
+          status: 'COMPLETED',
+          courseId,
+          userId: studentId,
+        },
+      });
+    }
+    // 3) Via booking: find booking for this course+student and check its payment
+    if (!completedPayment) {
+      const bookingWithPayment = await prisma.booking.findFirst({
+        where: { courseId, studentId, status: { in: ['PENDING', 'CONFIRMED'] } },
+        include: { payment: true },
+      });
+      if (bookingWithPayment?.payment?.status === 'COMPLETED') {
+        completedPayment = bookingWithPayment.payment;
+      }
+    }
+    // 4) If still no completed payment: sync with Fawry (webhook may not have run)
+    if (!completedPayment) {
+      const pendingBooking = await prisma.booking.findFirst({
+        where: { courseId, studentId, status: { in: ['PENDING', 'CONFIRMED'] } },
+        include: { payment: true },
+      });
+      const pendingPayment = pendingBooking?.payment;
+      if (pendingPayment?.status === 'PENDING' && pendingPayment?.merchantRefNum) {
+        try {
+          const fawryStatus = await fawryService.getPaymentStatus(pendingPayment.merchantRefNum);
+          const orderStatus = String(fawryStatus?.orderStatus || fawryStatus?.paymentStatus || fawryStatus?.status || '').trim().toUpperCase();
+          const statusCode = fawryStatus?.statusCode;
+          const isPaid = orderStatus === 'PAID' || orderStatus === 'SUCCESS' || Number(statusCode) === 200;
+          if (isPaid) {
+            await prisma.$transaction([
+              prisma.payment.update({
+                where: { id: pendingPayment.id },
+                data: {
+                  status: 'COMPLETED',
+                  fawryRefNumber: fawryStatus?.referenceNumber || fawryStatus?.fawryRefNumber || pendingPayment.fawryRefNumber,
+                },
+              }),
+              prisma.booking.updateMany({
+                where: { id: pendingBooking.id, status: 'PENDING' },
+                data: { status: 'CONFIRMED' },
+              }),
+              prisma.courseEnrollment.upsert({
+                where: { courseId_studentId: { courseId, studentId } },
+                create: { courseId, studentId, status: 'ACTIVE', progress: 0 },
+                update: { status: 'ACTIVE' },
+              }),
+            ]);
+            completedPayment = await prisma.payment.findUnique({ where: { id: pendingPayment.id } });
+            const enrollmentAfterSync = await prisma.courseEnrollment.findUnique({
+              where: { courseId_studentId: { courseId, studentId } },
+              include: {
+                course: { include: { teacher: { include: { user: true } } } },
+                student: true,
+              },
+            });
+            if (enrollmentAfterSync) {
+              const e = enrollmentAfterSync;
+              return {
+                id: e.id,
+                courseId: e.courseId,
+                studentId: e.studentId,
+                status: e.status,
+                enrolledAt: e.enrolledAt,
+                progress: e.progress,
+                course: {
+                  id: e.course.id,
+                  title: e.course.title,
+                  titleAr: e.course.titleAr,
+                  description: e.course.description,
+                  descriptionAr: e.course.descriptionAr,
+                  price: e.course.price,
+                  image: e.course.image,
+                  teacher: e.course.teacher,
+                },
+                student: e.student,
+              };
             }
           }
-        ]
+        } catch (err) {
+          // Fawry API error or network: do not block; will throw 402 below
+        }
       }
-    });
+    }
     if (!completedPayment) {
       throw Object.assign(
         new Error('This course requires payment first. Please pay with Fawry before enrollment.'),

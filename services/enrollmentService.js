@@ -292,9 +292,11 @@ async function createCourseFawryReference(courseId, student, options = {}) {
   const expiryHours = Number(options.expiryHours) > 0 ? Number(options.expiryHours) : 24;
   const expiryTimestamp = Date.now() + expiryHours * 60 * 60 * 1000;
   const paymentExpiry = String(expiryTimestamp);
+  // Webhook must be a full public URL so Fawry can notify when payment is done (set FAWRY_ORDER_WEBHOOK_URL or BASE_URL)
+  const apiBase = (process.env.BASE_URL || process.env.API_URL || '').replace(/\/$/, '');
   const orderWebHookUrl =
     process.env.FAWRY_ORDER_WEBHOOK_URL ||
-    (BASE_URL ? `${BASE_URL.replace(/\/$/, '')}/api/payments/fawry/webhook` : undefined);
+    (apiBase ? `${apiBase}/api/payments/fawry/webhook` : undefined);
 
   const profileDigits = String(student.id || '0').replace(/\D/g, '').slice(0, 10) || '0';
   const customerName =
@@ -500,9 +502,87 @@ async function updateEnrollmentProgress(courseId, studentId, progress) {
   });
 }
 
+/**
+ * Get or create booking and payment for a course (for checkout link).
+ * Returns { course, booking, payment } or throws. Does not call Fawry.
+ */
+async function getOrCreateCourseBookingAndPayment(courseId, studentId) {
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    include: { teacher: true, courseTeachers: true },
+  });
+  if (!course) throw Object.assign(new Error('Course not found'), { statusCode: 404 });
+  if (course.status !== 'PUBLISHED') throw Object.assign(new Error('Course is not available for enrollment'), { statusCode: 400 });
+
+  const existingEnrollment = await prisma.courseEnrollment.findUnique({
+    where: { courseId_studentId: { courseId, studentId } },
+  });
+  if (existingEnrollment) throw Object.assign(new Error('Student is already enrolled in this course'), { statusCode: 400 });
+
+  if (Number(course.price || 0) <= 0) {
+    const enrollment = await enrollInCourse(courseId, studentId, null, { bypassPayment: true });
+    return { course, enrollment, booking: null, payment: null, freeCourse: true };
+  }
+
+  const teacherId = course.teacherId || course.courseTeachers?.[0]?.teacherId || null;
+  if (!teacherId) throw Object.assign(new Error('No teacher linked to this course'), { statusCode: 400 });
+
+  let booking = await prisma.booking.findFirst({
+    where: { studentId, courseId, status: { in: ['PENDING', 'CONFIRMED'] } },
+    include: { payment: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (booking?.payment?.status === 'COMPLETED') {
+    const enrollment = await prisma.courseEnrollment.upsert({
+      where: { courseId_studentId: { courseId, studentId } },
+      create: { courseId, studentId, status: 'ACTIVE', progress: 0 },
+      update: { status: 'ACTIVE' },
+    });
+    return { course, enrollment, booking, payment: booking.payment, freeCourse: false };
+  }
+
+  if (!booking) {
+    booking = await prisma.booking.create({
+      data: {
+        studentId,
+        teacherId,
+        courseId,
+        date: new Date(),
+        startTime: '00:00',
+        duration: Math.max(1, (course.duration || 1) * 60),
+        status: 'PENDING',
+        price: Number(course.price),
+        totalPrice: Number(course.price),
+        discount: 0,
+        notes: `Course purchase: ${course.title}`,
+        type: 'SINGLE',
+      },
+      include: { payment: true },
+    });
+  }
+
+  const merchantRefNum = String(Math.floor(Math.random() * 900000000) + 100000000);
+  const payment = await prisma.payment.upsert({
+    where: { bookingId: booking.id },
+    create: {
+      bookingId: booking.id,
+      amount: Number(course.price),
+      currency: process.env.FAWRY_CURRENCY || 'EGP',
+      status: 'PENDING',
+      paymentMethod: 'CARD',
+      merchantRefNum,
+    },
+    update: { merchantRefNum, status: 'PENDING', paymentMethod: 'CARD' },
+  });
+
+  return { course, enrollment: null, booking, payment, freeCourse: false };
+}
+
 module.exports = {
   enrollInCourse,
   createCourseFawryReference,
+  getOrCreateCourseBookingAndPayment,
   getStudentEnrollments,
   checkEnrollment,
   updateEnrollmentProgress

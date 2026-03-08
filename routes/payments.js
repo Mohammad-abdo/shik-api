@@ -5,6 +5,7 @@ const { jwtAuth } = require('../middleware/jwtAuth');
 const Stripe = require('stripe');
 const fawryService = require('../services/fawry');
 const { getSettingsMap } = require('./settings');
+const enrollmentService = require('../services/enrollmentService');
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const stripe = stripeSecret ? new Stripe(stripeSecret, { apiVersion: '2023-10-16' }) : null;
@@ -326,6 +327,7 @@ router.get('/fawry', (req, res) => {
     payAtFawryEnabled: process.env.FAWRY_PAYATFAWRY_ENABLED === 'true',
     endpoints: {
       checkoutLink: 'POST /api/payments/fawry/checkout-link',
+      checkoutLinkCourse: 'POST /api/payments/fawry/checkout-link/course',
       referenceNumber: 'POST /api/payments/fawry/reference-number',
       webhook: 'POST /api/payments/fawry/webhook',
       status: 'GET /api/payments/fawry/status/:merchantRefNum',
@@ -512,6 +514,147 @@ router.post('/fawry/checkout-link', jwtAuth, async (req, res, next) => {
     const body = {
       success: false,
       message: e.message || 'Fawry request failed',
+      data: e.fawryResponse ? { fawryResponse: e.fawryResponse } : null,
+      statusCode: status,
+    };
+    res.status(status).json(body);
+  }
+});
+
+// Course checkout link (like booking checkout link — CARD/MWALLET, redirect after payment)
+/**
+ * @openapi
+ * /api/payments/fawry/checkout-link/course:
+ *   post:
+ *     tags: [payments]
+ *     summary: Create Fawry checkout link for course purchase
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               courseId: { type: string }
+ *               returnUrl: { type: string }
+ *               language: { type: string }
+ *               paymentMethod: { type: string }
+ *     responses:
+ *       201:
+ *         description: Created
+ *       400:
+ *         description: Invalid request
+ */
+router.post('/fawry/checkout-link/course', jwtAuth, async (req, res, next) => {
+  try {
+    if (!FAWRY_MERCHANT_CODE || !FAWRY_SECURE_KEY) {
+      const e = new Error('Fawry is not configured');
+      e.statusCode = 503;
+      return next(e);
+    }
+    const { courseId, returnUrl, language, paymentMethod, mobileNumber } = req.body || {};
+    if (!courseId) {
+      const e = new Error('courseId is required');
+      e.statusCode = 400;
+      return next(e);
+    }
+    const studentId = req.user.id;
+    const { course, booking, payment, freeCourse } = await enrollmentService.getOrCreateCourseBookingAndPayment(courseId, studentId);
+
+    if (freeCourse) {
+      return res.status(201).json({
+        freeCourse: true,
+        message: 'Course is free; enrollment completed.',
+        enrollment: (await prisma.courseEnrollment.findUnique({
+          where: { courseId_studentId: { courseId, studentId } },
+          include: { course: true },
+        })),
+      });
+    }
+    if (!booking || !payment) {
+      const e = new Error('Booking or payment not found');
+      e.statusCode = 500;
+      return next(e);
+    }
+    if (payment.status === 'COMPLETED') {
+      return res.status(201).json({
+        alreadyPaid: true,
+        message: 'Payment already completed; you are enrolled.',
+        courseId,
+        enrollment: await prisma.courseEnrollment.findUnique({
+          where: { courseId_studentId: { courseId, studentId } },
+          include: { course: true },
+        }),
+      });
+    }
+
+    const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const defaultReturnUrl = `${FRONTEND_URL}/payment/success?courseId=${courseId}`;
+    const finalReturnUrl = returnUrl || defaultReturnUrl;
+
+    const student = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, student_phone: true },
+    });
+    const customerName = [student?.firstName, student?.lastName].filter(Boolean).join(' ') || student?.email || 'Student';
+    const useTestPayload = process.env.FAWRY_USE_TEST_PAYLOAD === 'true' || process.env.FAWRY_USE_TEST_PAYLOAD === '1';
+    const customerProfileId = useTestPayload ? '1212' : (String(studentId).replace(/\D/g, '').slice(0, 10) || '0');
+    const settings = await getSettingsMap();
+    const currencyCode = settings.currency_code || process.env.FAWRY_CURRENCY || 'EGP';
+
+    const chargeItems = useTestPayload
+      ? [
+          { itemId: '6b5fdea340e31b3b0339d4d4ae5', description: 'Product Description', price: 50.00, quantity: 2 },
+          { itemId: '97092dd9e9c07888c7eef36', description: 'Product Description', price: 75.25, quantity: 3 },
+        ]
+      : [
+          {
+            itemId: course.id.replace(/-/g, ''),
+            description: `Course: ${course.title}`,
+            price: Number(course.price),
+            quantity: 1,
+          },
+        ];
+
+    const paymentExpiry = String(Date.now() + 60 * 60 * 1000);
+    const orderWebHookUrl = process.env.FAWRY_ORDER_WEBHOOK_URL || (BASE_URL ? `${BASE_URL.replace(/\/$/, '')}/api/payments/fawry/webhook` : undefined);
+    const method = paymentMethod && ['CARD', 'PayAtFawry', 'MWALLET'].includes(paymentMethod) ? paymentMethod : 'CARD';
+    const studentMobile = mobileNumber || student?.phone || student?.student_phone || '';
+
+    const chargeRequest = fawryService.buildChargeRequest({
+      merchantCode: FAWRY_MERCHANT_CODE,
+      merchantRefNum: String(payment.merchantRefNum),
+      customerMobile: String(studentMobile).replace(/\s+/g, ''),
+      customerEmail: student?.email,
+      customerName: useTestPayload ? 'Customer Name' : customerName,
+      customerProfileId,
+      returnUrl: useTestPayload ? 'https://developer.fawrystaging.com' : finalReturnUrl,
+      chargeItems,
+      language: language === 'en-gb' ? 'en-gb' : 'ar-eg',
+      secureKey: FAWRY_SECURE_KEY,
+      paymentExpiry,
+      orderWebHookUrl: useTestPayload ? undefined : orderWebHookUrl,
+      paymentMethod: method,
+    });
+
+    const result = await fawryService.createCharge(chargeRequest);
+    const responseData = {
+      paymentUrl: result.paymentUrl,
+      paymentQr: result.paymentQr,
+      merchantRefNum: payment.merchantRefNum,
+      paymentId: payment.id,
+      courseId,
+      bookingId: booking.id,
+      originalResponse: result.originalResponse,
+      ...(result.expiresAt && { expiresAt: result.expiresAt }),
+    };
+    res.status(201).json(responseData);
+  } catch (e) {
+    const status = e.statusCode || e.status || 502;
+    const body = {
+      success: false,
+      message: e.message || 'Fawry checkout link failed',
       data: e.fawryResponse ? { fawryResponse: e.fawryResponse } : null,
       statusCode: status,
     };
@@ -716,11 +859,19 @@ router.post('/fawry/reference-number', jwtAuth, async (req, res, next) => {
 const fawryWebhookHandler = async (req, res, next) => {
   const payload = req.body || {};
   const merchantRefNum = String(payload.merchantRefNumber || payload.merchantRefNum || '').trim();
-  const orderStatus = String(payload.orderStatus || payload.paymentStatus || payload.status || '').trim().toUpperCase();
-  // Log all callback payloads (redact nothing critical; secureKey is never in payload)
+  const orderStatus = String(
+    payload.orderStatus || payload.paymentStatus || payload.status || payload.orderStatusDescription || ''
+  ).trim().toUpperCase();
+  const fawryRefNumber = payload.fawryRefNumber || payload.fawryRefNum || payload.referenceNumber || payload.paymentRefrenceNumber || payload.paymentReferenceNumber;
+
   try {
     const logger = require('../utils/logger');
-    logger.info('Fawry webhook received', { merchantRefNum, orderStatus, payload: { ...payload, messageSignature: payload.messageSignature ? '[REDACTED]' : undefined } });
+    logger.info('Fawry webhook received', {
+      merchantRefNum,
+      orderStatus,
+      fawryRefNumber: fawryRefNumber ? String(fawryRefNumber).slice(0, 12) + '...' : undefined,
+      hasSignature: !!(payload.messageSignature || payload.signature),
+    });
   } catch (_) {
     console.log('Fawry webhook', { merchantRefNum, orderStatus });
   }
@@ -732,6 +883,12 @@ const fawryWebhookHandler = async (req, res, next) => {
     }
     const valid = fawryService.verifyWebhookSignature(payload, secureKey);
     if (!valid) {
+      try {
+        const logger = require('../utils/logger');
+        logger.warn('Fawry webhook signature invalid', { merchantRefNum, orderStatus });
+      } catch (_) {
+        console.warn('Fawry webhook signature invalid', merchantRefNum, orderStatus);
+      }
       return res.status(400).send();
     }
 
@@ -744,13 +901,19 @@ const fawryWebhookHandler = async (req, res, next) => {
       include: { booking: true },
     });
     if (!payment) {
+      try {
+        const logger = require('../utils/logger');
+        logger.warn('Fawry webhook: payment not found for merchantRefNum', { merchantRefNum });
+      } catch (_) {
+        console.warn('Fawry webhook: payment not found', merchantRefNum);
+      }
       return res.status(200).json({ received: true });
     }
 
     const { finalStatus, alreadyProcessed } = await applyPaymentTransition(payment, {
       orderStatus,
       statusCode: payload.statusCode,
-      fawryRefNumber: payload.fawryRefNumber,
+      fawryRefNumber,
     });
 
     res.status(200).json({

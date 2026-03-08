@@ -246,19 +246,21 @@ async function createCharge(chargeRequest) {
 }
 
 function verifyWebhookSignature(payload, secureKey) {
-  const received = String(payload.messageSignature || '').trim().toLowerCase();
+  const received = String(payload.messageSignature || payload.signature || '').trim().toLowerCase();
   if (!received) return false;
 
-  const a = String(payload.fawryRefNumber || '').trim();
+  const a = String(payload.fawryRefNumber || payload.fawryRefNum || '').trim();
   const b = String(payload.merchantRefNumber || payload.merchantRefNum || '').trim();
-  const e = String(payload.orderStatus || '').trim();
+  const e = String(payload.orderStatus || payload.paymentStatus || payload.status || '').trim();
   const f = String(payload.paymentMethod || '').trim();
-  const g = String(payload.paymentRefrenceNumber || payload.paymentReferenceNumber || payload.referenceNumber || '').trim();
+  const g = String(payload.paymentRefrenceNumber || payload.paymentReferenceNumber || payload.referenceNumber || payload.paymentRefrenceNumber || '').trim();
 
-  const paymentAmountRaw = payload.paymentAmount == null ? '' : String(payload.paymentAmount).trim();
-  const orderAmountRaw = payload.orderAmount == null ? '' : String(payload.orderAmount).trim();
-  const amountCandidates = [formatTwoDecimals(payload.paymentAmount), paymentAmountRaw].filter(Boolean);
-  const orderAmountCandidates = [formatTwoDecimals(payload.orderAmount), orderAmountRaw].filter(Boolean);
+  const paymentAmountRaw = payload.paymentAmount != null ? String(payload.paymentAmount).trim() : (payload.amount != null ? String(payload.amount).trim() : '');
+  const orderAmountRaw = payload.orderAmount != null ? String(payload.orderAmount).trim() : (payload.amount != null ? String(payload.amount).trim() : '');
+  const amountCandidates = [formatTwoDecimals(payload.paymentAmount), formatTwoDecimals(payload.amount), paymentAmountRaw].filter(Boolean);
+  const orderAmountCandidates = [formatTwoDecimals(payload.orderAmount), formatTwoDecimals(payload.amount), orderAmountRaw].filter(Boolean);
+  if (amountCandidates.length === 0) amountCandidates.push('0.00');
+  if (orderAmountCandidates.length === 0) orderAmountCandidates.push('0.00');
 
   const signatureInputs = new Set();
   for (const c of amountCandidates) {
@@ -267,8 +269,8 @@ function verifyWebhookSignature(payload, secureKey) {
     }
   }
 
-  // Fallback for callbacks that omit payment reference numbers.
-  signatureInputs.add(a + b + formatTwoDecimals(payload.paymentAmount) + formatTwoDecimals(payload.orderAmount) + e + f + '' + String(secureKey || '').trim());
+  // Fallback: callbacks that omit payment reference numbers
+  signatureInputs.add(a + b + (amountCandidates[0] || '0.00') + (orderAmountCandidates[0] || '0.00') + e + f + '' + String(secureKey || '').trim());
 
   for (const input of signatureInputs) {
     const expected = crypto.createHash('sha256').update(input, 'utf8').digest('hex').toLowerCase();

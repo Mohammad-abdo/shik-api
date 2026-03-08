@@ -79,6 +79,94 @@ async function refundPayment(bookingId, amount) {
   return updatedPayment;
 }
 
+function resolvePaymentStatus(orderStatus, statusCode, currentStatus) {
+  const normalizedOrderStatus = String(orderStatus || '').trim().toUpperCase();
+  const paidOrderStatuses = new Set(['PAID', 'SUCCESS', 'SUCCESSFUL', 'PAID_AT_FAWRY', 'PAIDATFAWRY']);
+  const failedOrderStatuses = new Set(['FAILED', 'FAIL', 'EXPIRED', 'CANCELED', 'CANCELLED', 'VOIDED']);
+
+  let newStatus = currentStatus;
+  if (paidOrderStatuses.has(normalizedOrderStatus) || Number(statusCode) === 200) {
+    newStatus = 'COMPLETED';
+  } else if (failedOrderStatuses.has(normalizedOrderStatus)) {
+    newStatus = 'FAILED';
+  }
+  return { newStatus, normalizedOrderStatus };
+}
+
+async function applyPaymentTransition(payment, statusPayload = {}) {
+  const { newStatus } = resolvePaymentStatus(statusPayload.orderStatus, statusPayload.statusCode, payment.status);
+  const fawryRefNumber = statusPayload.fawryRefNumber || payment.fawryRefNumber;
+
+  // Idempotency shortcut
+  if (payment.status === 'COMPLETED' && newStatus === 'COMPLETED') {
+    return { finalStatus: payment.status, alreadyProcessed: true };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: newStatus,
+        fawryRefNumber,
+      },
+    });
+
+    if (newStatus === 'COMPLETED' && payment.bookingId) {
+      await tx.booking.updateMany({
+        where: { id: payment.bookingId, status: 'PENDING' },
+        data: { status: 'CONFIRMED' },
+      });
+
+      if (payment.booking?.courseId && payment.booking?.studentId) {
+        await tx.courseEnrollment.upsert({
+          where: {
+            courseId_studentId: {
+              courseId: payment.booking.courseId,
+              studentId: payment.booking.studentId,
+            },
+          },
+          create: {
+            courseId: payment.booking.courseId,
+            studentId: payment.booking.studentId,
+            status: 'ACTIVE',
+            progress: 0,
+          },
+          update: {
+            status: 'ACTIVE',
+          },
+        });
+      }
+    }
+
+    if (newStatus === 'COMPLETED' && payment.paymentType === 'SUBSCRIPTION' && payment.subscriptionId) {
+      await tx.studentSubscription.updateMany({
+        where: { id: payment.subscriptionId, status: 'PENDING' },
+        data: { status: 'ACTIVE', paymentId: payment.id },
+      });
+      await tx.booking.updateMany({
+        where: { subscriptionId: payment.subscriptionId, status: 'PENDING' },
+        data: { status: 'CONFIRMED' },
+      });
+    }
+
+    if (newStatus === 'COMPLETED' && payment.paymentType === 'COURSE' && payment.courseId && payment.userId) {
+      await tx.courseEnrollment.upsert({
+        where: {
+          courseId_studentId: { courseId: payment.courseId, studentId: payment.userId },
+        },
+        create: {
+          courseId: payment.courseId,
+          studentId: payment.userId,
+          status: 'ACTIVE',
+        },
+        update: {},
+      });
+    }
+  });
+
+  return { finalStatus: newStatus, alreadyProcessed: false };
+}
+
 /**
  * @openapi
  * /api/payments/bookings/{bookingId}/intent:
@@ -659,88 +747,19 @@ const fawryWebhookHandler = async (req, res, next) => {
       return res.status(200).json({ received: true });
     }
 
-    // Idempotency: do not update twice
-    if (payment.status === 'COMPLETED') {
-      return res.status(200).json({ received: true, alreadyProcessed: true, paymentId: payment.id });
-    }
-
-    const paidOrderStatuses = new Set(['PAID', 'SUCCESS', 'SUCCESSFUL', 'PAID_AT_FAWRY', 'PAIDATFAWRY']);
-    const failedOrderStatuses = new Set(['FAILED', 'FAIL', 'EXPIRED', 'CANCELED', 'CANCELLED', 'VOIDED']);
-
-    let newStatus = payment.status;
-    if (paidOrderStatuses.has(orderStatus) || Number(payload.statusCode) === 200) {
-      newStatus = 'COMPLETED';
-    } else if (failedOrderStatuses.has(orderStatus)) {
-      newStatus = 'FAILED';
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: newStatus,
-          fawryRefNumber: payload.fawryRefNumber || payment.fawryRefNumber,
-        },
-      });
-
-      if (newStatus === 'COMPLETED' && payment.bookingId) {
-        await tx.booking.updateMany({
-          where: { id: payment.bookingId, status: 'PENDING' },
-          data: { status: 'CONFIRMED' },
-        });
-
-        if (payment.booking?.courseId && payment.booking?.studentId) {
-          await tx.courseEnrollment.upsert({
-            where: {
-              courseId_studentId: {
-                courseId: payment.booking.courseId,
-                studentId: payment.booking.studentId,
-              },
-            },
-            create: {
-              courseId: payment.booking.courseId,
-              studentId: payment.booking.studentId,
-              status: 'ACTIVE',
-              progress: 0,
-            },
-            update: {
-              status: 'ACTIVE',
-            },
-          });
-        }
-      }
-
-      if (newStatus === 'COMPLETED' && payment.paymentType === 'SUBSCRIPTION' && payment.subscriptionId) {
-        await tx.studentSubscription.updateMany({
-          where: { id: payment.subscriptionId, status: 'PENDING' },
-          data: { status: 'ACTIVE', paymentId: payment.id },
-        });
-        await tx.booking.updateMany({
-          where: { subscriptionId: payment.subscriptionId, status: 'PENDING' },
-          data: { status: 'CONFIRMED' },
-        });
-      }
-
-      if (newStatus === 'COMPLETED' && payment.paymentType === 'COURSE' && payment.courseId && payment.userId) {
-        await tx.courseEnrollment.upsert({
-          where: {
-            courseId_studentId: { courseId: payment.courseId, studentId: payment.userId },
-          },
-          create: {
-            courseId: payment.courseId,
-            studentId: payment.userId,
-            status: 'ACTIVE',
-          },
-          update: {},
-        });
-      }
+    const { finalStatus, alreadyProcessed } = await applyPaymentTransition(payment, {
+      orderStatus,
+      statusCode: payload.statusCode,
+      fawryRefNumber: payload.fawryRefNumber,
     });
 
     res.status(200).json({
       received: true,
       merchantRefNum,
       paymentId: payment.id,
-      paymentStatus: newStatus,
+      paymentStatus: finalStatus,
+      paymentResult: finalStatus === 'COMPLETED' ? 'SUCCESS' : finalStatus === 'FAILED' ? 'FAILED' : 'PENDING',
+      alreadyProcessed,
       orderStatus,
     });
   } catch (e) {
@@ -781,10 +800,11 @@ router.post('/fawry/callback', fawryWebhookHandler);
  */
 router.get('/fawry/status/:merchantRefNum', jwtAuth, async (req, res, next) => {
   try {
-    const { merchantRefNum } = req.params;
+    const merchantRefNum = String(req.params.merchantRefNum || '').trim();
 
     // Query Fawry API directly for live status
     const fawryStatus = await fawryService.getPaymentStatus(merchantRefNum);
+    const orderStatus = String(fawryStatus?.orderStatus || fawryStatus?.paymentStatus || fawryStatus?.status || '').trim().toUpperCase();
 
     // Also try to find local payment record (may not exist for test payments)
     const payment = await prisma.payment.findFirst({
@@ -795,24 +815,61 @@ router.get('/fawry/status/:merchantRefNum', jwtAuth, async (req, res, next) => {
     // If we have a local payment, check ownership
     if (payment) {
       const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
-      if (payment.booking && payment.booking.studentId !== req.user.id && !isAdmin) {
+      const ownerId = payment.userId || payment.booking?.studentId;
+      if (ownerId && ownerId !== req.user.id && !isAdmin) {
         const e = new Error('You can only view your own payment');
         e.statusCode = 403;
         return next(e);
       }
     }
 
+    let syncedPayment = payment;
+    if (payment) {
+      const { finalStatus } = await applyPaymentTransition(payment, {
+        orderStatus,
+        statusCode: fawryStatus?.statusCode,
+        fawryRefNumber: fawryStatus?.referenceNumber || fawryStatus?.fawryRefNumber,
+      });
+
+      syncedPayment = await prisma.payment.findUnique({
+        where: { id: payment.id },
+        include: {
+          booking: { select: { id: true, status: true } },
+          subscription: { select: { id: true, status: true } },
+        },
+      });
+      if (syncedPayment && syncedPayment.status !== finalStatus) {
+        syncedPayment.status = finalStatus;
+      }
+    }
+
+    const finalPaymentStatus = syncedPayment?.status || null;
+    const paymentResult = finalPaymentStatus === 'COMPLETED'
+      ? 'SUCCESS'
+      : finalPaymentStatus === 'FAILED'
+        ? 'FAILED'
+        : 'PENDING';
+
     res.json({
       // Fawry live status
       fawryStatus,
       // Local DB info (if exists)
-      localPayment: payment ? {
-        status: payment.status,
-        amount: payment.amount,
-        currency: payment.currency,
-        fawryRefNumber: payment.fawryRefNumber,
-        paymentId: payment.id,
+      localPayment: syncedPayment ? {
+        status: syncedPayment.status,
+        amount: syncedPayment.amount,
+        currency: syncedPayment.currency,
+        fawryRefNumber: syncedPayment.fawryRefNumber,
+        paymentId: syncedPayment.id,
+        bookingStatus: syncedPayment.booking?.status || null,
+        subscriptionStatus: syncedPayment.subscription?.status || null,
       } : null,
+      paymentResult,
+      isPaid: paymentResult === 'SUCCESS',
+      message: paymentResult === 'SUCCESS'
+        ? 'Payment completed successfully'
+        : paymentResult === 'FAILED'
+          ? 'Payment failed'
+          : 'Payment is still pending',
     });
   } catch (e) {
     next(e);

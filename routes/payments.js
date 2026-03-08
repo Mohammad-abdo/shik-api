@@ -770,6 +770,52 @@ const fawryWebhookHandler = async (req, res, next) => {
 router.post('/fawry/webhook', fawryWebhookHandler);
 router.post('/fawry/callback', fawryWebhookHandler);
 
+// GET callback: Fawry redirects the user's browser here after payment (ChargeResponse)
+router.get('/fawry/callback', async (req, res, next) => {
+  try {
+    const q = req.query;
+    const merchantRefNum = String(q.merchantRefNumber || q.merchantRefNum || '').trim();
+    const orderStatus = String(q.orderStatus || q.paymentStatus || q.status || '').trim().toUpperCase();
+    const statusCode = q.statusCode;
+    const referenceNumber = q.referenceNumber || q.fawryRefNumber || '';
+
+    console.log('Fawry GET callback received', { merchantRefNum, orderStatus, statusCode, referenceNumber });
+
+    let paymentResult = 'PENDING';
+    let bookingId = '';
+
+    if (merchantRefNum) {
+      const payment = await prisma.payment.findFirst({
+        where: { merchantRefNum },
+        include: { booking: true },
+      });
+
+      if (payment) {
+        const { finalStatus } = await applyPaymentTransition(payment, {
+          orderStatus,
+          statusCode,
+          fawryRefNumber: referenceNumber,
+        });
+        paymentResult = finalStatus === 'COMPLETED' ? 'SUCCESS' : finalStatus === 'FAILED' ? 'FAILED' : 'PENDING';
+        bookingId = payment.bookingId || '';
+      }
+    }
+
+    // Redirect to frontend with result info
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const redirectUrl = new URL('/student/subscriptions/callback', frontendUrl);
+    redirectUrl.searchParams.set('paymentResult', paymentResult);
+    if (merchantRefNum) redirectUrl.searchParams.set('merchantRefNumber', merchantRefNum);
+    if (bookingId) redirectUrl.searchParams.set('bookingId', bookingId);
+    if (referenceNumber) redirectUrl.searchParams.set('referenceNumber', referenceNumber);
+
+    return res.redirect(redirectUrl.toString());
+  } catch (e) {
+    console.error('Fawry GET callback error:', e);
+    next(e);
+  }
+});
+
 /**
  * @openapi
  * /api/payments/fawry/status/{merchantRefNum}:

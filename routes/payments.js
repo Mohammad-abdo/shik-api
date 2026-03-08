@@ -783,6 +783,7 @@ router.get('/fawry/callback', async (req, res, next) => {
 
     let paymentResult = 'PENDING';
     let bookingId = '';
+    let courseId = '';
     let failureReason = '';
 
     if (merchantRefNum) {
@@ -799,6 +800,7 @@ router.get('/fawry/callback', async (req, res, next) => {
         });
         paymentResult = finalStatus === 'COMPLETED' ? 'SUCCESS' : finalStatus === 'FAILED' ? 'FAILED' : 'PENDING';
         bookingId = payment.bookingId || '';
+        courseId = payment.courseId || payment.booking?.courseId || '';
         if (finalStatus === 'FAILED') {
           failureReason = orderStatus || (statusCode ? `statusCode: ${statusCode}` : '') || 'PAYMENT_FAILED';
         }
@@ -810,6 +812,7 @@ router.get('/fawry/callback', async (req, res, next) => {
     const path = paymentResult === 'SUCCESS' ? '/payment/success' : paymentResult === 'FAILED' ? '/payment/failed' : '/payment/pending';
     const redirectUrl = new URL(path, frontendUrl);
     if (bookingId) redirectUrl.searchParams.set('bookingId', bookingId);
+    if (courseId) redirectUrl.searchParams.set('courseId', courseId);
     if (referenceNumber) redirectUrl.searchParams.set('referenceNumber', referenceNumber);
     if (merchantRefNum) redirectUrl.searchParams.set('merchantRefNumber', merchantRefNum);
     if (paymentResult === 'FAILED' && failureReason) redirectUrl.searchParams.set('reason', failureReason);

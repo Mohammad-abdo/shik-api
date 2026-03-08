@@ -34,13 +34,44 @@ async function enrollInCourse(courseId, studentId, sheikId = null, options = {})
     throw Object.assign(new Error('Course is not available for enrollment'), { statusCode: 400 });
   }
 
-  if (!bypassPayment && Number(course.price || 0) > 0) {
-    throw Object.assign(
-      new Error('This course requires payment first. Please pay with Fawry before enrollment.'),
-      { statusCode: 402 }
-    );
+  // Check if student is already enrolled (before payment check, so "already enrolled" is clear)
+  const existingEnrollment = await prisma.courseEnrollment.findUnique({
+    where: {
+      courseId_studentId: {
+        courseId,
+        studentId
+      }
+    }
+  });
+
+  if (existingEnrollment) {
+    throw Object.assign(new Error('Student is already enrolled in this course'), { statusCode: 400 });
   }
-  
+
+  // Paid course: require either bypassPayment or a completed payment for this course
+  if (!bypassPayment && Number(course.price || 0) > 0) {
+    const completedPayment = await prisma.payment.findFirst({
+      where: {
+        status: 'COMPLETED',
+        OR: [
+          { courseId, userId: studentId },
+          {
+            booking: {
+              courseId,
+              studentId
+            }
+          }
+        ]
+      }
+    });
+    if (!completedPayment) {
+      throw Object.assign(
+        new Error('This course requires payment first. Please pay with Fawry before enrollment.'),
+        { statusCode: 402 }
+      );
+    }
+  }
+
   // Verify sheikh is associated with the course (if provided)
   if (sheikId) {
     const validSheikh = course.teacherId === sheikId || 
@@ -50,21 +81,7 @@ async function enrollInCourse(courseId, studentId, sheikId = null, options = {})
       throw Object.assign(new Error('Sheikh is not associated with this course'), { statusCode: 400 });
     }
   }
-  
-  // Check if student is already enrolled
-  const existingEnrollment = await prisma.courseEnrollment.findUnique({
-    where: {
-      courseId_studentId: {
-        courseId,
-        studentId
-      }
-    }
-  });
-  
-  if (existingEnrollment) {
-    throw Object.assign(new Error('Student is already enrolled in this course'), { statusCode: 400 });
-  }
-  
+
   // Create enrollment
   const enrollment = await prisma.courseEnrollment.create({
     data: {

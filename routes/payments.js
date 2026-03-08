@@ -783,6 +783,7 @@ router.get('/fawry/callback', async (req, res, next) => {
 
     let paymentResult = 'PENDING';
     let bookingId = '';
+    let failureReason = '';
 
     if (merchantRefNum) {
       const payment = await prisma.payment.findFirst({
@@ -798,16 +799,20 @@ router.get('/fawry/callback', async (req, res, next) => {
         });
         paymentResult = finalStatus === 'COMPLETED' ? 'SUCCESS' : finalStatus === 'FAILED' ? 'FAILED' : 'PENDING';
         bookingId = payment.bookingId || '';
+        if (finalStatus === 'FAILED') {
+          failureReason = orderStatus || (statusCode ? `statusCode: ${statusCode}` : '') || 'PAYMENT_FAILED';
+        }
       }
     }
 
-    // Redirect to frontend with result info
+    // Redirect to standalone payment result pages (no dashboard)
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
-    const redirectUrl = new URL('/student/subscriptions/callback', frontendUrl);
-    redirectUrl.searchParams.set('paymentResult', paymentResult);
-    if (merchantRefNum) redirectUrl.searchParams.set('merchantRefNumber', merchantRefNum);
+    const path = paymentResult === 'SUCCESS' ? '/payment/success' : paymentResult === 'FAILED' ? '/payment/failed' : '/payment/pending';
+    const redirectUrl = new URL(path, frontendUrl);
     if (bookingId) redirectUrl.searchParams.set('bookingId', bookingId);
     if (referenceNumber) redirectUrl.searchParams.set('referenceNumber', referenceNumber);
+    if (merchantRefNum) redirectUrl.searchParams.set('merchantRefNumber', merchantRefNum);
+    if (paymentResult === 'FAILED' && failureReason) redirectUrl.searchParams.set('reason', failureReason);
 
     return res.redirect(redirectUrl.toString());
   } catch (e) {

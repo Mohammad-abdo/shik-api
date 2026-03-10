@@ -289,8 +289,16 @@ async function createPackage(dto, adminId) {
 
 async function getAllPackages(activeOnly = false) {
   const where = activeOnly ? { isActive: true } : {};
-  const packages = await prisma.studentSubscriptionPackage.findMany({ where, orderBy: [{ isPopular: 'desc' }, { price: 'asc' }] });
-  return packages.map((p) => parseFeatures({ ...p }));
+  const packages = await prisma.studentSubscriptionPackage.findMany({
+    where,
+    orderBy: [{ isPopular: 'desc' }, { price: 'asc' }],
+    include: { _count: { select: { subscriptions: true } } },
+  });
+  return packages.map((p) => {
+    const parsed = parseFeatures({ ...p });
+    parsed.subscriptionsCount = p._count?.subscriptions ?? 0;
+    return parsed;
+  });
 }
 
 async function getPackageById(id) {

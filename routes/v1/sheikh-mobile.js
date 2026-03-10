@@ -1,5 +1,7 @@
 const express = require('express');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 const sheikhMobileService = require('../../services/sheikhMobileService');
 const authService = require('../../services/authService');
@@ -9,7 +11,16 @@ const roles = require('../../middleware/roles');
 const { asyncHandler } = require('../../lib/asyncHandler');
 
 const uploadImage = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
-const uploadVideo = multer({ storage: multer.memoryStorage(), limits: { fileSize: 150 * 1024 * 1024 } });
+
+const videoTempDir = path.join(fileUploadService.UPLOADS_BASE, '_tmp');
+if (!fs.existsSync(videoTempDir)) fs.mkdirSync(videoTempDir, { recursive: true });
+const uploadVideo = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, videoTempDir),
+    filename: (_req, file, cb) => cb(null, `tmp_${Date.now()}_${file.originalname}`),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 * 1024 },
+});
 
 // ─── Public (no auth) ─────────────────────────────────────────────────────
 router.post('/register', asyncHandler(async (req, res) => {
@@ -112,7 +123,7 @@ router.post('/upload/video', sheikhAuth, uploadVideo.single('file'), (req, res, 
       err.statusCode = 400;
       return next(err);
     }
-    const url = fileUploadService.uploadFile(req.file, 'videos', true);
+    const url = fileUploadService.uploadVideoFromDisk(req.file, 'videos');
     res.status(201).json({ success: true, url });
   } catch (e) { next(e); }
 });

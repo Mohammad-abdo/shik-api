@@ -1,16 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const fileUploadService = require('../services/fileUploadService');
 const { jwtAuth } = require('../middleware/jwtAuth');
 
 const IMAGE_LIMIT = 15 * 1024 * 1024;
-const VIDEO_LIMIT = 150 * 1024 * 1024;
+const VIDEO_LIMIT = 5 * 1024 * 1024 * 1024; // 5 GB
 const DEFAULT_LIMIT = 15 * 1024 * 1024;
 
 const uploadDefault = multer({ storage: multer.memoryStorage(), limits: { fileSize: DEFAULT_LIMIT } });
 const uploadImage = multer({ storage: multer.memoryStorage(), limits: { fileSize: IMAGE_LIMIT } });
-const uploadVideo = multer({ storage: multer.memoryStorage(), limits: { fileSize: VIDEO_LIMIT } });
+
+const videoTempDir = path.join(fileUploadService.UPLOADS_BASE, '_tmp');
+if (!fs.existsSync(videoTempDir)) fs.mkdirSync(videoTempDir, { recursive: true });
+const uploadVideo = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, videoTempDir),
+    filename: (_req, file, cb) => cb(null, `tmp_${Date.now()}_${file.originalname}`),
+  }),
+  limits: { fileSize: VIDEO_LIMIT },
+});
 
 router.use(jwtAuth);
 
@@ -130,7 +141,7 @@ router.post('/upload/video', uploadVideo.single('file'), (req, res, next) => {
       err.statusCode = 400;
       return next(err);
     }
-    const url = fileUploadService.uploadFile(req.file, 'videos', true);
+    const url = fileUploadService.uploadVideoFromDisk(req.file, 'videos');
     res.status(201).json({ url });
   } catch (e) {
     next(e);

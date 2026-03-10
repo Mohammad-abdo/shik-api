@@ -1,4 +1,5 @@
 const { prisma } = require('../lib/prisma');
+const { to12Hour } = require('../lib/timeFormat');
 
 const DAY_NAMES_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DAY_NAMES_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -47,7 +48,7 @@ async function getMySessions(studentId, month, year, lang = 'en') {
           sheikh_name: sheikhName(b.teacher),
           date: bs.scheduledDate.toISOString().split('T')[0],
           day: getDayName(bs.scheduledDate.getDay(), lang),
-          time: bs.startTime,
+          time: to12Hour(bs.startTime),
           status: mapBookingStatus(bs.status),
           report_available: bs.status === 'COMPLETED' && !!bs.session?.endedAt,
         }))
@@ -56,7 +57,7 @@ async function getMySessions(studentId, month, year, lang = 'en') {
           sheikh_name: sheikhName(b.teacher),
           date: b.date.toISOString().split('T')[0],
           day: getDayName(b.date.getDay(), lang),
-          time: b.startTime,
+          time: to12Hour(b.startTime),
           status: mapBookingStatus(b.status),
           report_available: false,
         }]
@@ -191,7 +192,7 @@ async function getMyReports(studentId, page = 1, limit = 20, lang = 'en') {
           id: s.id,
           date: slotDate?.toISOString?.()?.split('T')[0] ?? '',
           day_name: slotDate ? dayName(slotDate.getDay()) : '',
-          time: slotTime ?? '',
+          time: to12Hour(slotTime) ?? '',
         },
         report: reportPayload,
       };
@@ -259,7 +260,7 @@ async function getReportsBySheikh(studentId, sheikhId, page = 1, limit = 20, lan
       session_id: s?.id ?? null,
       date: slotDate?.toISOString?.()?.split('T')[0] ?? r.createdAt.toISOString().split('T')[0],
       day_name: slotDate ? dayName(slotDate.getDay()) : '',
-      time: slotTime ?? '',
+      time: to12Hour(slotTime) ?? '',
       rating: r.rating,
       content: reportContent,
       memorizations: (s?.memorizations || []).map((m) => ({
@@ -353,8 +354,8 @@ async function getMyBookings(studentId, page = 1, limit = 20, lang = 'en') {
     const sessions = (b.bookingSessions || []).map(bs => ({
       id: bs.session?.id || bs.id,
       scheduledDate: bs.scheduledDate?.toISOString?.()?.split('T')[0] ?? '',
-      startTime: bs.startTime,
-      endTime: bs.endTime,
+      startTime: to12Hour(bs.startTime),
+      endTime: to12Hour(bs.endTime),
       status: bs.status,
       meetingLink: bs.session?.roomId ? `https://meet.example.com/${bs.session.roomId}` : null,
     }));
@@ -362,7 +363,7 @@ async function getMyBookings(studentId, page = 1, limit = 20, lang = 'en') {
     return {
       id: b.id,
       date: b.date?.toISOString?.()?.split('T')[0] ?? '',
-      startTime: b.startTime,
+      startTime: to12Hour(b.startTime),
       duration: b.duration,
       status: b.status,
       totalPrice: b.totalPrice,

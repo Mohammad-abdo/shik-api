@@ -1,5 +1,6 @@
 const { prisma } = require('../lib/prisma');
 const teacherService = require('./teacherService');
+const { to12Hour } = require('../lib/timeFormat');
 
 const DAY_NAMES_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DAY_NAMES_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -124,7 +125,7 @@ function buildPackagesFromSchedules(schedules, teacher, lang) {
   return Object.entries(bySlot).map(([key, slot], i) => ({
     id: `pkg_${teacherId}_${i}`,
     days: slot.days,
-    time: `${slot.startTime} - ${slot.endTime}`,
+    time: `${to12Hour(slot.startTime)} - ${to12Hour(slot.endTime)}`,
     monthly_price: `${rate * 4} EGP`,
     session_price: rate ? `${rate} EGP` : null,
     currency: 'EGP',
@@ -288,7 +289,7 @@ async function getSheikhById(id, studentId, lang = 'en') {
       const roomId = nextSlot.session?.roomId;
       base.next_session = {
         date: nextSlot.scheduledDate.toISOString().split('T')[0],
-        time: nextSlot.startTime,
+        time: to12Hour(nextSlot.startTime),
         is_active_now: false,
         meeting_link: roomId ? `https://meet.example.com/${roomId}` : null,
       };
@@ -473,18 +474,23 @@ async function getSheikhAvailability(teacherId, startDate, endDate) {
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     const availableSlots = dedupeSlotsByTime(availableWindows);
-//new
+
+    const fmt = (slots) => slots.map(s => ({
+      ...s,
+      startTime: to12Hour(s.startTime),
+      endTime: to12Hour(s.endTime),
+    }));
+
     days.push({
       date: dayStart.toISOString().split('T')[0],
       dayOfWeek,
       dayName,
       isAvailable: availableSlots.length > 0,
-      availableSlots,
-      bookedSlots,
+      availableSlots: fmt(availableSlots),
+      bookedSlots: fmt(bookedSlots),
       availableCount: availableSlots.length,
       bookedCount: bookedSlots.length,
-      // Backward compatibility for existing clients
-      availableWindows: availableSlots,
+      availableWindows: fmt(availableSlots),
     });
 
     cursor.setUTCDate(cursor.getUTCDate() + 1);

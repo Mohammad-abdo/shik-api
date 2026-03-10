@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 
+uploads/
 # Environment & secrets
 .env
 .env.local

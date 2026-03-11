@@ -192,25 +192,35 @@ router.post('/session/:sessionId/report', sheikhAuth, asyncHandler(async (req, r
 }));
 
 // ─── Schedules (المواعيد) ─────────────────────────────────────────────────────
-router.get('/my-schedules', sheikhAuth, asyncHandler(async (req, res) => {
+const scheduleGetHandler = asyncHandler(async (req, res) => {
   const data = await sheikhMobileService.getMySchedules(req.user.id);
   res.json(data);
-}));
+});
 
-router.post('/my-schedules', sheikhAuth, asyncHandler(async (req, res) => {
+const schedulePostHandler = asyncHandler(async (req, res) => {
   const result = await sheikhMobileService.addMySchedules(req.user.id, req.body);
   res.status(201).json(result);
-}));
+});
 
-router.put('/my-schedules/:scheduleId', sheikhAuth, asyncHandler(async (req, res) => {
+const schedulePutHandler = asyncHandler(async (req, res) => {
   const result = await sheikhMobileService.updateMySchedule(req.user.id, req.params.scheduleId, req.body);
   res.json(result);
-}));
+});
 
-router.delete('/my-schedules/:scheduleId', sheikhAuth, asyncHandler(async (req, res) => {
+const scheduleDeleteHandler = asyncHandler(async (req, res) => {
   const result = await sheikhMobileService.deleteMySchedule(req.user.id, req.params.scheduleId);
   res.json(result);
-}));
+});
+
+router.get('/my-schedules', sheikhAuth, scheduleGetHandler);
+router.post('/my-schedules', sheikhAuth, schedulePostHandler);
+router.put('/my-schedules/:scheduleId', sheikhAuth, schedulePutHandler);
+router.delete('/my-schedules/:scheduleId', sheikhAuth, scheduleDeleteHandler);
+
+router.get('/teachers/me/schedules', sheikhAuth, scheduleGetHandler);
+router.post('/teachers/me/schedules', sheikhAuth, schedulePostHandler);
+router.put('/teachers/me/schedules/:scheduleId', sheikhAuth, schedulePutHandler);
+router.delete('/teachers/me/schedules/:scheduleId', sheikhAuth, scheduleDeleteHandler);
 
 // ─── Wallet ───────────────────────────────────────────────────────────────────
 router.get('/wallet', sheikhAuth, asyncHandler(async (req, res) => {

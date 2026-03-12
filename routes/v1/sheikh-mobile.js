@@ -222,6 +222,12 @@ router.post('/teachers/me/schedules', sheikhAuth, schedulePostHandler);
 router.put('/teachers/me/schedules/:scheduleId', sheikhAuth, schedulePutHandler);
 router.delete('/teachers/me/schedules/:scheduleId', sheikhAuth, scheduleDeleteHandler);
 
+// Same handlers for path pattern: /teachers/:teacherId/schedules (app sends teacherId in URL)
+router.get('/teachers/:teacherId/schedules', sheikhAuth, scheduleGetHandler);
+router.post('/teachers/:teacherId/schedules', sheikhAuth, schedulePostHandler);
+router.put('/teachers/:teacherId/schedules/:scheduleId', sheikhAuth, schedulePutHandler);
+router.delete('/teachers/:teacherId/schedules/:scheduleId', sheikhAuth, scheduleDeleteHandler);
+
 // ─── Wallet ───────────────────────────────────────────────────────────────────
 router.get('/wallet', sheikhAuth, asyncHandler(async (req, res) => {
   const data = await sheikhMobileService.getWallet(req.user.id);

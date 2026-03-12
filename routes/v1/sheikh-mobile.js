@@ -9,6 +9,7 @@ const fileUploadService = require('../../services/fileUploadService');
 const { jwtAuth } = require('../../middleware/jwtAuth');
 const roles = require('../../middleware/roles');
 const { asyncHandler } = require('../../lib/asyncHandler');
+const jwtLib = require('../../lib/jwt');
 
 const uploadImage = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
@@ -227,6 +228,71 @@ router.get('/teachers/:teacherId/schedules', sheikhAuth, scheduleGetHandler);
 router.post('/teachers/:teacherId/schedules', sheikhAuth, schedulePostHandler);
 router.put('/teachers/:teacherId/schedules/:scheduleId', sheikhAuth, schedulePutHandler);
 router.delete('/teachers/:teacherId/schedules/:scheduleId', sheikhAuth, scheduleDeleteHandler);
+
+// ─── اختبار المواعيد من داخل السيرفر (بيانات فعلية، يعمل فقط في التطوير) ───
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/dev/run-schedule-test', asyncHandler(async (req, res) => {
+    const steps = [];
+    const phone = process.env.SHEIKH_TEST_PHONE || '+201234567895';
+    const password = process.env.SHEIKH_TEST_PASSWORD || 'teacher123';
+
+    try {
+      const loginRes = await sheikhMobileService.login({ phone, password });
+      const token = loginRes?.data?.token ?? loginRes?.token;
+      if (!token) {
+        return res.status(500).json({ success: false, message: 'Login failed (no token)', steps });
+      }
+      const payload = jwtLib.verify(token);
+      const userId = payload?.sub;
+      if (!userId) {
+        return res.status(500).json({ success: false, message: 'Invalid token (no sub)', steps });
+      }
+      steps.push({ step: 1, name: 'Login', ok: true, detail: 'Token received' });
+
+      const profile = await sheikhMobileService.getProfile(userId);
+      const teacherId = profile?.teacherId ?? profile?.id;
+      if (!teacherId) {
+        return res.status(500).json({ success: false, message: 'Profile missing teacherId', steps });
+      }
+      steps.push({ step: 2, name: 'Profile', ok: true, teacherId });
+
+      const list = await sheikhMobileService.getMySchedules(userId);
+      const total = list?.total ?? (list?.schedules?.length ?? 0);
+      steps.push({ step: 3, name: 'GET Schedules', ok: true, total });
+
+      let scheduleId;
+      for (const trySlot of [
+        { dayOfWeek: 6, startTime: '02:00', endTime: '03:00' },
+        { dayOfWeek: 0, startTime: '01:00', endTime: '02:00' },
+        { dayOfWeek: 3, startTime: '22:00', endTime: '23:00' },
+      ]) {
+        try {
+          const postRes = await sheikhMobileService.addMySchedules(userId, trySlot);
+          const created = postRes?.schedules?.[0] ?? postRes?.schedule;
+          scheduleId = created?.id;
+          if (scheduleId) break;
+        } catch (e) {
+          if (e.statusCode !== 409) throw e;
+        }
+      }
+      if (!scheduleId) {
+        return res.status(500).json({ success: false, message: 'POST schedule failed (overlap or no id)', steps });
+      }
+      steps.push({ step: 4, name: 'POST Schedule', ok: true, scheduleId });
+
+      await sheikhMobileService.updateMySchedule(userId, scheduleId, { dayOfWeek: 0, startTime: '02:00', endTime: '03:00' });
+      steps.push({ step: 5, name: 'PUT Schedule', ok: true });
+
+      await sheikhMobileService.deleteMySchedule(userId, scheduleId);
+      steps.push({ step: 6, name: 'DELETE Schedule', ok: true });
+
+      return res.json({ success: true, message: 'جميع الخطوات نجحت', steps });
+    } catch (err) {
+      steps.push({ step: steps.length + 1, name: 'Error', ok: false, error: err.message });
+      return res.status(500).json({ success: false, message: err.message, steps });
+    }
+  }));
+}
 
 // ─── Wallet ───────────────────────────────────────────────────────────────────
 router.get('/wallet', sheikhAuth, asyncHandler(async (req, res) => {

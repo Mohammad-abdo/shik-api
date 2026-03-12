@@ -12,6 +12,35 @@ const sitePageService = require('./sitePageService');
 const walletService = require('./walletService');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+/**
+ * Normalize time string to HH:MM (24-hour). Accepts:
+ * - "HH:MM" or "H:MM" (e.g. "09:00", "9:00")
+ * - "H:MM AM/PM" or "HH:MM AM/PM" (e.g. "9:00 AM", "2:00 PM")
+ * Returns null if invalid.
+ */
+function normalizeTimeToHHMM(value) {
+  if (value == null || typeof value !== 'string') return null;
+  const s = String(value).trim();
+  const match24 = s.match(/^(\d{1,2}):(\d{2})\s*(?:AM|PM|am|pm)?\s*$/i) || s.match(/^(\d{1,2}):(\d{2})$/);
+  if (match24) {
+    let h = parseInt(match24[1], 10);
+    const m = parseInt(match24[2], 10);
+    if (m > 59) return null;
+    const pm = /(?:^|\s)(PM|pm|P\.?M\.?)\s*$/i.test(s);
+    const am = /(?:^|\s)(AM|am|A\.?M\.?)\s*$/i.test(s);
+    if (pm && !am) {
+      if (h < 12) h += 12;
+    } else if (am && !pm && h === 12) {
+      h = 0;
+    } else if (!am && !pm && h >= 24) {
+      return null;
+    }
+    if (h < 0 || h > 23) return null;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+  return null;
+}
+
 async function getTeacherByUserId(userId) {
   return prisma.teacher.findUnique({
     where: { userId },
@@ -770,6 +799,7 @@ async function addMySchedules(userId, dto) {
     throw err;
   }
 
+  const normalizedSlots = [];
   for (const slot of rawSlots) {
     const day = Number(slot?.dayOfWeek);
     if (!Number.isInteger(day) || day < 0 || day > 6) {
@@ -777,10 +807,10 @@ async function addMySchedules(userId, dto) {
       err.statusCode = 400;
       throw err;
     }
-    const st = String(slot?.startTime || '').slice(0, 5);
-    const et = String(slot?.endTime || '').slice(0, 5);
-    if (!/^\d{2}:\d{2}$/.test(st) || !/^\d{2}:\d{2}$/.test(et)) {
-      const err = new Error('startTime and endTime must be in HH:MM format');
+    const st = normalizeTimeToHHMM(slot?.startTime);
+    const et = normalizeTimeToHHMM(slot?.endTime);
+    if (!st || !et) {
+      const err = new Error('startTime and endTime must be in HH:MM or H:MM format (e.g. 09:00 or 9:00 AM)');
       err.statusCode = 400;
       throw err;
     }
@@ -789,16 +819,17 @@ async function addMySchedules(userId, dto) {
       err.statusCode = 400;
       throw err;
     }
+    normalizedSlots.push({ dayOfWeek: day, startTime: st, endTime: et });
   }
 
   const existing = await prisma.schedule.findMany({
     where: { teacherId: teacher.id, isActive: true },
   });
 
-  for (const slot of rawSlots) {
-    const day = Number(slot.dayOfWeek);
-    const st = String(slot.startTime).slice(0, 5);
-    const et = String(slot.endTime).slice(0, 5);
+  for (const slot of normalizedSlots) {
+    const day = slot.dayOfWeek;
+    const st = slot.startTime;
+    const et = slot.endTime;
     const overlap = existing.some(s =>
       s.dayOfWeek === day &&
       st < String(s.endTime).slice(0, 5) &&
@@ -813,13 +844,13 @@ async function addMySchedules(userId, dto) {
 
   const created = [];
   await prisma.$transaction(async (tx) => {
-    for (const slot of rawSlots) {
+    for (const slot of normalizedSlots) {
       const schedule = await tx.schedule.create({
         data: {
           teacherId: teacher.id,
-          dayOfWeek: Number(slot.dayOfWeek),
-          startTime: String(slot.startTime).slice(0, 5),
-          endTime: String(slot.endTime).slice(0, 5),
+          dayOfWeek: slot.dayOfWeek,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
           isActive: true,
         },
       });
@@ -870,8 +901,24 @@ async function updateMySchedule(userId, scheduleId, dto) {
     }
     updates.dayOfWeek = day;
   }
-  if (dto.startTime !== undefined) updates.startTime = String(dto.startTime).slice(0, 5);
-  if (dto.endTime !== undefined) updates.endTime = String(dto.endTime).slice(0, 5);
+  if (dto.startTime !== undefined) {
+    const normalized = normalizeTimeToHHMM(dto.startTime);
+    if (!normalized) {
+      const err = new Error('startTime must be in HH:MM or H:MM format (e.g. 09:00 or 9:00 AM)');
+      err.statusCode = 400;
+      throw err;
+    }
+    updates.startTime = normalized;
+  }
+  if (dto.endTime !== undefined) {
+    const normalized = normalizeTimeToHHMM(dto.endTime);
+    if (!normalized) {
+      const err = new Error('endTime must be in HH:MM or H:MM format (e.g. 09:00 or 9:00 AM)');
+      err.statusCode = 400;
+      throw err;
+    }
+    updates.endTime = normalized;
+  }
 
   const finalStart = updates.startTime || String(schedule.startTime).slice(0, 5);
   const finalEnd = updates.endTime || String(schedule.endTime).slice(0, 5);

@@ -765,7 +765,7 @@ async function getMySchedules(userId) {
   }
 
   const schedules = await prisma.schedule.findMany({
-    where: { teacherId: teacher.id },
+    where: { teacherId: teacher.id, isActive: true },
     orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
   });
 
@@ -977,12 +977,9 @@ async function deleteMySchedule(userId, scheduleId) {
     throw err;
   }
 
-  await prisma.$transaction([
-    prisma.schedule.delete({ where: { id: scheduleId } }),
-    prisma.teacher.update({ where: { id: teacher.id }, data: { isApproved: false } }),
-  ]);
+  await prisma.schedule.delete({ where: { id: scheduleId } });
 
-  return { success: true, message: 'Schedule deleted — pending admin approval' };
+  return { success: true, message: 'تم حذف الموعد.' };
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
